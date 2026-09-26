@@ -23,17 +23,6 @@ import semver from 'semver';
  */
 const KNOWN_MISMATCHES = [
   {
-    peer: '@nestjs/common',
-    requester: '@nestjs/throttler',
-    reason:
-      'no @nestjs/throttler release declares NestJS 12 yet; the guard API it uses is unchanged and the throttler guards run in the server e2e suite',
-  },
-  {
-    peer: '@nestjs/core',
-    requester: '@nestjs/throttler',
-    reason: 'same as @nestjs/common',
-  },
-  {
     peer: 'better-sqlite3',
     requester: 'typeorm',
     reason:

@@ -50,23 +50,23 @@ public, max-age=<PUBLIC_API_CACHE_MAX_AGE>, stale-while-revalidate=<the same>`; 
 Every successful answer is an envelope: the payload under `data`, paging and counts under
 `meta`. The response types are in `apps/server/types/public/v1/index.ts`.
 
-| Method | Path                                | Query / body                                                                                           | Response                                                                                                |
-| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/api/v1/meta`                      | —                                                                                                      | `{ data: { api_version, app_version, dataset_version, license, notice, counts, available_languages } }` |
-| `GET`  | `/api/v1/openapi.json`              | —                                                                                                      | the OpenAPI 3 document of this contract (no envelope; see [OpenAPI document](#openapi-document))        |
-| `GET`  | `/api/v1/search`                    | `search`, `type?`, `limit?`                                                                            | `{ data: PublicSearchWordV1T[], meta: { count, fuzzy, short_term } }`                                   |
-| `GET`  | `/api/v1/search/detailed`           | `search`, `type?`, `limit?`, `page?`, `with_meanings?`, `with_translations?`, `translation_languages?` | `{ data: PublicWordV1T[], meta: { page, limit, has_more, fuzzy, short_term } }`                         |
-| `GET`  | `/api/v1/words/{word}`              | —                                                                                                      | `{ data: PublicWordV1T[], meta: { word, count } }`                                                      |
-| `GET`  | `/api/v1/words/{word}/meanings`     | —                                                                                                      | `{ data: PublicMeaningV1T[], meta: { word, count } }`                                                   |
-| `GET`  | `/api/v1/words/{word}/translations` | `language?`                                                                                            | `{ data: { short_translations, meaning_translations }, meta }`                                          |
-| `GET`  | `/api/v1/words/{word}/forms`        | —                                                                                                      | `{ data: PublicWordFormV1T[], meta: { word, count } }`                                                  |
-| `GET`  | `/api/v1/words/{word}/synonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                  |
-| `GET`  | `/api/v1/words/{word}/antonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                  |
-| `GET`  | `/api/v1/words/id/{id}`             | —                                                                                                      | `{ data: PublicWordV1T }`                                                                               |
-| `GET`  | `/api/v1/words`                     | filters, `cursor?`, `limit?`, `with_meanings?`, `with_translations?`                                   | `{ data: PublicWordV1T[], meta: { limit, has_more, next_cursor } }`                                     |
-| `GET`  | `/api/v1/random`                    | filters                                                                                                | `{ data: PublicWordV1T }`                                                                               |
-| `POST` | `/api/v1/words/batch`               | `{ words: string[] }` (1–50)                                                                           | `{ data: { word, count, entries: PublicWordV1T[] }[], meta: { count, not_found } }`                     |
-| `POST` | `/api/v1/suggestions`               | `{ headword, word_id?, message?, kind?, edits? }`                                                      | `201 { data: { id, status } }`                                                                          |
+| Method | Path                                | Query / body                                                                                           | Response                                                                                                            |
+| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/v1/meta`                      | —                                                                                                      | `{ data: { api_version, app_version, dataset, source, dataset_version, license, …, counts, available_languages } }` |
+| `GET`  | `/api/v1/openapi.json`              | —                                                                                                      | the OpenAPI 3 document of this contract (no envelope; see [OpenAPI document](#openapi-document))                    |
+| `GET`  | `/api/v1/search`                    | `search`, `type?`, `limit?`                                                                            | `{ data: PublicSearchWordV1T[], meta: { count, fuzzy, short_term } }`                                               |
+| `GET`  | `/api/v1/search/detailed`           | `search`, `type?`, `limit?`, `page?`, `with_meanings?`, `with_translations?`, `translation_languages?` | `{ data: PublicWordV1T[], meta: { page, limit, has_more, fuzzy, short_term } }`                                     |
+| `GET`  | `/api/v1/words/{word}`              | —                                                                                                      | `{ data: PublicWordV1T[], meta: { word, count } }`                                                                  |
+| `GET`  | `/api/v1/words/{word}/meanings`     | —                                                                                                      | `{ data: PublicMeaningV1T[], meta: { word, count } }`                                                               |
+| `GET`  | `/api/v1/words/{word}/translations` | `language?`                                                                                            | `{ data: { short_translations, meaning_translations }, meta }`                                                      |
+| `GET`  | `/api/v1/words/{word}/forms`        | —                                                                                                      | `{ data: PublicWordFormV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/synonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/antonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/id/{id}`             | —                                                                                                      | `{ data: PublicWordV1T }`                                                                                           |
+| `GET`  | `/api/v1/words`                     | filters, `cursor?`, `limit?`, `with_meanings?`, `with_translations?`                                   | `{ data: PublicWordV1T[], meta: { limit, has_more, next_cursor } }`                                                 |
+| `GET`  | `/api/v1/random`                    | filters                                                                                                | `{ data: PublicWordV1T }`                                                                                           |
+| `POST` | `/api/v1/words/batch`               | `{ words: string[] }` (1–50)                                                                           | `{ data: { word, count, entries: PublicWordV1T[] }[], meta: { count, not_found } }`                                 |
+| `POST` | `/api/v1/suggestions`               | `{ headword, word_id?, message?, kind?, edits? }`                                                      | `201 { data: { id, status } }`                                                                                      |
 
 The same endpoints can be tried on the website's playground and the admin's _Documentation_
 pages ([api-tools.md](./api-tools.md)); the machine-readable contract is the
@@ -186,6 +186,12 @@ column added to the database does not become public by accident. The instance's 
 state — `generated`, `generated_by_model`, `version`, `user_modified` — is not part of v1; it
 stays on the admin API (`GET /api/en/{id}`), where the admin UI reads it.
 
+Every word names its `source`: where the data of the entry comes from — `vocab-bloom-hub` for
+the project's own dataset, `wiktionary`, `wordnet`, `princeton-wordnet`. An instance serves one dataset at a time
+([`datasets.md`](./datasets.md)), so every word of an answer has the same source; the terms
+that go with it are in `GET /api/v1/meta`. The field was added after 1.0 and is optional
+in the contract: a server of 1.0 does not send it.
+
 #### Filtered list and cursor pagination
 
 `GET /api/v1/words` lists entries ordered by `(word, id)` — the headword by its bytes,
@@ -225,16 +231,26 @@ in the ids come up slightly more often, which does not matter for a "word of the
 #### Meta
 
 `GET /api/v1/meta` describes what the instance serves: `api_version` (`"1"`), `app_version`
-(the server's `package.json`), `dataset_version` (the version of the dataset the dictionary
-was last imported from, `null` for data authored in place or imported without a manifest),
-the terms of the data — `license` (the SPDX identifier, `"CC-BY-4.0"`), `license_url` and
-`attribution` (the line a consumer has to show, see [`DATA_LICENSE.md`](../DATA_LICENSE.md)),
-`notice` (the provenance line to pass on to readers: the data is generated by language models
-and not human-verified, [`data.md`](./data.md)) — and `counts` (entries, words, phrases, grammar patterns, word forms, meanings, meaning and short
+(the server's `package.json`), the dataset — `dataset` (its name on the instance, `default`
+for the one it was born with), `source` (where its data comes from: `vocab-bloom-hub`,
+`wiktionary`, `wordnet`, `princeton-wordnet`) and `dataset_version` (the version of the dataset the dictionary
+was last imported from, `null` for data authored in place or imported without a manifest) —,
+the terms of the data — `license` (the SPDX identifier, `"CC-BY-4.0"` for the project's
+dataset, `"CC-BY-SA-4.0"` for Wiktionary), `license_url`, `attribution` (the line a consumer
+has to show, see [`DATA_LICENSE.md`](../DATA_LICENSE.md)) and `attribution_url` (where the line
+links to, `null` when the dataset names none), `notice` (the provenance line to pass on to
+readers — for the project's dataset: the data is generated by language models and not
+human-verified, [`data.md`](./data.md); an empty string when the dataset has none) — and
+`counts` (entries, words, phrases, grammar patterns, word forms, meanings, meaning and short
 translations; the counts are refreshed at most once a minute), and `available_languages`: `source`, the language of the headwords (`["en"]`), and `translations`, the
 languages a translation may carry on this build (`["ru", "es", "fr", "de", "pt", "zh", "ar"]`) — the values
 `?language=` accepts. They describe the schema, not the data: a language is listed whether or not a
 translation in it has been imported yet.
+
+The terms are the ones of the **active dataset** and change when the owner activates another
+one ([`datasets.md`](./datasets.md)): read them from `meta` rather than hard-coding the
+license of the project's dataset. `dataset`, `source` and `attribution_url` were added after
+1.0 and are optional in the contract.
 
 ### OpenAPI document
 

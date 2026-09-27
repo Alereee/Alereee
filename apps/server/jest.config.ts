@@ -33,6 +33,7 @@ export default {
     '!src/**/__tests__/**',
     '!src/bench/**',
     '!src/db/migrations/**',
+    '!src/db/dataset-migrations/**',
     '!src/main.ts',
   ],
   coverageThreshold: {

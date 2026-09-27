@@ -9,8 +9,11 @@ import { EnShortTranslation } from '../modules/EnModule/entities/en_short_transl
 import { Settings } from '../modules/SettingsModule/entities/settings.entity';
 import { AuditLog } from '../modules/AuditModule/entities/audit_log.entity';
 import { Suggestion } from '../modules/SuggestionsModule/entities/suggestion.entity';
+import { Dataset } from '../modules/DatasetsModule/entities/dataset.entity';
+import { DEFAULT_DATASET_SCHEMA } from '../../core/constants/datasets';
 import { getDbPoolConfig } from '../core/utils/db-pool';
 import { migrations } from './migrations';
+import { searchPathExtra } from './datasets';
 
 export const DB_ENTITIES = [
   EnEntry,
@@ -21,11 +24,15 @@ export const DB_ENTITIES = [
   Settings,
   AuditLog,
   Suggestion,
+  Dataset,
 ];
 
 // checkIsPostgres() is locked at the first call (entity import), so the
-// DataSource driver can never diverge from the entity column types
-export const buildTypeOrmOptions = (): TypeOrmModuleOptions => {
+// DataSource driver can never diverge from the entity column types.
+// `activeSchema` is the schema of the active dataset (issue #527), answered
+// by prepareDatabase(): the connection's search_path puts it first, so the
+// entities and every query reach that dataset's tables without naming it
+export const buildTypeOrmOptions = (activeSchema: string = DEFAULT_DATASET_SCHEMA): TypeOrmModuleOptions => {
   const base = {
     entities: DB_ENTITIES,
     autoLoadEntities: true,
@@ -44,6 +51,7 @@ export const buildTypeOrmOptions = (): TypeOrmModuleOptions => {
       extra: {
         max: pool.max,
         idleTimeoutMillis: pool.idleTimeoutSeconds * 1000,
+        ...searchPathExtra(activeSchema),
       },
       // Schema changes reach Postgres only through committed migrations;
       // auto-DDL against a real database is destructive (see issue #181)
@@ -51,8 +59,14 @@ export const buildTypeOrmOptions = (): TypeOrmModuleOptions => {
       migrations,
       // Pending migrations run on server start, before requests are accepted.
       // A failed migration keeps the server down instead of serving a schema
-      // the code does not match.
-      migrationsRun: true,
+      // the code does not match. The server runs them in prepareDatabase(),
+      // ahead of this connection — with the dataset migrations of every
+      // schema — so on `public` the list is found applied, and a DataSource
+      // built without that step (a script, a test) still gets them. On
+      // another dataset the connection must not look for them: the journal
+      // `migrations` is searched in the schema the connection is on, would
+      // not be found there, and the whole list would run a second time.
+      migrationsRun: activeSchema === DEFAULT_DATASET_SCHEMA,
       // The database may still be starting (docker compose brings both up at
       // once, an external instance may lag): keep trying for a minute before
       // giving up — the process manager restarts the server after that

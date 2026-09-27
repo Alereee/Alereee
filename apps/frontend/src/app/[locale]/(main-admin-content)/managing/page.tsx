@@ -36,6 +36,9 @@ export default async function ManagingPage({ params }: CommonPageP) {
         <Link href={`/${locale}/managing/bulk-request`}>
           <Button type="primary">{manageT('bulk_request')}</Button>
         </Link>
+        <Link href={`/${locale}/managing/datasets`}>
+          <Button type="primary">{manageT('datasets')}</Button>
+        </Link>
       </div>
       {/* SearchModule reads the query string, which needs a Suspense boundary */}
       <Suspense fallback={null}>

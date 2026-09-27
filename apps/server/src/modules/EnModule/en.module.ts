@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../AuditModule/audit.module';
 import { AuditController } from '../AuditModule/audit.controller';
+import { DatasetsModule } from '../DatasetsModule/datasets.module';
+import { DatasetsController } from '../DatasetsModule/datasets.controller';
 import { SuggestionsModule } from '../SuggestionsModule/suggestions.module';
 import { SuggestionsController } from '../SuggestionsModule/suggestions.controller';
 import { SuggestionApplyService } from '../SuggestionsModule/suggestion-apply.service';
@@ -24,6 +26,8 @@ import { EnImportDictionaryService } from './modules/EnImportDictionary/enImport
 import { EnImportDictionaryController } from './modules/EnImportDictionary/enImportDictionary.controller';
 import { DictionaryBootstrapService } from './modules/EnImportDictionary/dictionaryBootstrap.service';
 import { ImportStatusModule } from './modules/EnImportDictionary/importStatus.module';
+import { EnDatasetInstallController } from './modules/EnDatasetInstall/enDatasetInstall.controller';
+import { EnDatasetInstallService } from './modules/EnDatasetInstall/enDatasetInstall.service';
 import { EnSearchService } from './modules/EnSearch/enSearch.service';
 import { EnStatisticsController } from './modules/EnStatistics/enStatistics.controller';
 import { EnStatisticsService } from './modules/EnStatistics/enStatistics.service';
@@ -36,6 +40,8 @@ import { EnAdminListsService } from './modules/EnAdminLists/enAdminLists.service
     // so EnModule stays self-contained for the tests that boot it alone
     ImportStatusModule,
     AuditModule,
+    // the registry of datasets and the active one (issue #527)
+    DatasetsModule,
     // provides SuggestionsService for the moderation controller below (issue #327)
     SuggestionsModule,
     TypeOrmModule.forFeature([EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation]),
@@ -52,6 +58,10 @@ import { EnAdminListsService } from './modules/EnAdminLists/enAdminLists.service
     // before GET /api/en/:id
     AuditController,
     SuggestionsController,
+    // …and so must /api/en/datasets (issue #527)
+    DatasetsController,
+    // a dataset installed from the file of its source: converted, then imported
+    EnDatasetInstallController,
     EnController,
     EnShortTranslationController,
     EnMeaningTranslationController,
@@ -65,6 +75,7 @@ import { EnAdminListsService } from './modules/EnAdminLists/enAdminLists.service
     EnMeaningTranslationService,
     EnMeaningService,
     EnImportDictionaryService,
+    EnDatasetInstallService,
     DictionaryBootstrapService,
     EnSearchService,
     EnStatisticsService,

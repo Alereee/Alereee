@@ -143,10 +143,47 @@ yarn workspace server migration:revert    # undo the last one — development on
 Writing a migration, the troubleshooting of a failed one and the full workflow are in
 [`migrations.md`](./migrations.md).
 
+## Datasets: a schema each
+
+An instance can hold several dictionaries, one of them served ([`datasets.md`](./datasets.md)).
+In the database a dataset is a **schema** — a namespace of tables inside the one database:
+
+| Schema      | What lives there                                                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `public`    | the shared tables (`settings`, `datasets`, `audit_log`, `migrations`), the enum types, the `pg_trgm` extension — and the dictionary tables of the `default` dataset, where they always were |
+| `ds_<name>` | the dictionary tables of the dataset `<name>` with their indexes, its moderation queue (`suggestions`) and its own journal of applied migrations (`dataset_migrations`)                     |
+
+- **The tables are the same in every schema**, so are the queries: the connection of the server
+  carries `search_path = ds_<name>, public`, and `en_words` resolves to the table of the active
+  dataset. External tools that read `public.en_words` keep reading the `default` dataset.
+- **A switch re-opens the pool** with another `search_path`. It waits for the requests under
+  way to finish (five seconds at most) and the requests that arrive meanwhile wait for it — a
+  few tens of milliseconds, nobody is answered with an error.
+- **An import into another dataset** uses a pool of its own, four connections at most, for as
+  long as it runs: count them in when `DB_POOL_SIZE` is close to the connection limit.
+- **A dataset is deleted with `DROP SCHEMA … CASCADE`**: instant, whatever its size, and the
+  space is returned at once.
+- **`pg_dump` of the database takes every schema**: a backup holds all the datasets and the
+  registry, a restore brings back the instance with the same one active. One dataset alone:
+  `pg_dump -Fc -n ds_<name>` — the dump holds the tables, the row in `datasets` does not travel
+  with it.
+- **Size**: a dataset takes what its rows take, there is no shared part. Open English WordNet
+  2025 is 170 MB with its indexes, the English Wiktionary 1.4 GB
+  ([`datasets.md`](./datasets.md#public-sources)).
+
+> [!WARNING]
+> **Connection poolers.** The `search_path` travels as a startup option of the connection
+> (`options=-c search_path=…`). A pooler between the server and Postgres has to pass it
+> through: one that drops it (PgBouncer with `options` in `ignore_startup_parameters`) would
+> leave the server on `public`, serving the wrong dataset. The server checks `current_schema()`
+> at start and after every switch and refuses to go on from the wrong schema. Connect the
+> server to Postgres directly, or make sure the pooler hands the option on. With the `default`
+> dataset active no option is sent and any pooler works as before.
+
 ## Backups
 
-The database is the whole state of an instance: the dictionary, every edit made in the admin
-panel, the version of the loaded dataset, the applied migrations. Back it up with the Postgres
+The database is the whole state of an instance: every dataset with the edits made in the admin
+panel, the registry of the datasets and which one is active, the applied migrations. Back it up with the Postgres
 tools, not with the dictionary export (the export carries the content only and cannot restore
 an instance — [`operations.md`](./operations.md#database-backup-vs-dictionary-export)).
 

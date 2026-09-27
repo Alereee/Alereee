@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Logger, NotFoundException } from '@nestjs/common';
 import { ImportTriggerE } from '../../../../../../types';
+import { setActiveDataset } from '../../../../../core/utils/active-dataset';
 import { DictionaryBootstrapService, isAutoImportEnabled } from '../dictionaryBootstrap.service';
 import { ImportStatusService } from '../importStatus.service';
 import * as sources from '../sources';
@@ -46,6 +47,7 @@ describe('DictionaryBootstrapService (issue #268)', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    setActiveDataset({ name: 'default', source: 'vocab-bloom-hub' });
   });
 
   it('imports from HuggingFace when no dataset version is recorded', async () => {
@@ -62,6 +64,15 @@ describe('DictionaryBootstrapService (issue #268)', () => {
   it('does nothing when a dataset version is already installed', async () => {
     findOne.mockResolvedValue('1.0.0');
     await expect(service.run()).resolves.toBe('skipped');
+    expect(importFrom).not.toHaveBeenCalled();
+  });
+
+  // issue #527: the project's own data never lands in a dataset of another source
+  it('does nothing when the active dataset is not the default one, whatever its version', async () => {
+    setActiveDataset({ name: 'wiktionary', source: 'wiktionary' });
+    findOne.mockRejectedValue(new NotFoundException());
+    await expect(service.run()).resolves.toBe('skipped');
+    expect(findOne).not.toHaveBeenCalled();
     expect(importFrom).not.toHaveBeenCalled();
   });
 

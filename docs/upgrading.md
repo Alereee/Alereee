@@ -129,6 +129,23 @@ the old number, or `git checkout` of the old tag and a rebuild. A release withou
 rolls back by starting the previous build alone. Why a plain downgrade is not enough, and what
 a failed migration leaves behind: [`operations.md`](./operations.md#upgrading-the-code).
 
+## Upgrading to a version with datasets
+
+The first version that keeps several datasets ([`datasets.md`](./datasets.md)) migrates the
+database by itself, like any other, and changes nothing a reader can see:
+
+- the dictionary tables **stay where they are**, in `public`, and become the dataset `default`
+  — the active one. Nothing is copied, the migration takes a moment whatever the size;
+- the registry (`datasets`) is created with that one row: the project's dataset, CC BY 4.0, the
+  version the instance had recorded;
+- the public API gains fields and loses none: `source` on a word, `dataset`, `source` and
+  `attribution_url` in `/api/v1/meta`. The SDKs of 1.0 read the answers of the new server, the
+  new SDKs read the answers of a 1.0 server.
+
+Rolling back is the usual restore of the backup taken before the upgrade. An instance that
+already holds other datasets cannot be served by a version that does not know them: its tables
+are in schemas the old code never looks into.
+
 ## The dictionary is updated separately
 
 A new version of the code does not change the dictionary data, and a new dataset revision does

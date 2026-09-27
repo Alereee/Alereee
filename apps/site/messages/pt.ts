@@ -183,10 +183,10 @@ export default {
     phrasal_variants: 'Variantes phrasal',
     from_api: 'Esta página é',
     try_in_playground: 'teste no playground',
-    license_note: 'dados sob CC BY 4.0',
+    license_note: 'dados sob {license}',
     ai_note: 'gerado por IA, pode conter erros',
     report_license_note:
-      'Uma correção aceita pelo dono passa a fazer parte dos dados do dicionário, publicados sob CC BY 4.0.',
+      'Uma correção aceita pelo dono passa a fazer parte dos dados do dicionário, publicados sob {license}.',
     report_button: 'Relatar um erro',
     report_hint:
       'Algo errado em "{word}" — um significado, uma tradução, uma forma? Conte ao dono deste dicionário; o relato vai para a fila de moderação dele.',

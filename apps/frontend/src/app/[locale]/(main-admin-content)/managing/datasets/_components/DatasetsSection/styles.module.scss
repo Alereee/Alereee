@@ -1,0 +1,56 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.heading {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.tags {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-block-end: 12px;
+}
+
+.facts {
+  display: grid;
+  // the same column in every card, whatever labels it has
+  grid-template-columns: minmax(120px, 160px) 1fr;
+  gap: 4px 16px;
+  margin: 0 0 16px;
+
+  dt {
+    color: var(--ant-color-text-secondary, rgb(0 0 0 / 45%));
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.shareAlike {
+  margin-inline-start: 8px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

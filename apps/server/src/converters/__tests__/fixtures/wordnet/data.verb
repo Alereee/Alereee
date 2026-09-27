@@ -1,0 +1,4 @@
+00005000 30 v 02 run 0 sprint 0 002 ! 00005100 v 0101 ;u 00009100 n 0000 01 + 02 00 | move fast on foot; "he ran to the door"  
+00005100 30 v 01 walk 0 001 ! 00005000 v 0101 01 + 02 00 | move at a regular pace  
+00005200 30 v 01 give_up 0 000 01 + 02 00 | stop trying  
+00005300 30 v 01 give 0 000 01 + 08 00 | hand over  

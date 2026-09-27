@@ -8,7 +8,8 @@ import { JsonLd } from '@/components/JsonLd';
 import { Pronounce } from '@/components/Pronounce';
 import { ReportMistake } from '@/components/ReportMistake';
 import { WordSearch } from '@/components/WordSearch';
-import { DictionaryUnavailableError, fetchHeadword } from '@/core/dictionary';
+import { licenseLabel, OWN_DATASET_SOURCE } from '@/core/datasetTerms';
+import { DictionaryUnavailableError, fetchDatasetTerms, fetchHeadword } from '@/core/dictionary';
 import { pageMeta, trimDescription } from '@/core/site';
 import { breadcrumbJsonLd, definedTermJsonLd } from '@/core/structuredData';
 import { flagOf } from '@/core/languageFlags';
@@ -246,7 +247,7 @@ export default async function WordPage({ params }: WordPageP) {
   setRequestLocale(locale);
   const t = await getTranslations('word');
   const nav = await getTranslations('nav');
-  const headword = await fetchHeadword(word);
+  const [headword, terms] = await Promise.all([fetchHeadword(word), fetchDatasetTerms()]);
 
   if (headword.kind === 'not_found') notFound();
   // the page is cacheable (next.config.ts); one the API failed to render must not be
@@ -257,6 +258,9 @@ export default async function WordPage({ params }: WordPageP) {
   const transcription = data.find((entry) => entry.transcription)?.transcription;
   // the locale's translations on the first screen, before the entries
   const translations = localeTranslations(data, locale);
+  // the terms of the data the page shows (issue #527)
+  const isOwnData = terms.source === OWN_DATASET_SOURCE;
+  const license = licenseLabel(terms.license);
   // one translation language at a time (issue #520): the locale's own when the headword has it, else the first
   const languages = translationLanguages(data, locale);
   const ownLanguage = locale === 'en' ? null : locale;
@@ -272,7 +276,7 @@ export default async function WordPage({ params }: WordPageP) {
               { name: t('index_title'), path: '/word' },
               { name: meta.word, path: wordPath(meta.word) },
             ]),
-            definedTermJsonLd({ locale, word: meta.word, description: leadDefinition(data) }),
+            definedTermJsonLd({ locale, word: meta.word, description: leadDefinition(data), terms }),
           ]}
         />
         <div className={styles.headword}>
@@ -295,6 +299,7 @@ export default async function WordPage({ params }: WordPageP) {
           </div>
           <ReportMistake
             headword={meta.word}
+            license={license}
             entries={data.map((entry) => ({
               id: entry.id,
               part_of_speech: entry.part_of_speech,
@@ -325,9 +330,36 @@ export default async function WordPage({ params }: WordPageP) {
             {t('from_api')} <code>GET /api/v1/words/{encodeURIComponent(meta.word)}</code> —{' '}
             <Link href={`/playground?endpoint=get-words-word`}>{t('try_in_playground')}</Link>
             {' · '}
-            <Link href="/docs/data-license">{t('license_note')}</Link>
-            {' · '}
-            <Link href="/docs/data">{t('ai_note')}</Link>
+            {isOwnData ? (
+              <Link href="/docs/data-license">{t('license_note', { license })}</Link>
+            ) : (
+              <a href={terms.license_url} rel="license noreferrer" target="_blank">
+                {t('license_note', { license })}
+              </a>
+            )}
+            {isOwnData ? (
+              <>
+                {' · '}
+                <Link href="/docs/data">{t('ai_note')}</Link>
+              </>
+            ) : (
+              // the attribution the source asks for (issue #527), and its notice when it has one
+              <>
+                {terms.attribution && (
+                  <>
+                    {' · '}
+                    {terms.attribution_url ? (
+                      <a href={terms.attribution_url} rel="noreferrer" target="_blank">
+                        {terms.attribution}
+                      </a>
+                    ) : (
+                      terms.attribution
+                    )}
+                  </>
+                )}
+                {terms.notice && <> · {terms.notice}</>}
+              </>
+            )}
           </p>
           <WordSearch />
         </div>

@@ -1,4 +1,5 @@
 import { DATASET_URL, REPO_URL } from '@/content/repo';
+import { DatasetTermsT, OWN_DATASET_SOURCE, OWN_DATASET_TERMS } from '@/core/datasetTerms';
 import { SITE_NAME, siteUrl } from './site';
 
 // Structured data for search engines (issues #350, #480): plain objects for
@@ -93,15 +94,25 @@ export const techArticleJsonLd = ({
   isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: pageUrl(locale, '') },
 });
 
-/** A headword as a term of the dictionary: the set it belongs to carries the data licence */
+// where the set of terms comes from: the published dataset of the project,
+// or what the served dataset names as its source (issue #527)
+const sourceOf = (terms: DatasetTermsT): string | null =>
+  terms.source === OWN_DATASET_SOURCE ? DATASET_URL : terms.attribution_url;
+
+/**
+ * A headword as a term of the dictionary: the set it belongs to carries the
+ * licence of the data the instance serves
+ */
 export const definedTermJsonLd = ({
   locale,
   word,
   description,
+  terms = OWN_DATASET_TERMS,
 }: {
   locale: string;
   word: string;
   description?: string;
+  terms?: DatasetTermsT;
 }): JsonLdT => ({
   '@context': 'https://schema.org',
   '@type': 'DefinedTerm',
@@ -115,7 +126,7 @@ export const definedTermJsonLd = ({
     name: `${SITE_NAME} English dictionary`,
     url: pageUrl(locale, '/word'),
     inLanguage: 'en',
-    license: DATA_LICENSE_URL,
-    sameAs: DATASET_URL,
+    ...(terms.license_url ? { license: terms.license_url } : {}),
+    ...(sourceOf(terms) ? { sameAs: sourceOf(terms) } : {}),
   },
 });

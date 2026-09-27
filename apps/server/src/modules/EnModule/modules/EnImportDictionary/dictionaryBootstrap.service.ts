@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { SettingsService } from '../../../SettingsModule/settings.service';
 import { ImportTriggerE } from '../../../../../types';
+import { DEFAULT_DATASET_NAME } from '../../../../../core/constants/datasets';
+import { getActiveDatasetName } from '../../../../core/utils/active-dataset';
 import { DATASET_VERSION_SETTINGS_FIELD } from './constants';
 import { EnImportDictionaryService } from './enImportDictionary.service';
 import { ImportStatusService } from './importStatus.service';
@@ -23,6 +25,10 @@ export const isAutoImportEnabled = (env: NodeJS.ProcessEnv = process.env): boole
  * is resumed on the next start (records already in place are skipped by
  * the import) and a completed one is never repeated. A database filled
  * before the version was tracked is imported once more, which merges.
+ *
+ * Only the dataset the instance was born with is filled this way (issue
+ * #527): when another dataset is active, the project's own data has no
+ * business in it, whatever its version says.
  *
  * The source is a dataset in DICTIONARY_IMPORT_DIR when there is one (the
  * newest, for installations without internet access), otherwise the
@@ -57,6 +63,11 @@ export class DictionaryBootstrapService implements OnApplicationBootstrap, OnMod
 
   /** Decides whether an import is due and runs it; exposed for the tests */
   async run(): Promise<'skipped' | 'completed' | 'failed'> {
+    const active = getActiveDatasetName();
+    if (active !== DEFAULT_DATASET_NAME) {
+      this.logger.log(`Automatic dictionary import: the active dataset is "${active}", nothing to do`);
+      return 'skipped';
+    }
     const installed = await this.installedDatasetVersion();
     if (installed) {
       this.logger.log(`Automatic dictionary import: dataset ${installed} is already installed, nothing to do`);

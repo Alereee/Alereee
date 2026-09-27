@@ -1,0 +1,50 @@
+.instruction {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+.steps,
+.warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+.links {
+  display: inline-flex;
+  gap: 12px;
+  margin-inline-start: 8px;
+}
+
+.attribution {
+  display: block;
+  margin-block-start: 4px;
+  padding: 8px 12px;
+  border-inline-start: 3px solid var(--ant-color-border, #d9d9d9);
+}
+
+.upload {
+  padding-block-start: 8px;
+  border-block-start: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

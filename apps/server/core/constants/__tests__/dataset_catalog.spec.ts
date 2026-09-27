@@ -1,0 +1,118 @@
+import { describe, expect, it } from '@jest/globals';
+import { SOURCES, findSource } from '../../../src/converters/sources';
+import { DATA_LICENSE } from '../data_license';
+import {
+  catalogTerms,
+  DATASET_CATALOG,
+  DatasetCatalogEntryT,
+  findCatalogEntry,
+  findCatalogEntryOfAdapter,
+} from '../dataset_catalog';
+import { DATASET_TARGET_PATTERN, DEFAULT_DATASET_NAME, OWN_DATASET_SOURCE } from '../datasets';
+
+// The catalog is what an instance may hold and under which terms (issue
+// #527): nobody types a license in, so what is written here is what the API
+// and the word pages say
+
+const converted = DATASET_CATALOG.filter(
+  (entry): entry is DatasetCatalogEntryT & { install: { kind: 'convert' } } => entry.install.kind === 'convert',
+);
+
+describe('the catalog of datasets', () => {
+  it('starts with the dataset an instance is born with, under the license of the project', () => {
+    expect(DATASET_CATALOG[0]).toEqual(
+      expect.objectContaining({
+        name: DEFAULT_DATASET_NAME,
+        source: OWN_DATASET_SOURCE,
+        attribution: DATA_LICENSE.attribution,
+        notice: DATA_LICENSE.notice,
+        install: { kind: 'import' },
+      }),
+    );
+    expect(DATASET_CATALOG[0].license).toEqual({
+      spdx: DATA_LICENSE.spdx,
+      name: DATA_LICENSE.name,
+      url: DATA_LICENSE.url,
+    });
+  });
+
+  it('names every dataset and every source once, with a name a schema can take', () => {
+    const names = DATASET_CATALOG.map((entry) => entry.name);
+    const sources = DATASET_CATALOG.map((entry) => entry.source);
+    expect(new Set(names).size).toBe(names.length);
+    // the source decides whether data may go into a dataset: two datasets of one source would mix
+    expect(new Set(sources).size).toBe(sources.length);
+    for (const name of names) expect(name).toMatch(DATASET_TARGET_PATTERN);
+    expect(findCatalogEntry('wiktionary')?.title).toBe('English Wiktionary');
+    expect(findCatalogEntry('nope')).toBeUndefined();
+  });
+
+  it('states the terms of every dataset in full', () => {
+    for (const entry of DATASET_CATALOG) {
+      expect({ name: entry.name, terms: catalogTerms(entry) }).toEqual({
+        name: entry.name,
+        terms: {
+          source: entry.source,
+          language: 'en',
+          license: entry.license.spdx,
+          license_url: expect.stringMatching(/^https:\/\//),
+          attribution: expect.stringMatching(/\S/),
+          attribution_url: expect.stringMatching(/^https:\/\//),
+          notice: expect.any(String),
+        },
+      });
+      expect(entry.license.name).not.toBe('');
+      expect(entry.homepage).toMatch(/^https:\/\//);
+      expect(entry.features.length).toBeGreaterThan(0);
+      expect(entry.size.entries).toBeGreaterThan(0);
+      expect(entry.size.senses).toBeGreaterThan(entry.size.entries);
+      expect(entry.size.database_mb).toBeGreaterThan(0);
+    }
+  });
+
+  it('says that Wiktionary is share-alike and nothing else is', () => {
+    expect(DATASET_CATALOG.filter((entry) => entry.share_alike).map((entry) => entry.name)).toEqual([
+      'wiktionary',
+    ]);
+    expect(findCatalogEntry('wiktionary')?.license.spdx).toBe('CC-BY-SA-4.0');
+    // only the data of the project is generated: no other dataset carries its notice
+    expect(DATASET_CATALOG.filter((entry) => entry.notice).map((entry) => entry.name)).toEqual(['default']);
+  });
+
+  it('tells where to download every file of a source, the required one first', () => {
+    expect(converted.map((entry) => entry.name)).toEqual(['wiktionary', 'wordnet', 'wordnet_princeton']);
+    for (const entry of converted) {
+      const [first, ...others] = entry.install.files;
+      expect(first).toEqual(expect.objectContaining({ field: 'file', required: true }));
+      for (const file of [first, ...others]) {
+        expect(file.url).toMatch(/^https:\/\//);
+        expect(file.page_url).toMatch(/^https:\/\//);
+        expect(file.url.endsWith(file.file_name)).toBe(true);
+        expect(file.size_mb).toBeGreaterThan(0);
+      }
+      expect(others.every((file) => !file.required && file.license !== undefined)).toBe(true);
+      const fields = entry.install.files.map((file) => file.field);
+      expect(new Set(fields).size).toBe(fields.length);
+    }
+  });
+
+  it('has a converter for every dataset of a public source, and a dataset for every converter', () => {
+    for (const entry of converted) {
+      const adapter = findSource(entry.install.adapter);
+      expect({ name: entry.name, adapter: adapter?.name }).toEqual({
+        name: entry.name,
+        adapter: entry.install.adapter,
+      });
+      // the manifest a converter writes carries the terms of the catalog, word for word
+      const { language: _language, ...terms } = catalogTerms(entry);
+      expect(adapter?.provenance(entry.install.options)).toEqual(terms);
+      expect(findCatalogEntryOfAdapter(entry.install.adapter, entry.install.options)).toBe(entry);
+    }
+    for (const source of SOURCES) {
+      expect(converted.some((entry) => entry.install.adapter === source.name)).toBe(true);
+    }
+    // an option of a run that does not change the edition does not change the dataset
+    expect(findCatalogEntryOfAdapter('wordnet', { cmudict: '/tmp/cmudict.dict' })?.name).toBe('wordnet');
+    expect(findCatalogEntryOfAdapter('wordnet', { edition: 'princeton' })?.name).toBe('wordnet_princeton');
+  });
+});

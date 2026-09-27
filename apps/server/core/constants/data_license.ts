@@ -2,6 +2,17 @@
 // export, the published HuggingFace dataset and the public API carry the same
 // terms. The decision and its rationale are recorded in DATA_LICENSE.md at
 // the repository root (issue #270); change the values there and here together.
+/** Where the text of a license lives, for the ones a dataset is likely to carry */
+export const LICENSE_URLS: Readonly<Record<string, string>> = {
+  'CC-BY-4.0': 'https://creativecommons.org/licenses/by/4.0/',
+  'CC-BY-SA-4.0': 'https://creativecommons.org/licenses/by-sa/4.0/',
+  'CC-BY-SA-3.0': 'https://creativecommons.org/licenses/by-sa/3.0/',
+  'CC0-1.0': 'https://creativecommons.org/publicdomain/zero/1.0/',
+  'BSD-2-Clause': 'https://opensource.org/license/bsd-2-clause',
+  // Princeton WordNet's own license
+  WordNet: 'https://wordnet.princeton.edu/license-and-commercial-use',
+};
+
 export const DATA_LICENSE = {
   // SPDX identifier, https://spdx.org/licenses/CC-BY-4.0.html
   spdx: 'CC-BY-4.0',

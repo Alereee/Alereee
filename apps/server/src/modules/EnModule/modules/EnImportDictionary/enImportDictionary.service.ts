@@ -1,7 +1,8 @@
 import {
   BadRequestException,
-  Inject,
+  ConflictException,
   HttpException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -47,8 +48,11 @@ import {
 import { SettingsService } from '../../../SettingsModule/settings.service';
 import { ImportStatusService } from './importStatus.service';
 import { HttpImportProgressSink, ImportProgressSink } from './progress';
+import type { DatasetSourceFactoryT } from './sources';
 import { ErrorCodes } from '../../../../../core/constants/error_codes';
 import { DATA_LICENSE } from '../../../../../core/constants/data_license';
+import { OWN_DATASET_SOURCE } from '../../../../../core/constants/datasets';
+import { DatasetConnectionT, DatasetsService } from '../../../DatasetsModule/datasets.service';
 import { getVersion } from '../../../../../configuration';
 import {
   DATASET_FILE_NAMES,
@@ -190,7 +194,44 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     @Optional() private readonly metrics?: MetricsService,
     // the one import slot of the process (issue #268); absent in the unit tests
     @Optional() private readonly importStatus?: ImportStatusService,
+    // the datasets of the instance (issue #527); absent in the unit tests
+    @Optional() private readonly datasets?: DatasetsService,
   ) {}
+
+  // The dataset the running import writes into (issue #527): the active one
+  // through the application's connection, another one through a connection
+  // on its schema. One import runs at a time, so one field is enough.
+  private target: DatasetConnectionT | null = null;
+
+  /** Where the import and the export read and write: the import's target, else the active dataset */
+  private get db(): EntityManager {
+    return this.target?.manager ?? this.enWordsRep.manager;
+  }
+
+  /**
+   * The source a dataset names in its manifest. The published dataset of
+   * the project named none before there were several: read from HuggingFace,
+   * it is the project's own.
+   */
+  private sourceOf(manifest: DatasetManifestT | null, source: DatasetSource): string | undefined {
+    if (manifest?.source) return manifest.source;
+    return source instanceof HuggingFaceDatasetSource ? OWN_DATASET_SOURCE : undefined;
+  }
+
+  /**
+   * Datasets are never mixed (issue #527): data that names its source goes
+   * into the dataset of that source. The terms of a dataset are the ones
+   * of the catalog, so an empty dataset takes no other data either.
+   */
+  private assertSameSource(manifest: DatasetManifestT | null, source: DatasetSource): void {
+    const filled = this.target?.dataset;
+    const named = this.sourceOf(manifest, source);
+    if (!filled || !named || named === filled.source) return;
+    this.logger.warn(
+      `Import refused: the data comes from "${named}", the dataset "${filled.name}" holds data of "${filled.source}"`,
+    );
+    throw new ConflictException(ErrorCodes.dataset_source_mismatch);
+  }
 
   /**
    * The version check the import UI runs before starting an import.
@@ -337,7 +378,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
   ): Promise<void> {
     const { chunked, wordKey, entryTypeOf } = EnImportDictionaryService;
 
-    await this.enWordsRep.manager.transaction(async (em) => {
+    await this.db.transaction(async (em) => {
       // 0. update mode (issue #328): entries the admin edited are kept, the
       // other existing entries have their content replaced by this dataset —
       // each at most once per run
@@ -561,7 +602,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
 
   // Links phrasal variants to their base verbs with one lookup per chunk
   private async bulkLinkPhrasalVerbs(lines: DataSetWordT[]): Promise<void> {
-    await this.enWordsRep.manager.transaction(async (em) => {
+    await this.db.transaction(async (em) => {
       const names = new Set<string>();
       for (const line of lines) {
         names.add(line.word);
@@ -600,7 +641,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
    */
   /** Translation rows per language (issue #410): the counts a consumer of the revision can expect */
   private async countTranslationsByLanguage(): Promise<NonNullable<DatasetManifestT['translations']>> {
-    const manager = this.enWordsRep.manager;
+    const manager = this.db;
     const count = async (entity: typeof EnMeaningTranslation | typeof EnShortTranslation) =>
       manager
         .getRepository(entity)
@@ -622,7 +663,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
   }
 
   private async countExportedLinks(kind: WordLinkKindT): Promise<number> {
-    const row = await this.enWordsRep.manager
+    const row = await this.db
       .getRepository(EnMeaning)
       .createQueryBuilder('m')
       .innerJoin(`m.${kind}`, 'l')
@@ -649,16 +690,15 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     if (pending.length === 0) return;
 
     // the junction table is owned by the ManyToMany relation, so its name is read from the metadata
-    const junctionTable = this.enWordsRep.manager.connection
-      .getMetadata(EnMeaning)
-      .findRelationWithPropertyPath(kind)?.junctionEntityMetadata?.tableName;
+    const junctionTable = this.db.connection.getMetadata(EnMeaning).findRelationWithPropertyPath(kind)
+      ?.junctionEntityMetadata?.tableName;
     if (!junctionTable) {
       throw new InternalServerErrorException(ErrorCodes.internal_server_error);
     }
 
     let skipped = 0;
     for (const batch of chunked(pending, IMPORT_CHUNK_SIZE)) {
-      await this.enWordsRep.manager.transaction(async (em) => {
+      await this.db.transaction(async (em) => {
         // only base-form headwords qualify (directly or through a spelling
         // variant), the same rule the admin API applies
         const names = [...new Set(batch.flatMap((p) => p.words))];
@@ -984,7 +1024,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     updateCtx?: UpdateModeContextT,
   ): Promise<void> {
     const { wordKey } = EnImportDictionaryService;
-    await this.enWordsRep.manager.transaction(async (em) => {
+    await this.db.transaction(async (em) => {
       const idByKey = await this.resolveLineWords(em, lines, updateCtx, 'meanings');
       const seen = new Set<string>();
       (await this.selectMeaningRows(em, [...new Set(idByKey.values())])).forEach((r) =>
@@ -1028,7 +1068,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     updateCtx?: UpdateModeContextT,
   ): Promise<void> {
     const { chunked, wordKey } = EnImportDictionaryService;
-    await this.enWordsRep.manager.transaction(async (em) => {
+    await this.db.transaction(async (em) => {
       const idByKey = await this.resolveLineWords(em, lines, updateCtx, 'meaning translations');
       const wordIds = [...new Set(idByKey.values())];
       const meaningIdByKey = new Map<string, number>();
@@ -1094,7 +1134,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     updateCtx?: UpdateModeContextT,
   ): Promise<void> {
     const { chunked, wordKey } = EnImportDictionaryService;
-    await this.enWordsRep.manager.transaction(async (em) => {
+    await this.db.transaction(async (em) => {
       const idByKey = await this.resolveLineWords(em, lines, updateCtx, 'short translations');
       const wordIds = [...new Set(idByKey.values())];
 
@@ -1180,6 +1220,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     const label = body.update ? `${sourceLabel} (update)` : sourceLabel;
     await this.importFrom(source, label, new HttpImportProgressSink(res), ImportTriggerE.manual, {
       update: body.update === true,
+      dataset: body.dataset,
     });
   }
 
@@ -1192,6 +1233,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     files: UploadedFilesByFieldT,
     manual: ManualManifestT,
     res: Response,
+    dataset?: string,
   ): Promise<void> {
     const source = await openUploadedDatasetSource(files, manual, this.logger);
     const names = Object.values(files)
@@ -1203,6 +1245,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       `upload ${names.join(', ')}`,
       new HttpImportProgressSink(res),
       ImportTriggerE.manual,
+      { dataset },
     );
   }
 
@@ -1213,13 +1256,18 @@ export class EnImportDictionaryService implements OnModuleDestroy {
    * with 409 `import_in_progress` before anything is downloaded or written.
    */
   async importFrom(
-    source: DatasetSource,
+    source: DatasetSource | DatasetSourceFactoryT,
     label: string,
     progress: ImportProgressSink,
     trigger: ImportTriggerE,
-    options?: { update?: boolean },
+    options?: { update?: boolean; dataset?: string | undefined },
   ): Promise<void> {
-    this.importStatus?.begin(trigger, label);
+    // a dataset that is not the active one needs a driver with schemas: refused
+    // before the slot is taken, like a bad source
+    if (options?.dataset && this.datasets && options.dataset !== this.datasets.getActive().name) {
+      if (!this.datasets.supported) throw new ConflictException(ErrorCodes.datasets_not_supported);
+    }
+    this.importStatus?.begin(trigger, label, options?.dataset ?? this.datasets?.getActive().name);
     const tracked: ImportProgressSink = {
       start: () => progress.start(),
       write: (chunk) => {
@@ -1232,6 +1280,10 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       ? { replaced: new Set(), added: new Set(), kept: new Set() }
       : undefined;
     try {
+      // the dataset the import names is created on first use — a schema of
+      // its own — and filled through a connection of its own (issue #527)
+      const dataset = await this.datasets?.resolveTarget(options?.dataset);
+      this.target = dataset && this.datasets ? await this.datasets.connect(dataset) : null;
       const datasetVersion = await this.runImport(source, label, tracked, updateCtx);
       this.importStatus?.end({ dataset_version: datasetVersion });
       await this.auditService?.record({
@@ -1240,6 +1292,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
         entityType: AuditEntityTypeE.dictionary,
         diff: {
           source: { before: null, after: label },
+          ...(dataset ? { dataset: { before: null, after: dataset.name } } : {}),
           ...(datasetVersion ? { dataset_version: { before: null, after: datasetVersion } } : {}),
           ...(updateCtx
             ? {
@@ -1259,20 +1312,37 @@ export class EnImportDictionaryService implements OnModuleDestroy {
             : String(error);
       this.importStatus?.end({ error: message });
       throw error;
+    } finally {
+      const target = this.target;
+      this.target = null;
+      await target?.close().catch(() => undefined);
     }
   }
 
   /** The import pipeline shared by every source; the source is disposed at the end */
   private async runImport(
-    source: DatasetSource,
+    given: DatasetSource | DatasetSourceFactoryT,
     label: string,
     progress: ImportProgressSink,
     updateCtx?: UpdateModeContextT,
   ): Promise<string | undefined> {
-    // the manifest is read before the stream opens: a local source has
-    // already validated it, HuggingFace may be unreachable
-    const manifest = await source.readManifest();
-    progress.start();
+    // a source that has to be made first — a file of a public source being
+    // converted — is made inside the import slot and reports its progress:
+    // the stream opens before it
+    const made = typeof given === 'function';
+    if (made) progress.start();
+    const source = made ? await given(progress) : given;
+    let manifest: DatasetManifestT | null;
+    try {
+      // the manifest is read before the stream opens: a local source has
+      // already validated it, HuggingFace may be unreachable
+      manifest = await source.readManifest();
+      this.assertSameSource(manifest, source);
+    } catch (error) {
+      await source.dispose().catch(() => undefined);
+      throw error;
+    }
+    if (!made) progress.start();
 
     const startedAt = Date.now();
     this.logger.log(`Dictionary import from ${label} started`);
@@ -1339,9 +1409,25 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       });
     }
 
-    if (datasetVersion) {
-      // Remember which dataset version this database now holds; a failure
-      // here must not fail an already completed import
+    // What the import left on the dataset it filled (issue #527): the
+    // version — before the last chunk, so a client that reads the registry
+    // on it finds it
+    const filled = this.target?.dataset;
+    if (filled && this.datasets) {
+      await this.datasets.recordImport(filled.name, { version: datasetVersion }).catch((error) => {
+        this.logger.warn(
+          `Failed to record the import on dataset "${filled.name}": ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      });
+    }
+
+    const intoActive = !filled || !this.datasets || filled.name === this.datasets.getActive().name;
+    if (datasetVersion && intoActive) {
+      // Remember which dataset version the served dictionary now holds (the
+      // registry keeps it for every dataset); a failure here must not fail
+      // an already completed import
       await this.settingsService.upsert(DATASET_VERSION_SETTINGS_FIELD, datasetVersion).catch((error) => {
         this.logger.warn(
           `Failed to store the imported dataset version: ${error instanceof Error ? error.message : String(error)}`,
@@ -1606,11 +1692,22 @@ export class EnImportDictionaryService implements OnModuleDestroy {
 
       // The manifest travels inside the archive, so the published dataset
       // always carries line counts matching its jsonl files (issue #159)
+      // the terms of the dataset that is exported (issue #527): the active
+      // one. The project's own dataset is published under the version of the
+      // build that exports it; a dataset of another source keeps its own
+      const exported = this.datasets?.getActive();
+      const isOwn = !exported || exported.source === OWN_DATASET_SOURCE;
       const manifest: DatasetManifestT = {
-        version: getVersion(),
+        version: isOwn ? getVersion() : (exported.version ?? getVersion()),
         generatedAt: new Date().toISOString(),
-        license: DATA_LICENSE.spdx,
-        attribution: DATA_LICENSE.attribution,
+        license: exported?.license ?? DATA_LICENSE.spdx,
+        attribution: exported?.attribution ?? DATA_LICENSE.attribution,
+        ...(exported && {
+          source: exported.source,
+          license_url: exported.license_url,
+          attribution_url: exported.attribution_url ?? '',
+          notice: exported.notice ?? '',
+        }),
         synonym_links: await this.countExportedLinks('synonyms'),
         antonym_links: await this.countExportedLinks('antonyms'),
         translations: await this.countTranslationsByLanguage(),

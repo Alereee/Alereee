@@ -45,6 +45,23 @@ describe('/api/* forwarded to the server (issue #316)', () => {
     expect(apiTarget({ SERVER_PORT: '3110' })).toBe('http://127.0.0.1:3110/api');
   });
 
+  // seen with a half-gigabyte upload from curl (issue #527): undici rejects the header
+  it('does not pass on the Expect header of an upload', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 201 }));
+    const req = new NextRequest('http://localhost:3000/api/en/datasets/wiktionary/install', {
+      method: 'POST',
+      headers: { expect: '100-continue', authorization: 'Bearer t' },
+      body: 'file',
+    });
+
+    const res = await forwardToApi(req, ['en', 'datasets', 'wiktionary', 'install']);
+
+    expect(res.status).toBe(201);
+    const headers = new Headers(fetchMock.mock.calls[0][1].headers);
+    expect(headers.has('expect')).toBe(false);
+    expect(headers.get('authorization')).toBe('Bearer t');
+  });
+
   it('relays the request with its query, cookies and body, and returns status, cookies and body', async () => {
     fetchMock.mockResolvedValue(
       new Response('{"token":"t"}', {

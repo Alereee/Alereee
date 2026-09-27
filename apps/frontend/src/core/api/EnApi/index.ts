@@ -46,6 +46,9 @@ import {
   GetEnTranslationsStatisticsResT,
   GetWordByIdResT,
   GetDatasetManifestResT,
+  DatasetResT,
+  DeleteDatasetResT,
+  GetDatasetsResT,
   PublicSearchDetailedV1ResT,
   PublicSearchV1ResT,
   GetImportSourcesResT,
@@ -363,6 +366,49 @@ export class EnApi extends AbstractBaseApi {
     onProgress?: (loaded: number, total: number) => void,
   ): Promise<DownloadedFileT | ErrorResT> {
     return this.downloadFile(`${this.baseURL}/en/dictionary/export/download/${exportId}`, {}, onProgress);
+  }
+
+  // The datasets of the instance (issue #527): one schema each on Postgres,
+  // one of them active; on SQLite the list has its one dataset and the
+  // structural calls answer 409 `datasets_not_supported`
+  static async getDatasets(): Promise<GetDatasetsResT> {
+    return this.get<GetDatasetsResT>(`${this.baseURL}/en/datasets`);
+  }
+
+  /**
+   * Installs a dataset of the catalog from the file of its source (or
+   * updates an installed one): `file` is what the catalog tells to download,
+   * `pronunciations` the optional CMUdict file. The server converts and
+   * imports; the progress streams back like the one of an import
+   */
+  static async installDataset(
+    name: string,
+    files: Partial<Record<string, File>>,
+    handleChunk: (ch: ImportDictionaryChunkT) => void,
+    onError: (err: string) => void,
+  ): Promise<{ success: boolean } | ErrorResT> {
+    const body = new FormData();
+    for (const [field, file] of Object.entries(files)) {
+      if (file) body.append(field, file, file.name);
+    }
+    const reader = await AbstractBaseApi.stream(
+      `${this.baseURL}/en/datasets/${encodeURIComponent(name)}/install`,
+      { method: 'POST', body },
+    );
+
+    if ('error' in reader) {
+      return reader;
+    }
+
+    return this.readNdjsonStream(reader, handleChunk, onError);
+  }
+
+  static async activateDataset(name: string): Promise<DatasetResT> {
+    return this.post<DatasetResT>(`${this.baseURL}/en/datasets/${encodeURIComponent(name)}/activate`, {});
+  }
+
+  static async deleteDataset(name: string): Promise<DeleteDatasetResT> {
+    return this.delete<DeleteDatasetResT>(`${this.baseURL}/en/datasets/${encodeURIComponent(name)}`);
   }
 
   static async getAuditLog(query: ListAuditQueryT): Promise<ListAuditResT> {

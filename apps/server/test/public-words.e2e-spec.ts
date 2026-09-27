@@ -659,6 +659,10 @@ describe('public API reads /api/v1/words, /random, /meta (e2e, issue #272)', () 
         license_url: 'https://creativecommons.org/licenses/by/4.0/',
         attribution: expect.stringContaining('CC BY 4.0'),
         notice: expect.stringContaining('language models'),
+        // issue #527: the dataset the instance serves and where its data comes from
+        dataset: 'default',
+        source: 'vocab-bloom-hub',
+        attribution_url: 'https://huggingface.co/datasets/Fristail27/vocab-bloom-hub-en',
         counts: {
           // headwords: sprint, run, ran, running, abandon, put up with
           entries: 6,

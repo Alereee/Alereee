@@ -1,0 +1,6 @@
+  1 A fixture in the format of wndb(5): the license text of a release is indented like this
+00001000 03 n 02 lamp 0 light 1 001 ;c 00009000 n 0000 | a device that gives light; "she switched the lamp on"; "a lamp stood in every window"  
+00002000 03 n 01 mouse 0 000 | a small animal with a long tail  
+00003000 15 n 02 Paris 0 City_of_Light 0 000 | the capital of France  
+00009000 09 n 01 engineering 0 000 | the practical application of science  
+00009100 10 n 01 slang 0 000 | informal language  

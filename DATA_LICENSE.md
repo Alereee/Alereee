@@ -1,9 +1,10 @@
 # Data license
 
 The **code** of Vocab Bloom Hub is released under the [MIT license](LICENSE). The **dictionary
-data** — the entries, meanings, examples, translations and inflected forms stored in the
-database, exported by _Export dictionary_, served by the public `/api/v1` and published as the
-HuggingFace dataset [`Fristail27/vocab-bloom-hub-en`](https://huggingface.co/datasets/Fristail27/vocab-bloom-hub-en)
+data of the project** — the entries, meanings, examples, translations and inflected forms an
+instance is born with, exported by _Export dictionary_, served by the public `/api/v1` and
+published as the HuggingFace dataset
+[`Fristail27/vocab-bloom-hub-en`](https://huggingface.co/datasets/Fristail27/vocab-bloom-hub-en)
 — is licensed separately, under the
 
 **[Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/)
@@ -20,12 +21,34 @@ A sufficient attribution:
 
 The same terms travel with the data everywhere it goes:
 
-- `manifest.json` of every export carries `license` (`"CC-BY-4.0"`) and `attribution`;
-- `GET /api/v1/meta` returns `license`, `license_url` and `attribution`;
+- `manifest.json` of every export carries `license` (`"CC-BY-4.0"`), `license_url`,
+  `attribution` and the `source`;
+- `GET /api/v1/meta` returns `license`, `license_url`, `attribution` and `source`;
 - the admin _Export dictionary_ page shows them next to the download;
 - the HuggingFace dataset card declares `license: cc-by-4.0` and ships `LICENSE` and `NOTICE`.
 
-The constant behind all of them is `apps/server/core/constants/data_license.ts`.
+The constant behind them is `apps/server/core/constants/data_license.ts`: the terms the
+project's dataset is registered with on an instance.
+
+## Datasets of other sources
+
+This license covers the project's own dataset and nothing else. An instance may hold datasets
+converted from public sources ([`docs/datasets.md`](docs/datasets.md)), and **each dataset keeps
+the license of its source**:
+
+| Dataset                         | License                                                                       |
+| ------------------------------- | ----------------------------------------------------------------------------- |
+| The project's own (`default`)   | CC BY 4.0, this file                                                          |
+| English Wiktionary (kaikki.org) | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) — share-alike |
+| Open English WordNet            | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)                     |
+| Princeton WordNet 3.x           | [WordNet license](https://wordnet.princeton.edu/license-and-commercial-use)   |
+| CMU Pronouncing Dictionary      | BSD 2-Clause, the pronunciations of a WordNet dataset converted with them     |
+
+While such a dataset is the active one, everything above — the manifest of an export,
+`/api/v1/meta`, the word pages — carries **its** terms, and whoever uses the data of that
+instance is bound by them. Datasets are never mixed, so an answer has one license. The
+converters and the code that serves the data stay MIT: the license of a source binds the data,
+not the program that reads it.
 
 ## Why CC BY 4.0
 
@@ -59,10 +82,16 @@ and applied by the owner, and a dataset revision contributed through the reposit
 licensed under the same CC BY 4.0 — the word pages say so next to the form, and
 [`CONTRIBUTING.md`](CONTRIBUTING.md#licensing-of-contributions) records it for pull requests.
 
+**A correction takes the license of the dataset it corrects.** On an instance that serves
+another dataset, an edit or an applied correction becomes part of that dataset: under
+CC BY-SA 4.0 for Wiktionary, under the license the dataset is registered with for any other.
+The form on the word page names the license before the reader sends anything.
+
 ## Your own instance
 
-A self-hosted instance ships the same license values in its exports and its `/api/v1/meta`.
-If you add data of your own under different terms, change `DATA_LICENSE` in
-`apps/server/core/constants/data_license.ts` and this file together, and make sure the terms of
-the data you started from are respected — CC BY 4.0 allows relicensing derived works, but the
-attribution to the original stays.
+A self-hosted instance ships the terms of its active dataset in its exports and its
+`/api/v1/meta`. The terms of every dataset an instance can hold are stated in the code
+(`apps/server/core/constants/dataset_catalog.ts`) and cannot be edited on an instance: what you
+edit in a dataset stays under the license of that dataset. Data under other terms is another
+dataset — a source added to the catalog with its converter
+([`apps/server/src/converters/README.md`](apps/server/src/converters/README.md)).

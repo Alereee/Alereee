@@ -350,6 +350,9 @@ class PublicMetaV1T(BaseModel):
     license_url: str
     attribution: str
     notice: str
+    dataset: str | None = None
+    source: str | None = None
+    attribution_url: str | None = None
     counts: PublicDatasetCountsV1T
     available_languages: PublicAvailableLanguagesV1T
 
@@ -383,6 +386,7 @@ class PublicWordV1T(BaseModel):
     meanings: list[PublicWordV1MeaningT]
     short_translations: list[PublicWordV1ShortTranslationT]
     phrasal_variants: list[str] | None = None
+    source: str | None = None
     id: int
     word: str
     part_of_speech: EnPartOfSpeechE

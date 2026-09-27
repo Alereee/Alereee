@@ -40,4 +40,9 @@ export class AuditLog {
 
   @Column({ type: 'varchar', length: 128, nullable: true })
   request_id!: string | null;
+
+  // the dataset that was active when the row was written (issue #527):
+  // entity ids are per dataset; null on rows older than the datasets
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  dataset!: string | null;
 }

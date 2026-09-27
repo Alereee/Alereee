@@ -47,7 +47,10 @@ list, or `true` for every hop. Leave it unset without a proxy — the server the
   explicit settings below are belt and braces.
 - **Allow long requests on `/api/*`**: an import runs for minutes (`proxy_read_timeout 600s`).
 - **Allow large request bodies on `/api/*`**: an uploaded archive is up to 512 MB (nginx:
-  `client_max_body_size 512m`; Caddy has no limit by default).
+  `client_max_body_size 512m`; Caddy has no limit by default). An instance that installs
+  datasets of public sources ([`../datasets.md`](../datasets.md)) uploads their files: the
+  extract of Wiktionary is 0.5 GB and grows, the server takes up to 2 GiB — `client_max_body_size
+2g` for the time of the installation, or for good.
 - **Add `Strict-Transport-Security`.** The other security headers come from the apps
   themselves — the server through helmet, the admin UI and the website from their Next.js
   configs (`X-Content-Type-Options: nosniff`, `X-Frame-Options` / `frame-ancestors`,

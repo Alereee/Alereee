@@ -79,6 +79,7 @@ export class EnImportDictionaryController {
       properties: {
         ...Object.fromEntries(UPLOAD_FIELDS.map((field) => [field, { type: 'string', format: 'binary' }])),
         version: { type: 'string' },
+        dataset: { type: 'string' },
         synonym_links: { type: 'integer' },
         antonym_links: { type: 'integer' },
       },
@@ -108,6 +109,7 @@ export class EnImportDictionaryController {
       byField,
       { version: body.version, synonym_links: body.synonym_links, antonym_links: body.antonym_links },
       res,
+      body.dataset,
     );
   }
 

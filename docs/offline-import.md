@@ -57,9 +57,12 @@ same sort order and title, a translation in the same language with the same titl
 translation in the same language with the same description) are skipped like duplicate entries.
 When the manifest is present
 its `version` is stored as _Your version_ after the import (and its synonym / antonym link counts
-refine the progress bar); without it the version stays unknown. The `license` and `attribution`
-fields an export writes into the manifest ([`DATA_LICENSE.md`](../DATA_LICENSE.md)) are carried
-along and not checked. Line counts for the progress bar
+refine the progress bar); without it the version stays unknown. The terms an export writes into
+the manifest — `source`, `license`, `license_url`, `attribution`, `attribution_url`, `notice`
+([`DATA_LICENSE.md`](../DATA_LICENSE.md)) — say where the export was taken from. The terms of the dataset
+the import fills are the ones the code states for it and do not change with an import; a
+manifest that names another `source` than that dataset is refused (`dataset_source_mismatch`):
+datasets are never mixed ([`datasets.md`](./datasets.md#datasets-are-never-mixed)). Line counts for the progress bar
 are always taken from the files themselves, so a hand-assembled dataset needs no bookkeeping.
 
 > [!NOTE]
@@ -104,10 +107,16 @@ curl -N -b cookies.txt -F words=@my-words.jsonl -F version=1.4.0 \
 curl -N -b cookies.txt -F short_translations_es=@es-short-translations.jsonl \
   -F meaning_translations_es=@es-meaning-translations.jsonl \
   http://localhost:3010/api/en/dictionary/import/upload
+
+# an export of a WordNet dataset into the WordNet dataset of this instance (installed when it
+# is not yet); the active one keeps serving
+curl -N -b cookies.txt -F archive=@wordnet-export.zip -F dataset=wordnet \
+  http://localhost:3010/api/en/dictionary/import/upload
 ```
 
 > [!NOTE]
-> Each upload is limited to 512 MiB; the uploaded files are deleted from the server once the
+> Each upload is limited to 512 MiB (the file of a public source on the datasets page: 2 GiB);
+> the uploaded files are deleted from the server once the
 > import has finished, whether or not it succeeded.
 
 ## Datasets on the server (`DICTIONARY_IMPORT_DIR`)

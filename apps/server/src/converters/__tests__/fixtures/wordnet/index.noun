@@ -1,0 +1,9 @@
+  1 A fixture in the format of wndb(5)
+lamp n 1 1 ;c 1 0 00001000  
+light n 1 1 ;c 1 0 00001000  
+mouse n 1 0 1 0 00002000  
+paris n 1 0 1 0 00003000  
+city_of_light n 1 0 1 0 00003000  
+engineering n 1 0 1 0 00009000  
+slang n 1 0 1 0 00009100  
+ghost n 1 0 1 0 00099999  

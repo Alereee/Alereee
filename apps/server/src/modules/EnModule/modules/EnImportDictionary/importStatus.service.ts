@@ -23,7 +23,7 @@ export class ImportStatusService {
   }
 
   /** Claims the slot; throws 409 `import_in_progress` when another import holds it */
-  begin(trigger: ImportTriggerE, label: string): void {
+  begin(trigger: ImportTriggerE, label: string, dataset?: string): void {
     if (this.status.running) {
       throw new ConflictException(ErrorCodes.import_in_progress);
     }
@@ -33,6 +33,7 @@ export class ImportStatusService {
       label,
       percent: 0,
       started_at: new Date().toISOString(),
+      ...(dataset ? { dataset } : {}),
     };
   }
 

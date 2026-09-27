@@ -2,7 +2,7 @@ import { BadRequestException, Logger } from '@nestjs/common';
 import { createReadStream } from 'node:fs';
 import { readdir, readFile, rm, stat } from 'node:fs/promises';
 import * as path from 'node:path';
-import { DatasetManifestT } from '../../../../../../types';
+import { DatasetManifestT, MANIFEST_PROVENANCE_FIELDS } from '../../../../../../types';
 import { ErrorCodes } from '../../../../../../core/constants/error_codes';
 import { DATASET_KNOWN_FILE_NAMES, MANIFEST_FILE_NAME } from '../constants';
 import { parseManifest } from '../utils/parseManifest';
@@ -80,6 +80,13 @@ export const validateDatasetDir = async (dir: string, logger: Logger): Promise<D
     ...(manifest?.generatedAt !== undefined && { generatedAt: manifest.generatedAt }),
     ...(manifest?.synonym_links !== undefined && { synonym_links: manifest.synonym_links }),
     ...(manifest?.antonym_links !== undefined && { antonym_links: manifest.antonym_links }),
+    // where the data comes from and its terms travel with it (issue #527)
+    ...Object.fromEntries(
+      MANIFEST_PROVENANCE_FIELDS.filter((field) => manifest?.[field] !== undefined).map((field) => [
+        field,
+        manifest?.[field],
+      ]),
+    ),
     files: counted,
   };
 };

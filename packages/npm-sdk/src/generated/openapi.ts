@@ -433,6 +433,7 @@ export interface components {
       meanings: components['schemas']['PublicWordV1MeaningT'][];
       short_translations: components['schemas']['PublicWordV1ShortTranslationT'][];
       phrasal_variants?: string[];
+      source?: string;
       id: number;
       word: string;
       part_of_speech: components['schemas']['EnPartOfSpeechE'];
@@ -609,6 +610,9 @@ export interface components {
       license_url: string;
       attribution: string;
       notice: string;
+      dataset?: string;
+      source?: string;
+      attribution_url?: string | null;
       counts: components['schemas']['PublicDatasetCountsV1T'];
       available_languages: components['schemas']['PublicAvailableLanguagesV1T'];
     };

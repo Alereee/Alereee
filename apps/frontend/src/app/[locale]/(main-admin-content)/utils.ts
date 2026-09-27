@@ -11,6 +11,7 @@ export const getManagingButtons = (
     { text: t('export_dictionary'), href: `/${locale}/managing/export-dictionary`, type: 'primary' as const },
     { text: t('add_word'), href: `/${locale}/managing/add-word`, type: 'primary' as const },
     { text: t('bulk_request'), href: `/${locale}/managing/bulk-request`, type: 'primary' as const },
+    { text: t('datasets'), href: `/${locale}/managing/datasets`, type: 'primary' as const },
     { text: t('edit'), href: `/${locale}/managing`, type: 'dashed' as const },
   ];
 };

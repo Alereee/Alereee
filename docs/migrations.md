@@ -13,7 +13,10 @@ All the relevant code lives in `apps/server/src/db/`:
 
 - `typeorm-options.ts` — the runtime TypeORM configuration used by `AppModule`;
 - `data-source.ts` — a CLI-only DataSource for the `typeorm` commands (requires `DATABASE_URL`);
-- `migrations/` — migration classes plus `index.ts`, the **explicit list** of every migration.
+- `migrations/` — the **shared** migrations plus `index.ts`, the **explicit list** of them;
+- `dataset-migrations/` — the migrations of the dictionary tables, run in every dataset schema,
+  with a list of their own ([below](#shared-and-dataset-migrations));
+- `datasets.ts` — runs both lists before the server's connection exists.
 
 ## Commands
 
@@ -37,6 +40,55 @@ DATABASE_URL=... yarn workspace server db:reset                                 
 > [!TIP]
 > `DATABASE_URL` may also come from the root `.env` — the CLI DataSource loads it the same way
 > the server does. A variable already set in the shell wins over the `.env` value.
+
+## Shared and dataset migrations
+
+An instance holds several datasets, each in a Postgres schema of its own
+([`database.md`](./database.md#datasets-a-schema-each)). The dictionary tables exist once per
+dataset, so their migrations run once per dataset:
+
+|                  | Shared                                                          | Dataset                                                                              |
+| ---------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Folder           | `src/db/migrations/`                                            | `src/db/dataset-migrations/`                                                         |
+| Tables           | `settings`, `datasets`, `audit_log`; the enum types; extensions | `en_entries`, `en_words`, `en_meanings`, the translations, the links, `suggestions`  |
+| Runs in          | `public`, once                                                  | every registered schema — `public` for the `default` dataset, every `ds_<name>`      |
+| Journal          | `public.migrations`                                             | `dataset_migrations` of each schema                                                  |
+| Names the schema | yes: `"public"."settings"`                                      | **never**: `"en_words"` — the `search_path` of the connection decides where it lands |
+| Runs             | at server start, first                                          | at server start, after the shared ones; and when a dataset is created                |
+
+Everything up to `AddDatasets` is history: those migrations built the dictionary tables in
+`public` before datasets existed and stay in the shared list. `DatasetBaseline` builds the same
+tables in a new schema and is recorded as applied in `public` by `AddDatasets`. **From here on a
+change to a dictionary table is a dataset migration**; `test:postgres` compares the structure of
+a new schema with `public` (columns, indexes, foreign keys) and fails when the two lists drift
+apart.
+
+Writing a dataset migration:
+
+1. Edit the entity and generate the migration as usual — the generator diffs against `public`:
+
+   ```bash
+   DATABASE_URL=... yarn workspace server migration:generate src/db/dataset-migrations/AddFrequencyRank
+   ```
+
+2. Remove every `"public".` in front of a **table or an index** in the generated SQL — the
+   generator leaves the tables unqualified and writes the schema into `DROP INDEX
+"public"."IDX_…"`. A statement that names `public` would change the `default` dataset again
+   and again and never the others.
+3. **Enum types are shared.** A new enum type or a new value of one goes into a shared migration
+   (`CREATE TYPE "public"."…"`, `ALTER TYPE "public"."…" ADD VALUE`), which runs before the
+   dataset migrations; the dataset migration only uses the type, by its qualified name.
+4. Register the class in `src/db/dataset-migrations/index.ts`.
+5. Run `yarn workspace server test:postgres`.
+
+The `migration:*` commands work on the shared list and on `public`. The dataset migrations have
+no command of their own: they are applied by the server at start (the log names every schema
+and what ran there), and that is also the way to apply them by hand — start the server.
+
+> [!CAUTION]
+> `db:reset` drops `public` only. The schemas of the datasets stay behind without a registry
+> that knows them; drop them by hand (`DROP SCHEMA ds_<name> CASCADE`) before creating a dataset
+> of the same name.
 
 ## Changing the schema: the workflow
 
@@ -95,12 +147,16 @@ Keep `down()` a real inverse of `up()` — `migration:revert` executes it.
 
 ## How migrations run on deployment
 
-The server config sets `migrationsRun: true` for Postgres, so on every start TypeORM:
+On every start on Postgres, before its own connection is opened, the server
+(`prepareDatabase` in `src/db/datasets.ts`):
 
 1. reads the `migrations` table to see what has already been applied;
-2. executes every pending migration in order inside **one transaction** (TypeORM's default
-   `migrationsTransactionMode: "all"`) and records each;
-3. only then lets Nest accept requests.
+2. executes every pending shared migration in order inside **one transaction** (TypeORM's
+   default `migrationsTransactionMode: "all"`) and records each;
+3. does the same with the dataset migrations in every schema the registry names, a transaction
+   per schema;
+4. opens its connection on the schema of the active dataset and only then lets Nest accept
+   requests.
 
 A failed migration rolls that transaction back — every migration of that start with it, so the
 database stays where the previous version left it — and **the server does not start**: better a
@@ -126,6 +182,16 @@ actually execute.
 > Skipping this step would make the first `migration:run` (or server start) fail on
 > `CREATE TABLE` statements for tables that already exist.
 
+> [!WARNING]
+> `--fake` records **every** pending migration as applied, `AddDatasets` included — and the
+> registry of the datasets it would have created is then missing. The server says so at start
+> (`The "datasets" table is missing although every shared migration is recorded as applied`).
+> Take its row back and start the server, which runs the migration for real:
+>
+> ```sql
+> DELETE FROM "migrations" WHERE "name" = 'AddDatasets1789600000000';
+> ```
+
 ## Troubleshooting
 
 - **`DATABASE_URL must be set to run migration commands`** — the CLI DataSource refuses to run
@@ -140,8 +206,15 @@ actually execute.
 - **`migration:generate` produces a huge diff or wants to drop everything** — the target
   database is not at the current schema. Run `migration:run` first (or point at the right
   database), then generate.
-- **A new migration never runs** — check it is exported from `src/db/migrations/index.ts`;
-  the array is the single source of truth for both the CLI and the server.
+- **A new migration never runs** — check it is exported from `src/db/migrations/index.ts`
+  (or `src/db/dataset-migrations/index.ts`); the array is the single source of truth for both
+  the CLI and the server.
+- **A dataset migration changed `default` and no other dataset**, or fails in the second schema
+  with `already exists` — it names `public` in front of a table, or creates an enum type. See
+  [Shared and dataset migrations](#shared-and-dataset-migrations).
+- **`The database connection is on schema "public", the active dataset lives in "ds_…"`** — a
+  connection pooler dropped the startup option that carries the `search_path`
+  ([`database.md`](./database.md#datasets-a-schema-each)).
 - **Driver mismatch errors** — entity column types are locked to a driver at import time
   (`checkIsPostgres`, see [environment.md](./environment.md#database-driver-locking)). The CLI
   DataSource loads `.env` before importing the entities for exactly this reason; always run

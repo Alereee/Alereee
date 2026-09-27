@@ -13,10 +13,14 @@ dictionary update differs from a code update. The upgrade itself, step by step:
 
 The **database behind `DATABASE_URL`** is the only state of an instance:
 
-- the dictionary — imported entries and every edit made in the admin UI;
-- the `settings` table, including the version of the last imported dataset
+- the dictionary — imported entries and every edit made in the admin UI; on an instance with
+  several datasets ([`datasets.md`](./datasets.md)), every one of them, each in a schema of its
+  own inside the same database;
+- the registry of the datasets (`datasets`) with the terms of each, and which one is active;
+- the `settings` table, including the version of the active dataset
   (`en_dataset_version`, shown by `GET /api/v1/meta`);
-- the `migrations` table — which schema migrations have been applied.
+- the `migrations` table — which schema migrations have been applied — and the
+  `dataset_migrations` of every dataset.
 
 Both processes (server and frontend) are stateless: the only files the server writes are
 temporary (under the system temp directory, while an import or export runs). A backup of the
@@ -62,6 +66,9 @@ The admin UI has _Export dictionary_ (`GET /api/en/dictionary/export`). It is no
 | Ids and timestamps | Preserved                                             | Stripped; a new import assigns new ids                            |
 | Made for           | Disaster recovery, rollback of an upgrade             | Sharing, versioning, moving content between instances, publishing |
 | Format             | Postgres-specific, tied to the schema version         | Portable, diffable, independent of the database                   |
+
+The export is taken from the **active dataset** and its manifest carries the terms of that
+dataset; the database backup holds all of them.
 
 Take the export when you want the _content_ — to publish it, diff it against the upstream
 dataset, or seed another instance ([`offline-import.md`](./offline-import.md)). Take the
@@ -118,6 +125,11 @@ The dictionary content and the code are versioned independently: the code has re
 dataset has its own version (`manifest.json`, stored after import as `en_dataset_version`,
 exposed by `GET /api/v1/meta` as `dataset_version`). Upgrading the code never changes the
 dictionary; loading a newer dataset never changes the code.
+
+Both are about the project's own dataset, the `default` one. A dataset converted from a public
+source is updated by converting the newer dump and importing it — into the same dataset in
+update mode, or into a new one that is activated when it is ready and the old one deleted
+([`datasets.md`](./datasets.md)).
 
 The import page shows both versions side by side — _Your version_ (`en_dataset_version` from
 the settings) against _Latest version_ (the published `manifest.json`) — and offers two ways to

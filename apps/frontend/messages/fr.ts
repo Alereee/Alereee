@@ -31,6 +31,21 @@ export default {
     [ErrorCodes.suggestion_invalid]: 'Les modifications proposées sont mal formées',
     [ErrorCodes.suggestion_not_applicable]:
       'Rien à appliquer : un signalement textuel, ou un signalement qui a déjà reçu un verdict',
+    [ErrorCodes.datasets_not_supported]:
+      'Cette base de données n’a pas de schémas : plusieurs jeux de données nécessitent Postgres',
+    [ErrorCodes.dataset_not_found]: 'Jeu de données introuvable',
+    [ErrorCodes.dataset_name_invalid]: 'Cette instance ne connaît aucun jeu de données de ce nom',
+    [ErrorCodes.dataset_source_invalid]:
+      'Le fichier n’est pas ce que distribue la source de ce jeu de données : téléchargez-le à nouveau comme l’indique l’instruction',
+    [ErrorCodes.dataset_not_installable]:
+      'Ce jeu de données se charge sur la page d’import, pas à partir d’un fichier d’une source',
+    [ErrorCodes.dataset_is_active]:
+      'Le jeu de données actif ne peut pas être supprimé : activez-en un autre d’abord',
+    [ErrorCodes.dataset_is_default]: 'Le jeu de données par défaut ne peut pas être supprimé',
+    [ErrorCodes.datasets_busy]:
+      'Une autre opération sur les jeux de données est en cours : réessayez dans un instant',
+    [ErrorCodes.dataset_source_mismatch]:
+      'Les données proviennent d’une autre source que celles de ce jeu. Les jeux de données ne sont jamais mélangés : importez dans un jeu à part',
   },
   header: {
     home: 'Accueil',
@@ -154,6 +169,7 @@ export default {
     entity_dictionary: 'dictionnaire',
     entity_suggestion: 'suggestion',
     empty: 'Aucune modification enregistrée pour le moment.',
+    entity_dataset: 'jeu de données',
   },
   managing: {
     add_word: 'Ajouter un mot',
@@ -163,6 +179,104 @@ export default {
     import_dictionary: 'Importer le dictionnaire',
     bulk_request: 'Requête en masse',
     export_dictionary: 'Exporter le dictionnaire',
+    datasets: 'Jeux de données',
+  },
+  // the datasets of the instance (issue #527): the catalog, the terms and the instruction
+  datasets: {
+    intro:
+      'Les jeux de données de dictionnaire que cette instance peut contenir. Chacun a ses propres entrées et la licence de sa source ; un seul est actif — celui que servent l’API et le site. Les jeux de données ne sont jamais mélangés.',
+    not_supported:
+      'Cette instance fonctionne avec SQLite, qui n’a pas de schémas : elle ne contient que le jeu de données par défaut. Installer, activer et supprimer des jeux de données nécessite une base Postgres.',
+    status_active: 'actif',
+    status_installed: 'installé',
+    status_not_installed: 'non installé',
+    label_source: 'Source',
+    label_license: 'Licence',
+    label_attribution: 'Attribution',
+    label_notice: 'Avis aux lecteurs',
+    label_size: 'Taille',
+    label_version: 'Version',
+    label_imported: 'Importé',
+    share_alike: 'partage à l’identique',
+    size: '{entries} entrées · {senses} sens · environ {size} dans la base',
+    never: 'jamais',
+    activate: 'Activer',
+    activate_confirm:
+      'Servir « {name} » à la place du jeu de données actuel ? L’API et le site basculent aussitôt.',
+    delete: 'Supprimer',
+    delete_confirm:
+      'Supprimer « {name} » avec toutes ses entrées et vos modifications ? Cette action est irréversible.',
+    cancel: 'Annuler',
+    activated: '« {name} » est maintenant le jeu de données actif',
+    deleted: 'Le jeu de données a été supprimé',
+    how_to_install: 'Comment l’installer',
+    update: 'Mettre à jour avec un fichier plus récent',
+    open_import: 'Ouvrir la page d’import',
+    about_default:
+      'Le jeu de données du projet : des entrées générées par des modèles de langage, avec les niveaux CECRL et des traductions en sept langues. Toute instance commence avec lui ; il se charge et se met à jour sur la page d’import.',
+    about_wiktionary:
+      'Le Wiktionnaire anglais, écrit par sa communauté : le plus grand des jeux de données, avec la prononciation, les formes fléchies, les synonymes et des traductions en mots isolés.',
+    about_wordnet:
+      'Open English WordNet, l’édition de WordNet maintenue ouvertement et publiée chaque année : des sens regroupés en ensembles de synonymes, avec définitions et exemples. Pas de traductions.',
+    about_wordnet_princeton:
+      'Le WordNet d’origine de l’université de Princeton, publié pour la dernière fois en 2011 et inchangé depuis. Choisissez-le s’il vous faut exactement cette édition ; celle qui est maintenue est Open English WordNet.',
+    feature_definitions: 'Définitions',
+    feature_examples: 'Exemples',
+    feature_pronunciation: 'Prononciation',
+    feature_forms: 'Formes fléchies',
+    feature_links: 'Synonymes et antonymes',
+    feature_translations: 'Traductions',
+    feature_levels: 'Niveaux CECRL',
+    feature_registers: 'Registres',
+    install_title: 'Installer : {title}',
+    update_title: 'Mettre à jour : {title}',
+    steps_title: 'Ce qu’il faut faire',
+    step_download: 'Téléchargez le fichier de la source :',
+    about_size: 'environ {size}',
+    link_direct: 'Téléchargement direct',
+    link_page: 'Page de la source',
+    step_optional_pronunciations: 'Facultatif, pour la prononciation — WordNet n’a pas la sienne :',
+    optional: 'facultatif',
+    step_attach:
+      'Joignez ci-dessous ce que vous avez téléchargé, tel quel : ne le décompressez pas, ne le renommez pas. Cliquez sur « Démarrer ».',
+    step_wait:
+      'Le serveur convertit le fichier et l’importe dans un jeu de données à part — environ {minutes} min. Le jeu actif continue d’être servi pendant ce temps ; gardez cette page ouverte.',
+    step_wait_update:
+      'Le serveur convertit le fichier et met à jour le jeu de données — environ {minutes} min. Le jeu actif continue d’être servi pendant ce temps ; gardez cette page ouverte.',
+    step_activate:
+      'Quand c’est terminé, cliquez sur « Activer » sur la carte du jeu de données. Jusque-là, rien ne change pour les lecteurs.',
+    terms_title: 'Licence et attribution',
+    terms_license: 'Les données sont distribuées sous',
+    terms_served:
+      'Tant que le jeu de données est actif, l’API, les pages de mots et les exports de cette instance portent ces conditions.',
+    terms_attribution: 'Quiconque affiche les données doit afficher cette ligne :',
+    terms_share_alike:
+      'Une licence de partage à l’identique : tout ce qui est fait à partir des données — un produit, un export, une entrée corrigée — doit rester sous la même licence.',
+    warnings_title: 'Avant de commencer',
+    warn_not_mixed:
+      'Les jeux de données ne sont jamais mélangés : rien de celui-ci ne va dans un autre, ni rien d’un autre dans celui-ci.',
+    warn_edits:
+      'Une entrée que vous modifiez dans ce jeu de données et une correction envoyée par un lecteur en font partie, sous sa licence, {license}.',
+    warn_content:
+      'Les données sont ce que la source contient. Elles n’ont pas de niveaux CECRL, et ce que la source ne dit pas reste vide : rien n’est généré ni deviné.',
+    warn_update:
+      'Une mise à jour remplace les entrées par celles du fichier plus récent. Les entrées que vous avez modifiées restent telles que vous les avez laissées ; celles qui ont disparu de la source ne sont pas supprimées.',
+    warn_disk:
+      'Le jeu de données occupe environ {size} dans la base, et le serveur a besoin d’autant d’espace libre pendant l’installation.',
+    warn_proxy:
+      'Le fichier part vers le serveur en une seule requête. Un proxy inverse placé devant le serveur doit autoriser une requête de cette taille.',
+    files_title: 'Les fichiers',
+    choose_file: 'Choisir {file}',
+    start: 'Démarrer',
+    start_update: 'Mettre à jour',
+    retry: 'Réessayer',
+    close: 'Fermer',
+    uploading: 'Envoi du fichier…',
+    converting: 'Conversion de la source…',
+    done: 'Le jeu de données est installé. Activez-le pour le servir.',
+    done_update: 'Le jeu de données est à jour.',
+    done_summary: 'Remplacées : {updated} · ajoutées : {added} · conservées avec vos modifications : {kept}',
+    too_large: 'Le fichier dépasse ce que le serveur accepte',
   },
   import_dictionary: {
     your_version: 'Votre version',
@@ -184,6 +298,7 @@ export default {
     en_saving_10: 'Enregistrement des sens...',
     en_saving_11: 'Enregistrement des traductions de sens...',
     en_saving_12: 'Enregistrement des traductions courtes...',
+    en_saving_13: 'Conversion de la source...',
     en_downloading_file: 'Téléchargement du fichier...',
     elapsed_time: 'Temps écoulé',
     retry_importing: 'Réessayer',
@@ -229,6 +344,10 @@ export default {
     server_file_empty: "Aucun jeu de données dans le répertoire d'import",
     import_dir_hint:
       'Définissez DICTIONARY_IMPORT_DIR sur le serveur pour choisir des jeux de données dans un dossier monté',
+    dataset_target: 'Importer dans',
+    dataset_active: '{name} — le jeu de données actif',
+    dataset_hint:
+      'Un import dans un autre jeu de données ne touche pas l’actif : l’API continue de le servir jusqu’à l’activation du nouveau.',
   },
   bulk_request: {
     title: 'Requête en masse',

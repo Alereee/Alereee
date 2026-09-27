@@ -1,11 +1,5 @@
 import { DataSetPhraseT } from '../../../../../../types/dictionaries/en/EnDataSetTypes';
-import {
-  EnAreaVariantsE,
-  EnPartOfSpeechE,
-  EnWordFormsE,
-  EnWordT,
-  LanguageRegisterE,
-} from '../../../../../../types';
+import { EnAreaVariantsE, EnPartOfSpeechE, EnWordFormsE, EnWordT } from '../../../../../../types';
 import { getVersion } from '../../../../../../configuration';
 import { mapMeaningFromSetToDB } from './mapMeaningFromSetToDB';
 
@@ -20,7 +14,8 @@ export const mapPhraseFromSetToDB = (ph: DataSetPhraseT): EnWordT => {
     generated: !!ph.generated,
     verb___phrasal_object_pattern: null,
     verb___transitivity: null,
-    language_register: ph.language_register || LanguageRegisterE.formal,
+    // an unset register stays unset (issue #527): a dataset of another source knows none
+    language_register: ph.language_register || null,
     categories: ph.categories,
     verb___is_phrasal: false,
     verb___is_irregular: false,

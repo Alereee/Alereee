@@ -11,6 +11,10 @@ import { PublicApiModule } from '../PublicApiModule/public-api.module';
 import { SuggestionsModule } from '../SuggestionsModule/suggestions.module';
 import { apiSurfaceMiddleware } from '../../core/middleware/api-surface.middleware';
 import { buildTypeOrmOptions } from '../../db/typeorm-options';
+import { prepareDatabase } from '../../db/datasets';
+import { DatasetsModule } from '../DatasetsModule/datasets.module';
+import { DatasetsService } from '../DatasetsModule/datasets.service';
+import { switchGateMiddleware } from '../DatasetsModule/switch-gate';
 import { HealthModule } from '../HealthModule/health.module';
 import { ImportStatusModule } from '../EnModule/modules/EnImportDictionary/importStatus.module';
 import { MetricsModule } from '../MetricsModule/metrics.module';
@@ -39,8 +43,11 @@ import { getLoggerParams } from '../../core/logging/logger';
     // the whole public prefix (PUBLIC_API_RATE_LIMIT).
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 100 }] }),
     TypeOrmModule.forRootAsync({
-      useFactory: buildTypeOrmOptions,
+      // the migrations of `public` and of every dataset schema run first, and
+      // answer the schema of the active dataset (issue #527)
+      useFactory: async () => buildTypeOrmOptions(await prepareDatabase()),
     }),
+    DatasetsModule,
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
@@ -48,7 +55,10 @@ import { getLoggerParams } from '../../core/logging/logger';
   ],
 })
 export class AppModule implements NestModule {
-  constructor(private readonly metrics: MetricsService) {}
+  constructor(
+    private readonly metrics: MetricsService,
+    private readonly datasets: DatasetsService,
+  ) {}
 
   configure(consumer: MiddlewareConsumer): void {
     if (isMetricsEnabled()) {
@@ -61,5 +71,8 @@ export class AppModule implements NestModule {
     // version header on the public prefix and the PUBLIC_API_ENABLED /
     // ADMIN_API_ENABLED switches; runs before routing so 404s are covered too
     consumer.apply(apiSurfaceMiddleware).forRoutes('*');
+    // a switch of the active dataset re-opens the database connection: the
+    // requests wait for it and it waits for them (issue #527)
+    consumer.apply(switchGateMiddleware(this.datasets.gate)).forRoutes('*');
   }
 }

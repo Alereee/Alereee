@@ -3,7 +3,8 @@
 import React from 'react';
 import { App, Button, Progress, Tabs, Typography } from 'antd';
 import { useTranslations } from 'next-intl';
-import { ImportDictionaryChunkT, ImportSourceFileT, ImportSourceKindE } from 'server/types';
+import { DatasetsListT, ImportDictionaryChunkT, ImportSourceFileT, ImportSourceKindE } from 'server/types';
+import { DEFAULT_DATASET_NAME } from 'server/core/constants/datasets';
 import { EnDictionaryImportPhasesE } from 'server/src/modules/EnModule/modules/EnImportDictionary/constants';
 import { ErrorCodes } from 'server/core/constants/error_codes';
 import { EnApi } from '@/core/api/EnApi';
@@ -26,12 +27,34 @@ type ImportDictionarySectionP = {
   // dataset version from the published manifest, fetched server-side;
   // undefined when the dataset has no manifest yet
   latestVersion?: string | undefined;
+  // the datasets of the instance (issue #527); absent when the list could not be read
+  datasets?: DatasetsListT | undefined;
+  // the dataset the page was opened for (the "import into it" link of the datasets page)
+  initialTarget?: string | undefined;
 };
 
 export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
   yourVersion,
   latestVersion: latestVersionProp,
+  datasets,
+  initialTarget,
 }) => {
+  // Where the import writes (issue #527): the active dataset or another one
+  // the instance holds. A dataset of a public source is installed on the
+  // datasets page, from the file of its source; what is imported here is a
+  // dataset in the project's format — the published one, an export. Only a
+  // driver with schemas offers the choice, and only when there is one.
+  const installed = (datasets?.datasets ?? []).filter((d) => d.installed);
+  const canChooseTarget = !!datasets?.supported && installed.length > 1;
+  const activeName = datasets?.active ?? DEFAULT_DATASET_NAME;
+  const [target, setTarget] = React.useState<string>(
+    canChooseTarget && initialTarget && installed.some((d) => d.name === initialTarget)
+      ? initialTarget
+      : activeName,
+  );
+  // what the request names: nothing for the active dataset, as before
+  const targetName = !canChooseTarget || target === activeName ? undefined : target;
+  const intoActive = targetName === undefined;
   const [percents, setPercents] = React.useState<number>(0);
   const [status, setStatus] = React.useState<ImportStatusE>(ImportStatusE.idle);
   const [statusMessage, setStatusMessage] = React.useState<string>('');
@@ -42,7 +65,11 @@ export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
     kept: number;
   } | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState<number>(0);
-  const [installedVersion, setInstalledVersion] = React.useState<string | undefined>(yourVersion);
+  const [activeVersion, setInstalledVersion] = React.useState<string | undefined>(yourVersion);
+  // the version the chosen dataset holds: the active one's from the settings, another one's from the registry
+  const installedVersion = intoActive
+    ? activeVersion
+    : (datasets?.datasets.find((d) => d.name === targetName)?.version ?? undefined);
   const [latestVersion, setLatestVersion] = React.useState<string | undefined>(latestVersionProp);
   // where the next import reads from (issue #269): the published dataset, an
   // archive (uploaded or picked on the server) or the dataset files in slots
@@ -159,24 +186,28 @@ export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
         const manual = manifestMode === ManifestModeE.manual;
         return EnApi.uploadDictionary(
           manual ? jsonl : slotFiles,
-          manual
-            ? {
-                version: manualManifest.version.trim() || undefined,
-                synonym_links:
-                  manualManifest.synonym_links === '' ? undefined : Number(manualManifest.synonym_links),
-                antonym_links:
-                  manualManifest.antonym_links === '' ? undefined : Number(manualManifest.antonym_links),
-              }
-            : {},
+          {
+            ...(manual
+              ? {
+                  version: manualManifest.version.trim() || undefined,
+                  synonym_links:
+                    manualManifest.synonym_links === '' ? undefined : Number(manualManifest.synonym_links),
+                  antonym_links:
+                    manualManifest.antonym_links === '' ? undefined : Number(manualManifest.antonym_links),
+                }
+              : {}),
+            dataset: targetName,
+          },
           handleChunk,
           onError,
         );
       }
       if (sourceTab === ImportSourceTabE.archive && archive) {
-        return EnApi.uploadDictionary({ archive }, {}, handleChunk, onError);
+        return EnApi.uploadDictionary({ archive }, { dataset: targetName }, handleChunk, onError);
       }
       return EnApi.importDictionary(
         {
+          ...(targetName ? { dataset: targetName } : {}),
           ...(sourceTab === ImportSourceTabE.archive && serverPath
             ? { source: { kind: ImportSourceKindE.file, path: serverPath } }
             : fromHuggingFace && revision
@@ -201,7 +232,7 @@ export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
       return;
     }
 
-    if (seenDatasetVersion) {
+    if (seenDatasetVersion && intoActive) {
       setInstalledVersion(seenDatasetVersion);
     }
     setStatus(ImportStatusE.success);
@@ -218,6 +249,23 @@ export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
 
   return (
     <div className={styles.importDictionarySection}>
+      {canChooseTarget && (
+        <div className={styles.target}>
+          <Select<string>
+            label={t('dataset_target')}
+            value={target}
+            disabled={inProgress}
+            onChange={(value) => setTarget(value)}
+            options={[
+              { value: activeName, label: t('dataset_active', { name: activeName }) },
+              ...installed
+                .filter((d) => d.name !== activeName)
+                .map((d) => ({ value: d.name, label: `${d.name} — ${d.title}` })),
+            ]}
+          />
+          {!intoActive && <Text type="secondary">{t('dataset_hint')}</Text>}
+        </div>
+      )}
       <Tabs
         activeKey={sourceTab}
         onChange={(key) => !inProgress && setSourceTab(key as ImportSourceTabE)}

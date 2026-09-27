@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
 import { LessThan, Repository } from 'typeorm';
 import { ConfigurationError } from '../../../configuration';
+import { getActiveDatasetName } from '../../core/utils/active-dataset';
 import {
   AuditActionE,
   AuditDiffT,
@@ -69,6 +70,7 @@ export class AuditService implements OnApplicationBootstrap, OnModuleDestroy {
           headword: entry.headword ?? null,
           diff: entry.diff ?? null,
           request_id: this.requestId(),
+          dataset: getActiveDatasetName(),
         }),
       );
     } catch (error) {
@@ -130,6 +132,7 @@ export class AuditService implements OnApplicationBootstrap, OnModuleDestroy {
       headword: row.headword,
       diff: row.diff,
       request_id: row.request_id,
+      dataset: row.dataset ?? null,
     };
   }
 

@@ -7,6 +7,10 @@ to report errors. The terms of use are in [`DATA_LICENSE.md`](../DATA_LICENSE.md
 its dataset card is the full, revision-specific version of this page (counts per model, field
 statistics, content notes).
 
+This page is about **the project's own dataset**, the one an instance is born with. An instance
+can hold datasets of other sources next to it — the English Wiktionary, WordNet — each under the
+terms of its source: [Datasets from other sources](#datasets-from-other-sources).
+
 ## Where the data comes from
 
 Every entry is produced by an **LLM-assisted pipeline** — a model is asked for the entry
@@ -74,6 +78,32 @@ carries them in the `meanings` file (earlier datasets nested the meanings in the
 > [!NOTE]
 > The data contains no personal information.
 
+## Datasets from other sources
+
+An instance on PostgreSQL keeps several datasets, one of them active
+([`datasets.md`](./datasets.md)). The datasets page of the admin UI installs a dataset of a
+public source from the file the source distributes — the server converts it:
+
+| Source                     | License of the data | What an entry has                                                                        | What it lacks                                     |
+| -------------------------- | ------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| English Wiktionary         | CC BY-SA 4.0        | definitions, examples, IPA, forms, synonyms and antonyms, translations as single words   | CEFR levels, definitions of the translated senses |
+| Open English WordNet       | CC BY 4.0           | definitions, examples, synonyms and antonyms, irregular plurals and degrees              | translations, levels, registers, verb forms       |
+| Princeton WordNet 3.x      | WordNet license     | the same                                                                                 | the same                                          |
+| CMU Pronouncing Dictionary | BSD 2-Clause        | pronunciations of American English for the WordNet entries, turned from ARPAbet into IPA | —                                                 |
+
+Such data is written by people, not generated: `generated` is false on every entry and the
+notice about language models does not apply — a dataset carries the notice of its own source,
+or none. Three things follow from keeping the sources apart:
+
+- **A dataset has one source and one license.** Nothing of the project's dataset is added to a
+  Wiktionary entry, no translation is borrowed from one dataset for another.
+- **The license of the active dataset is the license of what the instance serves**: the API
+  answers, the exports, the corrections the readers send. Wiktionary is share-alike — a product
+  built on an instance that serves it keeps derived data under CC BY-SA 4.0.
+- **Fields the source does not have stay empty** (`""` for the enums, as everywhere): no level
+  is guessed, no register is assumed, an irregular verb of WordNet is flagged without forms
+  because the source does not say which form is which.
+
 ## Dataset versions
 
 Each published revision of the HuggingFace dataset carries its version in `manifest.json`
@@ -106,7 +136,8 @@ next export):
   through the normal edit flow: audited, and the entry is marked as the owner's). The loop
   stays inside the instance deliberately: its dictionary may hold the owner's edits the
   published dataset does not have. An applied correction is dictionary data like the rest and
-  is published under CC BY 4.0 — the form says so.
+  takes the license of the dataset it corrects — CC BY 4.0 for the project's own, the license
+  of the source for another; the form names it.
 - **Against the published dataset itself** (a wrong definition, translation, level or missing
   word in what HuggingFace serves) →
   [open an issue](https://github.com/Fristail27/vocab-bloom-hub/issues) with the bug template,
@@ -117,11 +148,17 @@ next export):
 
 ## Where the terms are exposed
 
-| Place                           | What it carries                                                            |
-| ------------------------------- | -------------------------------------------------------------------------- |
-| `manifest.json` of every export | `license: "CC-BY-4.0"`, `attribution`                                      |
-| `GET /api/v1/meta`              | `license`, `license_url`, `attribution`, `notice` (see [`api.md`](api.md)) |
-| Admin → _Export dictionary_     | License name, link and attribution line next to the download               |
-| HuggingFace dataset card        | `license: cc-by-4.0` front matter, `LICENSE`, `NOTICE`, this notice        |
+| Place                           | What it carries                                                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `manifest.json` of every export | `source`, `license`, `license_url`, `attribution`, `attribution_url`, `notice`                                 |
+| `GET /api/v1/meta`              | `dataset`, `source`, `license`, `license_url`, `attribution`, `attribution_url`, `notice` ([`api.md`](api.md)) |
+| Every word of `/api/v1`         | `source`                                                                                                       |
+| Word pages of the website       | The license and the attribution of the dataset under every entry and next to _Report a mistake_                |
+| Admin → _Datasets_              | The terms of every dataset of the catalog, as the code states them                                             |
+| Admin → _Export dictionary_     | License, link and attribution line next to the download                                                        |
+| HuggingFace dataset card        | `license: cc-by-4.0` front matter, `LICENSE`, `NOTICE`, this notice (the project's dataset)                    |
 
-All of them read `DATA_LICENSE` from `apps/server/core/constants/data_license.ts`.
+All of them but the dataset card carry the terms of the **active dataset**, and those are the
+ones the catalog of the code states for it (`apps/server/core/constants/dataset_catalog.ts`;
+`DATA_LICENSE` of `data_license.ts` for the project's own dataset). Nothing about the terms is
+typed by an admin or taken from an imported file.

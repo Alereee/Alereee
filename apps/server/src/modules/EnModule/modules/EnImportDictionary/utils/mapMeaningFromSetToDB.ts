@@ -1,5 +1,5 @@
 import { EnMeaningDST } from '../../../../../../types/dictionaries/en/EnDataSetTypes';
-import { EnAreaVariantsE, EnMeaningT, LanguageRegisterE } from '../../../../../../types';
+import { EnAreaVariantsE, EnMeaningT } from '../../../../../../types';
 import { wordLinksFromDataSet } from './wordLinksFromDataSet';
 
 /**
@@ -14,7 +14,8 @@ export const mapMeaningFromSetToDB = (m: EnMeaningDST | Omit<EnMeaningDST, 'tran
     ...m,
     id: 0,
     meaning_level: m.meaning_level || null,
-    language_register: m.language_register || LanguageRegisterE.formal,
+    // an unset register stays unset (issue #527): a dataset of another source knows none
+    language_register: m.language_register || null,
     area_variant: m.area_variant || EnAreaVariantsE.common,
     synonyms: wordLinksFromDataSet(m.synonyms),
     antonyms: wordLinksFromDataSet(m.antonyms),

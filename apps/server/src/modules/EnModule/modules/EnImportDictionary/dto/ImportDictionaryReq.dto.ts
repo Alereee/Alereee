@@ -12,6 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ImportSourceKindE } from '../../../../../../types';
+import { DATASET_TARGET_PATTERN } from '../../../../../../core/constants/datasets';
 
 export class ImportDictionarySourceDTO {
   @ApiProperty({ enum: ImportSourceKindE })
@@ -57,4 +58,13 @@ export class ImportDictionaryReq {
   @IsOptional()
   @IsBoolean()
   update?: boolean | undefined;
+
+  // The dataset of the instance to import into (issue #527): the active one
+  // when absent. A name that is not registered yet creates the dataset — a
+  // schema of its own — and the active dataset keeps serving meanwhile.
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @Matches(DATASET_TARGET_PATTERN, { message: 'dataset_name_invalid' })
+  dataset?: string | undefined;
 }

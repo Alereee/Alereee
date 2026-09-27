@@ -28,6 +28,9 @@ const HOP_BY_HOP = new Set([
   // fetch decompresses the upstream body; the browser must not see the original encoding
   'content-encoding',
   'accept-encoding',
+  // `Expect: 100-continue` is a handshake of the client with this hop (curl sends it with a
+  // large upload); fetch refuses to pass it on and the request would fail
+  'expect',
 ]);
 
 /** Where the API is from the frontend process: API_INTERNAL_URL, else the server on this host */

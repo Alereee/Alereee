@@ -213,10 +213,10 @@ export default {
     suggest_field_definition: 'Определение',
     from_api: 'Эта страница —',
     try_in_playground: 'попробовать в плейграунде',
-    license_note: 'данные под CC BY 4.0',
+    license_note: 'данные под {license}',
     ai_note: 'сгенерировано ИИ, возможны ошибки',
     report_license_note:
-      'Принятая владельцем правка становится частью данных словаря и публикуется под CC BY 4.0.',
+      'Принятая владельцем правка становится частью данных словаря и публикуется под {license}.',
   },
   footer: {
     code_license: 'Код: MIT',

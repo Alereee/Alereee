@@ -285,3 +285,80 @@ describe('ImportDictionarySection', () => {
     });
   });
 });
+
+// The dataset an import writes into (issue #527)
+describe('ImportDictionarySection: the target dataset', () => {
+  const datasets = {
+    supported: true,
+    active: 'default',
+    datasets: [
+      { name: 'default', title: 'Own', installed: true, version: '1.0.0', active: true, is_default: true },
+      { name: 'wiktionary', title: 'Wiktionary', installed: true, version: '2026.09', active: false },
+      // a dataset of the catalog the instance does not hold is no target of an import
+      { name: 'wordnet', title: 'WordNet', installed: false, version: null, active: false },
+    ],
+  } as unknown as React.ComponentProps<typeof ImportDictionarySection>['datasets'];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (EnApi.getImportSources as jest.Mock).mockResolvedValue({
+      import_dir_configured: false,
+      files: [],
+      revisions: [],
+    });
+    (EnApi.getImportStatus as jest.Mock).mockResolvedValue({ running: false });
+  });
+
+  it('offers no choice on a driver without schemas and names no dataset in the request', async () => {
+    mockImportStreaming(completedChunks);
+    renderSection({ datasets: { ...datasets!, supported: false } });
+
+    expect(screen.queryByText('dataset_target')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('start_importing'));
+    await screen.findByText('100.00%');
+    expect(EnApi.importDictionary).toHaveBeenCalledWith({}, expect.any(Function), expect.any(Function));
+  });
+
+  it('imports into the active dataset by default, without naming it', async () => {
+    mockImportStreaming(completedChunks);
+    renderSection({ datasets, yourVersion: '1.0.0' });
+
+    expect(screen.getByText('dataset_target')).toBeInTheDocument();
+    expect(screen.queryByText('dataset_hint')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('start_importing'));
+    await screen.findByText('100.00%');
+    expect(EnApi.importDictionary).toHaveBeenCalledWith({}, expect.any(Function), expect.any(Function));
+  });
+
+  it('names the dataset the page was opened for and shows the version that dataset holds', async () => {
+    mockImportStreaming(completedChunks);
+    renderSection({ datasets, yourVersion: '1.0.0', initialTarget: 'wiktionary' });
+
+    expect(screen.getByText('dataset_hint')).toBeInTheDocument();
+    expect(screen.getByText('your_version: 2026.09')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('start_importing'));
+    await screen.findByText('100.00%');
+    expect(EnApi.importDictionary).toHaveBeenCalledWith(
+      { dataset: 'wiktionary' },
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('ignores a dataset of the link that is not installed', () => {
+    renderSection({ datasets, initialTarget: 'wordnet' });
+
+    expect(screen.queryByText('dataset_hint')).not.toBeInTheDocument();
+  });
+
+  it('offers no choice while the default dataset is the only one installed', () => {
+    renderSection({
+      datasets: {
+        ...datasets!,
+        datasets: datasets!.datasets.filter((dataset) => dataset.name !== 'wiktionary'),
+      },
+    });
+
+    expect(screen.queryByText('dataset_target')).not.toBeInTheDocument();
+  });
+});

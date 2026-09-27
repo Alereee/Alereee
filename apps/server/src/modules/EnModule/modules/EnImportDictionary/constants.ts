@@ -14,6 +14,9 @@ export enum EnDictionaryImportPhasesE {
   saving_meanings,
   saving_meaning_translations,
   saving_short_translations,
+  // a file of a public source being turned into the project's format (issue #527);
+  // like the download, the stage reports its own bytes
+  converting_source,
 }
 
 export const SYSTEM_FIELDS = ['id', 'createdAt', 'updateAt', 'updatedAt'];

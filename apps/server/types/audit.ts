@@ -25,6 +25,8 @@ export enum AuditEntityTypeE {
   setting = 'setting',
   dictionary = 'dictionary',
   suggestion = 'suggestion',
+  // a dataset created, activated, edited or deleted (issue #527)
+  dataset = 'dataset',
 }
 
 /** Only the fields that changed: `{ field: { before, after } }` */
@@ -43,6 +45,8 @@ export type AuditEntryT = {
   diff: AuditDiffT | null;
   /** The x-request-id of the admin request, to find its log lines (issue #280) */
   request_id: string | null;
+  /** The dataset that was active when the change was made (issue #527); null on rows older than the datasets */
+  dataset: string | null;
 };
 
 /** Query of GET /api/en/audit (mirrors ListAuditQueryDTO) */

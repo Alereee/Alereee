@@ -31,6 +31,20 @@ export default {
     [ErrorCodes.suggestion_invalid]: 'As alterações propostas estão malformadas',
     [ErrorCodes.suggestion_not_applicable]:
       'Nada a aplicar: um relato em texto, ou um relato que já recebeu um veredito',
+    [ErrorCodes.datasets_not_supported]:
+      'Este banco de dados não tem esquemas: vários conjuntos de dados exigem Postgres',
+    [ErrorCodes.dataset_not_found]: 'Conjunto de dados não encontrado',
+    [ErrorCodes.dataset_name_invalid]: 'Esta instância não conhece nenhum conjunto de dados com esse nome',
+    [ErrorCodes.dataset_source_invalid]:
+      'O arquivo não é o que a fonte deste conjunto de dados distribui: baixe-o novamente como diz a instrução',
+    [ErrorCodes.dataset_not_installable]:
+      'Este conjunto de dados é carregado na página de importação, não a partir de um arquivo de uma fonte',
+    [ErrorCodes.dataset_is_active]: 'O conjunto de dados ativo não pode ser excluído — ative outro primeiro',
+    [ErrorCodes.dataset_is_default]: 'O conjunto de dados padrão não pode ser excluído',
+    [ErrorCodes.datasets_busy]:
+      'Outra operação com conjuntos de dados está em andamento — tente novamente em instantes',
+    [ErrorCodes.dataset_source_mismatch]:
+      'Os dados vêm de outra fonte que a deste conjunto. Os conjuntos de dados nunca são misturados: importe para um conjunto próprio',
   },
   header: {
     home: 'Início',
@@ -154,6 +168,7 @@ export default {
     entity_dictionary: 'dicionário',
     entity_suggestion: 'sugestão',
     empty: 'Nenhuma alteração registrada ainda.',
+    entity_dataset: 'conjunto de dados',
   },
   managing: {
     add_word: 'Adicionar palavra',
@@ -163,6 +178,104 @@ export default {
     import_dictionary: 'Importar dicionário',
     bulk_request: 'Requisição em massa',
     export_dictionary: 'Exportar dicionário',
+    datasets: 'Conjuntos de dados',
+  },
+  // the datasets of the instance (issue #527): the catalog, the terms and the instruction
+  datasets: {
+    intro:
+      'Os conjuntos de dados de dicionário que esta instância pode conter. Cada um tem suas próprias entradas e a licença de sua fonte; apenas um está ativo — o que a API e o site servem. Os conjuntos de dados nunca são misturados.',
+    not_supported:
+      'Esta instância usa SQLite, que não tem esquemas: contém apenas o conjunto de dados padrão. Instalar, ativar e excluir conjuntos de dados exige um banco de dados Postgres.',
+    status_active: 'ativo',
+    status_installed: 'instalado',
+    status_not_installed: 'não instalado',
+    label_source: 'Fonte',
+    label_license: 'Licença',
+    label_attribution: 'Atribuição',
+    label_notice: 'Aviso aos leitores',
+    label_size: 'Tamanho',
+    label_version: 'Versão',
+    label_imported: 'Importado',
+    share_alike: 'compartilha igual',
+    size: '{entries} entradas · {senses} acepções · cerca de {size} no banco de dados',
+    never: 'nunca',
+    activate: 'Ativar',
+    activate_confirm:
+      'Servir “{name}” no lugar do conjunto de dados atual? A API e o site mudam imediatamente.',
+    delete: 'Excluir',
+    delete_confirm:
+      'Excluir “{name}” com todas as suas entradas e as suas edições? Esta ação não pode ser desfeita.',
+    cancel: 'Cancelar',
+    activated: '“{name}” agora é o conjunto de dados ativo',
+    deleted: 'O conjunto de dados foi excluído',
+    how_to_install: 'Como instalar',
+    update: 'Atualizar com um arquivo mais recente',
+    open_import: 'Abrir a página de importação',
+    about_default:
+      'O conjunto de dados do projeto: entradas geradas por modelos de linguagem, com níveis CEFR e traduções para sete idiomas. Toda instância começa com ele; é carregado e atualizado na página de importação.',
+    about_wiktionary:
+      'O Wikcionário em inglês, escrito por sua comunidade: o maior dos conjuntos de dados, com pronúncia, formas flexionadas, sinônimos e traduções como palavras isoladas.',
+    about_wordnet:
+      'Open English WordNet, a edição do WordNet mantida abertamente e publicada todo ano: acepções agrupadas em conjuntos de sinônimos, com definições e exemplos. Sem traduções.',
+    about_wordnet_princeton:
+      'O WordNet original da Universidade de Princeton, publicado pela última vez em 2011 e inalterado desde então. Escolha-o se precisar exatamente desta edição; a que é mantida é o Open English WordNet.',
+    feature_definitions: 'Definições',
+    feature_examples: 'Exemplos',
+    feature_pronunciation: 'Pronúncia',
+    feature_forms: 'Formas flexionadas',
+    feature_links: 'Sinônimos e antônimos',
+    feature_translations: 'Traduções',
+    feature_levels: 'Níveis CEFR',
+    feature_registers: 'Registros',
+    install_title: 'Instalar: {title}',
+    update_title: 'Atualizar: {title}',
+    steps_title: 'O que fazer',
+    step_download: 'Baixe o arquivo da fonte:',
+    about_size: 'cerca de {size}',
+    link_direct: 'Download direto',
+    link_page: 'Página da fonte',
+    step_optional_pronunciations: 'Opcional, para a pronúncia — o WordNet não tem a sua:',
+    optional: 'opcional',
+    step_attach:
+      'Anexe abaixo o que você baixou, como está: não descompacte nem renomeie. Clique em “Iniciar”.',
+    step_wait:
+      'O servidor converte o arquivo e o importa para um conjunto de dados próprio — cerca de {minutes} min. O conjunto ativo continua sendo servido enquanto isso; mantenha esta página aberta.',
+    step_wait_update:
+      'O servidor converte o arquivo e atualiza o conjunto de dados — cerca de {minutes} min. O conjunto ativo continua sendo servido enquanto isso; mantenha esta página aberta.',
+    step_activate:
+      'Quando terminar, clique em “Ativar” no cartão do conjunto de dados. Até lá, nada muda para os leitores.',
+    terms_title: 'Licença e atribuição',
+    terms_license: 'Os dados são distribuídos sob',
+    terms_served:
+      'Enquanto o conjunto de dados estiver ativo, a API, as páginas de palavras e as exportações desta instância levam estas condições.',
+    terms_attribution: 'Quem mostra os dados precisa mostrar esta linha:',
+    terms_share_alike:
+      'Uma licença de compartilhamento igual: tudo o que for feito a partir dos dados — um produto, uma exportação, uma entrada corrigida — precisa continuar sob a mesma licença.',
+    warnings_title: 'Antes de começar',
+    warn_not_mixed:
+      'Os conjuntos de dados nunca são misturados: nada deste vai para outro, nem nada de outro para este.',
+    warn_edits:
+      'Uma entrada que você edita neste conjunto e uma correção enviada por um leitor passam a fazer parte dele, sob a sua licença, {license}.',
+    warn_content:
+      'Os dados são o que a fonte tem. Não têm níveis CEFR, e o que a fonte não diz fica vazio: nada é gerado nem adivinhado.',
+    warn_update:
+      'Uma atualização substitui as entradas pelas do arquivo mais recente. As entradas que você editou ficam como você as deixou; as que sumiram da fonte não são excluídas.',
+    warn_disk:
+      'O conjunto de dados ocupa cerca de {size} no banco de dados, e o servidor precisa de outro tanto de espaço livre durante a instalação.',
+    warn_proxy:
+      'O arquivo vai para o servidor em uma única requisição. Um proxy reverso na frente do servidor precisa permitir uma requisição desse tamanho.',
+    files_title: 'Os arquivos',
+    choose_file: 'Escolher {file}',
+    start: 'Iniciar',
+    start_update: 'Atualizar',
+    retry: 'Tentar novamente',
+    close: 'Fechar',
+    uploading: 'Enviando o arquivo…',
+    converting: 'Convertendo a fonte…',
+    done: 'O conjunto de dados está instalado. Ative-o para servi-lo.',
+    done_update: 'O conjunto de dados está atualizado.',
+    done_summary: 'Substituídas: {updated} · adicionadas: {added} · mantidas com as suas edições: {kept}',
+    too_large: 'O arquivo é maior do que o servidor aceita',
   },
   import_dictionary: {
     your_version: 'Sua versão',
@@ -184,6 +297,7 @@ export default {
     en_saving_10: 'Salvando significados...',
     en_saving_11: 'Salvando traduções de significados...',
     en_saving_12: 'Salvando traduções curtas...',
+    en_saving_13: 'Convertendo a fonte...',
     en_downloading_file: 'Baixando arquivo...',
     elapsed_time: 'Tempo decorrido',
     retry_importing: 'Tentar novamente',
@@ -227,6 +341,10 @@ export default {
     server_file_placeholder: 'Ou escolha um dataset no servidor',
     server_file_empty: 'Nenhum dataset no diretório de importação',
     import_dir_hint: 'Defina DICTIONARY_IMPORT_DIR no servidor para escolher datasets de uma pasta montada',
+    dataset_target: 'Importar para',
+    dataset_active: '{name} — o conjunto de dados ativo',
+    dataset_hint:
+      'Importar para outro conjunto de dados não afeta o ativo: a API continua a servi-lo até você ativar o novo.',
   },
   bulk_request: {
     title: 'Requisição em massa',

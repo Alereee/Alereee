@@ -149,7 +149,8 @@ describe('mapWordFromSetToDB', () => {
     );
 
     expect(res.area_variant).toBe(EnAreaVariantsE.common);
-    expect(res.language_register).toBe(LanguageRegisterE.formal);
+    // an unset register stays unset (issue #527): a dataset of another source knows none
+    expect(res.language_register).toBeNull();
     expect(res.word_level).toBeNull();
     expect(res.verb___transitivity).toBeNull();
     expect(res.verb___phrasal_object_pattern).toBeNull();

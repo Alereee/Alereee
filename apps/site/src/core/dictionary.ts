@@ -1,8 +1,9 @@
 import 'server-only';
 
-import type { PublicHeadwordV1ResT, PublicWordV1ResT } from 'server/types';
+import type { PublicHeadwordV1ResT, PublicMetaV1ResT, PublicWordV1ResT } from 'server/types';
 
 import { serverApiBase } from './apiBase';
+import { DatasetTermsT, OWN_DATASET_TERMS } from './datasetTerms';
 import { getWithOneRetry, internalApiHeaders } from './internalApi';
 
 // The word pages are rendered on the server from the instance's public API
@@ -57,5 +58,30 @@ export const fetchRandomWord = async (): Promise<string | null> => {
     return ((await res.json()) as PublicWordV1ResT).data.word;
   } catch {
     return null;
+  }
+};
+
+/** GET /api/v1/meta, reduced to the terms of the data; the project's own when the API does not say */
+export const fetchDatasetTerms = async (): Promise<DatasetTermsT> => {
+  try {
+    const res = await getWithOneRetry(() =>
+      fetch(`${serverApiBase()}/v1/meta`, {
+        headers: internalApiHeaders(),
+        next: { revalidate: REVALIDATE_SECONDS },
+      }),
+    );
+    if (!res.ok) return OWN_DATASET_TERMS;
+    const { data } = (await res.json()) as PublicMetaV1ResT;
+    if (!data.source) return OWN_DATASET_TERMS;
+    return {
+      source: data.source,
+      license: data.license,
+      license_url: data.license_url,
+      attribution: data.attribution,
+      attribution_url: data.attribution_url ?? null,
+      notice: data.notice,
+    };
+  } catch {
+    return OWN_DATASET_TERMS;
   }
 };

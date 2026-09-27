@@ -3,7 +3,7 @@
 import React from 'react';
 import { App, Button, Progress, Typography } from 'antd';
 import { useTranslations } from 'next-intl';
-import { ImportDictionaryChunkT } from 'server/types';
+import { DatasetT, ImportDictionaryChunkT } from 'server/types';
 import { EnApi } from '@/core/api/EnApi';
 import { EnDictionaryImportPhasesE } from 'server/src/modules/EnModule/modules/EnImportDictionary/constants';
 import { AbstractBaseApi } from '@/core/api/AbstractBaseApi';
@@ -14,7 +14,20 @@ import styles from './styles.module.scss';
 
 const { Text } = Typography;
 
-export const ExportDictionarySection: React.FC = () => {
+type ExportDictionarySectionP = {
+  // the active dataset (issue #527): the export is taken from it and carries
+  // its terms; without it the terms of the project's own dataset are shown
+  dataset?: DatasetT | undefined;
+};
+
+export const ExportDictionarySection: React.FC<ExportDictionarySectionP> = ({ dataset }) => {
+  const terms = dataset
+    ? { label: dataset.license, url: dataset.license_url, attribution: dataset.attribution }
+    : {
+        label: `${DATA_LICENSE.name} (${DATA_LICENSE.spdx})`,
+        url: DATA_LICENSE.url,
+        attribution: DATA_LICENSE.attribution,
+      };
   const [percents, setPercents] = React.useState<number>(0);
   const [status, setStatus] = React.useState<ExportStatusE>(ExportStatusE.idle);
   const [statusMessage, setStatusMessage] = React.useState<string>('');
@@ -129,13 +142,19 @@ export const ExportDictionarySection: React.FC = () => {
       <div className={styles.license}>
         <Text type="secondary">
           {t('data_license')}{' '}
-          <a href={DATA_LICENSE.url} target="_blank" rel="noreferrer noopener">
-            {DATA_LICENSE.name} ({DATA_LICENSE.spdx})
-          </a>
+          {terms.url ? (
+            <a href={terms.url} target="_blank" rel="noreferrer noopener">
+              {terms.label}
+            </a>
+          ) : (
+            terms.label
+          )}
         </Text>
-        <Text type="secondary">
-          {t('data_attribution')} {DATA_LICENSE.attribution}
-        </Text>
+        {terms.attribution && (
+          <Text type="secondary">
+            {t('data_attribution')} {terms.attribution}
+          </Text>
+        )}
       </div>
     </div>
   );

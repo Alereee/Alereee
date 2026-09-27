@@ -1,3 +1,4 @@
+import { getActiveDatasetSource } from '../../../core/utils/active-dataset';
 import { EnWord } from '../../EnModule/entities/en_word.entity';
 import { EnMeaning } from '../../EnModule/entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../../EnModule/entities/en_meaning_translation.entity';
@@ -112,6 +113,8 @@ export type PublicWordOptionsT = PublicTranslationFilterT & {
   // the phrasal variants were loaded: list them (absent otherwise)
   with_phrasal_variants?: boolean;
   similarity?: number | undefined;
+  // the source of the dataset the row was read from; the active one's when absent
+  source?: string;
 };
 
 /** The full entry: the search item plus meanings, short translations and, when loaded, phrasal variants */
@@ -126,4 +129,5 @@ export const toPublicWord = (row: EnWord, options: PublicWordOptionsT = {}): Pub
   ...(options.with_phrasal_variants && {
     phrasal_variants: (row.phrasal_variants ?? []).map((variant) => variant.word.word),
   }),
+  source: options.source ?? getActiveDatasetSource(),
 });

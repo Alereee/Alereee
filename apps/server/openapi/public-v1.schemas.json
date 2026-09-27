@@ -378,6 +378,9 @@
           "type": "string"
         }
       },
+      "source": {
+        "type": "string"
+      },
       "id": {
         "type": "integer"
       },
@@ -1210,6 +1213,16 @@
       },
       "notice": {
         "type": "string"
+      },
+      "dataset": {
+        "type": "string"
+      },
+      "source": {
+        "type": "string"
+      },
+      "attribution_url": {
+        "type": "string",
+        "nullable": true
       },
       "counts": {
         "$ref": "#/components/schemas/PublicDatasetCountsV1T"

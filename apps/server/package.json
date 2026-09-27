@@ -55,7 +55,8 @@
     "test:debug": "node --experimental-vm-modules --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json",
     "test:postgres": "NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-postgres.json --runInBand",
-    "fixture:public-api": "ts-node -r tsconfig-paths/register test/harness/public-api-fixture.ts"
+    "fixture:public-api": "ts-node -r tsconfig-paths/register test/harness/public-api-fixture.ts",
+    "convert": "ts-node -r tsconfig-paths/register src/converters/cli.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.4",

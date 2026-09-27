@@ -1,5 +1,5 @@
 import { DataSetWordT } from '../../../../../../types/dictionaries/en/EnDataSetTypes';
-import { EnAreaVariantsE, EnWordFormsE, LanguageRegisterE } from '../../../../../../types';
+import { EnAreaVariantsE, EnWordFormsE } from '../../../../../../types';
 import { getVersion } from '../../../../../../configuration';
 import { mapMeaningFromSetToDB } from './mapMeaningFromSetToDB';
 
@@ -14,7 +14,8 @@ export const mapWordFromSetToDB = (line: DataSetWordT) => {
     generated: !!line.generated,
     verb___phrasal_object_pattern: line.verb___phrasal_object_pattern || null,
     verb___transitivity: line.verb___transitivity || null,
-    language_register: line.language_register || LanguageRegisterE.formal,
+    // an unset register stays unset (issue #527): a dataset of another source knows none
+    language_register: line.language_register || null,
     categories: line.categories || [],
     verb___is_phrasal: !!line.verb___is_phrasal,
     verb___is_irregular: !!line.verb___is_irregular,

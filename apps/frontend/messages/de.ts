@@ -32,6 +32,20 @@ export default {
     [ErrorCodes.suggestion_invalid]: 'Die vorgeschlagenen Änderungen sind fehlerhaft formatiert',
     [ErrorCodes.suggestion_not_applicable]:
       'Nichts anzuwenden: eine Textmeldung oder eine Meldung, die bereits ein Urteil erhalten hat',
+    [ErrorCodes.datasets_not_supported]:
+      'Diese Datenbank hat keine Schemas: mehrere Datensätze brauchen Postgres',
+    [ErrorCodes.dataset_not_found]: 'Der Datensatz wurde nicht gefunden',
+    [ErrorCodes.dataset_name_invalid]: 'Diese Instanz kennt keinen Datensatz mit diesem Namen',
+    [ErrorCodes.dataset_source_invalid]:
+      'Die Datei ist nicht das, was die Quelle dieses Datensatzes verteilt: Laden Sie sie erneut herunter, wie die Anleitung es beschreibt',
+    [ErrorCodes.dataset_not_installable]:
+      'Dieser Datensatz wird auf der Importseite geladen, nicht aus einer Datei einer Quelle',
+    [ErrorCodes.dataset_is_active]:
+      'Der aktive Datensatz kann nicht gelöscht werden – aktivieren Sie zuerst einen anderen',
+    [ErrorCodes.dataset_is_default]: 'Der Standarddatensatz kann nicht gelöscht werden',
+    [ErrorCodes.datasets_busy]: 'Eine andere Datensatz-Operation läuft – versuchen Sie es gleich noch einmal',
+    [ErrorCodes.dataset_source_mismatch]:
+      'Die Daten stammen aus einer anderen Quelle als die dieses Datensatzes. Datensätze werden nie gemischt: Importieren Sie in einen eigenen Datensatz',
   },
   header: {
     home: 'Startseite',
@@ -155,6 +169,7 @@ export default {
     entity_dictionary: 'Wörterbuch',
     entity_suggestion: 'Vorschlag',
     empty: 'Noch keine Änderungen aufgezeichnet.',
+    entity_dataset: 'Datensatz',
   },
   managing: {
     add_word: 'Wort hinzufügen',
@@ -164,6 +179,103 @@ export default {
     import_dictionary: 'Wörterbuch importieren',
     bulk_request: 'Massenanfrage',
     export_dictionary: 'Wörterbuch exportieren',
+    datasets: 'Datensätze',
+  },
+  // the datasets of the instance (issue #527): the catalog, the terms and the instruction
+  datasets: {
+    intro:
+      'Die Wörterbuch-Datensätze, die diese Instanz halten kann. Jeder hat seine eigenen Einträge und steht unter der Lizenz seiner Quelle; genau einer ist aktiv – ihn liefern die API und die Website aus. Datensätze werden nie gemischt.',
+    not_supported:
+      'Diese Instanz läuft auf SQLite, das keine Schemas kennt: Sie enthält nur den Standarddatensatz. Zum Installieren, Aktivieren und Löschen von Datensätzen ist eine Postgres-Datenbank nötig.',
+    status_active: 'aktiv',
+    status_installed: 'installiert',
+    status_not_installed: 'nicht installiert',
+    label_source: 'Quelle',
+    label_license: 'Lizenz',
+    label_attribution: 'Namensnennung',
+    label_notice: 'Hinweis für Leser',
+    label_size: 'Umfang',
+    label_version: 'Version',
+    label_imported: 'Importiert',
+    share_alike: 'Share-Alike',
+    size: '{entries} Einträge · {senses} Bedeutungen · etwa {size} in der Datenbank',
+    never: 'nie',
+    activate: 'Aktivieren',
+    activate_confirm: '„{name}“ statt des aktuellen Datensatzes ausliefern? API und Website wechseln sofort.',
+    delete: 'Löschen',
+    delete_confirm:
+      '„{name}“ mit allen Einträgen und Ihren Änderungen darin löschen? Das lässt sich nicht rückgängig machen.',
+    cancel: 'Abbrechen',
+    activated: '„{name}“ ist jetzt der aktive Datensatz',
+    deleted: 'Der Datensatz wurde gelöscht',
+    how_to_install: 'So wird installiert',
+    update: 'Aus neuerer Datei aktualisieren',
+    open_import: 'Importseite öffnen',
+    about_default:
+      'Der Datensatz des Projekts: von Sprachmodellen erzeugte Einträge mit CEFR-Niveaus und Übersetzungen in sieben Sprachen. Jede Instanz beginnt mit ihm; geladen und aktualisiert wird er auf der Importseite.',
+    about_wiktionary:
+      'Das englische Wiktionary, geschrieben von seiner Community: der größte der Datensätze, mit Aussprache, Wortformen, Synonymen und Übersetzungen als einzelne Wörter.',
+    about_wordnet:
+      'Open English WordNet, die offen gepflegte und jährlich veröffentlichte Ausgabe von WordNet: Bedeutungen in Synonymgruppen, mit Definitionen und Beispielen. Keine Übersetzungen.',
+    about_wordnet_princeton:
+      'Das ursprüngliche WordNet der Universität Princeton, zuletzt 2011 veröffentlicht und seitdem unverändert. Wählen Sie es, wenn Sie genau diese Ausgabe brauchen; gepflegt wird Open English WordNet.',
+    feature_definitions: 'Definitionen',
+    feature_examples: 'Beispiele',
+    feature_pronunciation: 'Aussprache',
+    feature_forms: 'Wortformen',
+    feature_links: 'Synonyme und Antonyme',
+    feature_translations: 'Übersetzungen',
+    feature_levels: 'CEFR-Niveaus',
+    feature_registers: 'Register',
+    install_title: 'Installieren: {title}',
+    update_title: 'Aktualisieren: {title}',
+    steps_title: 'Was zu tun ist',
+    step_download: 'Laden Sie die Datei der Quelle herunter:',
+    about_size: 'etwa {size}',
+    link_direct: 'Direkter Download',
+    link_page: 'Seite der Quelle',
+    step_optional_pronunciations: 'Optional, für die Aussprache – WordNet hat keine eigene:',
+    optional: 'optional',
+    step_attach:
+      'Hängen Sie das Heruntergeladene unten an, so wie es ist: nicht entpacken, nicht umbenennen. Klicken Sie auf „Starten“.',
+    step_wait:
+      'Der Server konvertiert die Datei und importiert sie in einen eigenen Datensatz – etwa {minutes} Min. Der aktive Datensatz wird währenddessen weiter ausgeliefert; lassen Sie diese Seite geöffnet.',
+    step_wait_update:
+      'Der Server konvertiert die Datei und aktualisiert den Datensatz – etwa {minutes} Min. Der aktive Datensatz wird währenddessen weiter ausgeliefert; lassen Sie diese Seite geöffnet.',
+    step_activate:
+      'Wenn es fertig ist, klicken Sie auf der Karte des Datensatzes auf „Aktivieren“. Bis dahin ändert sich für Leser nichts.',
+    terms_title: 'Lizenz und Namensnennung',
+    terms_license: 'Die Daten stehen unter',
+    terms_served:
+      'Solange der Datensatz aktiv ist, tragen die API, die Wortseiten und die Exporte dieser Instanz diese Bedingungen.',
+    terms_attribution: 'Wer die Daten zeigt, muss diese Zeile zeigen:',
+    terms_share_alike:
+      'Eine Share-Alike-Lizenz: Alles, was aus den Daten entsteht – ein Produkt, ein Export, ein korrigierter Eintrag –, muss unter derselben Lizenz bleiben.',
+    warnings_title: 'Bevor Sie beginnen',
+    warn_not_mixed:
+      'Datensätze werden nie gemischt: Nichts aus diesem gelangt in einen anderen und nichts aus einem anderen in diesen.',
+    warn_edits:
+      'Ein Eintrag, den Sie in diesem Datensatz bearbeiten, und eine Korrektur, die ein Leser sendet, werden Teil davon, unter seiner Lizenz, {license}.',
+    warn_content:
+      'Die Daten sind das, was die Quelle hat. CEFR-Niveaus gibt es nicht, und was die Quelle nicht sagt, bleibt leer: Nichts wird erzeugt oder geraten.',
+    warn_update:
+      'Eine Aktualisierung ersetzt die Einträge durch die der neueren Datei. Einträge, die Sie bearbeitet haben, bleiben, wie Sie sie hinterlassen haben; Einträge, die aus der Quelle verschwunden sind, werden nicht gelöscht.',
+    warn_disk:
+      'Der Datensatz belegt etwa {size} in der Datenbank, und der Server braucht während der Installation noch einmal so viel freien Platz.',
+    warn_proxy:
+      'Die Datei geht in einer einzigen Anfrage an den Server. Ein Reverse-Proxy vor dem Server muss eine Anfrage dieser Größe zulassen.',
+    files_title: 'Die Dateien',
+    choose_file: '{file} auswählen',
+    start: 'Starten',
+    start_update: 'Aktualisieren',
+    retry: 'Erneut versuchen',
+    close: 'Schließen',
+    uploading: 'Datei wird hochgeladen…',
+    converting: 'Quelle wird konvertiert…',
+    done: 'Der Datensatz ist installiert. Aktivieren Sie ihn, um ihn auszuliefern.',
+    done_update: 'Der Datensatz ist aktualisiert.',
+    done_summary: 'Ersetzt: {updated} · hinzugefügt: {added} · mit Ihren Änderungen behalten: {kept}',
+    too_large: 'Die Datei ist größer, als der Server annimmt',
   },
   import_dictionary: {
     your_version: 'Ihre Version',
@@ -185,6 +297,7 @@ export default {
     en_saving_10: 'Bedeutungen werden gespeichert...',
     en_saving_11: 'Bedeutungsübersetzungen werden gespeichert...',
     en_saving_12: 'Kurzübersetzungen werden gespeichert...',
+    en_saving_13: 'Quelle wird konvertiert...',
     en_downloading_file: 'Datei wird heruntergeladen...',
     elapsed_time: 'Verstrichene Zeit',
     retry_importing: 'Erneut versuchen',
@@ -229,6 +342,10 @@ export default {
     server_file_empty: 'Keine Datensätze im Importverzeichnis',
     import_dir_hint:
       'Setzen Sie DICTIONARY_IMPORT_DIR auf dem Server, um Datensätze aus einem eingebundenen Ordner zu wählen',
+    dataset_target: 'Importieren in',
+    dataset_active: '{name} – der aktive Datensatz',
+    dataset_hint:
+      'Ein Import in einen anderen Datensatz berührt den aktiven nicht: Die API liefert ihn weiter, bis Sie den neuen aktivieren.',
   },
   bulk_request: {
     title: 'Massenanfrage',

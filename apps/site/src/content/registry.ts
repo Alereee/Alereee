@@ -182,6 +182,21 @@ export const DOC_PAGES: DocPageT[] = [
     title: 'The data',
     titleRu: 'Данные',
   },
+  // several datasets per instance and the converters of the public sources (issue #527)
+  {
+    slug: 'datasets',
+    file: 'docs/datasets.md',
+    section: DocSectionE.data,
+    title: 'Datasets',
+    titleRu: 'Датасеты',
+  },
+  {
+    slug: 'datasets/converters',
+    file: 'apps/server/src/converters/README.md',
+    section: DocSectionE.data,
+    title: 'Converters of public sources',
+    titleRu: 'Конвертеры открытых источников',
+  },
   {
     slug: 'data-license',
     file: 'DATA_LICENSE.md',

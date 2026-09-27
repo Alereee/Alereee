@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { DATASET_TARGET_PATTERN } from '../../../../../../core/constants/datasets';
 
 /**
  * Text fields of the multipart upload: the manifest values typed by hand
@@ -28,4 +29,11 @@ export class UploadDictionaryReqDTO {
   @IsInt()
   @Min(0)
   antonym_links?: number | undefined;
+
+  // the dataset of the instance to import into (issue #527), see ImportDictionaryReq
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @Matches(DATASET_TARGET_PATTERN, { message: 'dataset_name_invalid' })
+  dataset?: string | undefined;
 }

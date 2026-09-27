@@ -10,13 +10,18 @@ import { DATASET_VERSION_SETTINGS_FIELD } from 'server/src/modules/EnModule/modu
 import { ImportDictionarySection } from './_components/ImportDictionarySection';
 import styles from './styles.module.scss';
 
-export default async function ImportDictionaryPage({ params }: CommonPageP) {
+type ImportDictionaryPageP = CommonPageP & { searchParams: Promise<{ dataset?: string | string[] }> };
+
+export default async function ImportDictionaryPage({ params, searchParams }: ImportDictionaryPageP) {
   const { locale } = await params;
+  const { dataset } = await searchParams;
   const t = await getTranslations('menu');
   const manageT = await getTranslations('managing');
-  const [settings, manifestRes] = await Promise.all([
+  const [settings, manifestRes, datasetsRes] = await Promise.all([
     ServerSettingsApi.getSettings(),
     ServerEnApi.getDatasetManifest(),
+    // the datasets of the instance (issue #527): the import may fill another one than the active
+    ServerEnApi.getDatasets(),
   ]);
   const yourVersion = settings[DATASET_VERSION_SETTINGS_FIELD];
   // no manifest published yet (or the dataset host is unreachable) — the
@@ -31,7 +36,12 @@ export default async function ImportDictionaryPage({ params }: CommonPageP) {
     <div className={styles.page}>
       <Title level={2}>{manageT('import_dictionary')}</Title>
       <Breadcrumb items={breadCrumbs} />
-      <ImportDictionarySection yourVersion={yourVersion} latestVersion={latestVersion} />
+      <ImportDictionarySection
+        yourVersion={yourVersion}
+        latestVersion={latestVersion}
+        datasets={'error' in datasetsRes ? undefined : datasetsRes}
+        initialTarget={typeof dataset === 'string' ? dataset : undefined}
+      />
     </div>
   );
 }

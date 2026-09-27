@@ -1,0 +1,8 @@
+;;; a fixture in the format of the CMU Pronouncing Dictionary
+lamp L AE1 M P
+mouse M AW1 S
+run R AH1 N
+run(2) R UH1 N
+walk W AO1 K # a comment of the newer releases
+good G UH1 D
+engineering EH2 N JH AH0 N IH1 R IH0 NG

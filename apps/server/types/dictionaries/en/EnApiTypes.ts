@@ -216,6 +216,8 @@ export type ImportStatusT = {
   error?: string | undefined;
   /** Version of the dataset being (or last) imported, when its manifest names one */
   dataset_version?: string | undefined;
+  /** The dataset of the instance the import writes into (issue #527); the active one unless named */
+  dataset?: string | undefined;
 };
 
 // manifest.json stored next to the jsonl files in the dataset repository;
@@ -238,7 +240,26 @@ export type DatasetManifestT = {
   // a sufficient attribution line; absent in datasets published before
   license?: string | undefined;
   attribution?: string | undefined;
+  // where the data comes from (issue #527): a dataset converted from a public
+  // source names it and the rest of its terms; the project's own dataset,
+  // and every manifest written before, names none of them
+  source?: string | undefined;
+  license_url?: string | undefined;
+  attribution_url?: string | undefined;
+  // a notice for the readers of the data; an empty string says there is none
+  notice?: string | undefined;
 };
+
+/** The fields of a manifest that say where the data comes from and under which terms */
+export const MANIFEST_PROVENANCE_FIELDS = [
+  'source',
+  'license',
+  'license_url',
+  'attribution',
+  'attribution_url',
+  'notice',
+] as const;
+export type ManifestProvenanceT = Pick<DatasetManifestT, (typeof MANIFEST_PROVENANCE_FIELDS)[number]>;
 
 export type GetDatasetManifestResT = DatasetManifestT | ErrorResT;
 

@@ -71,6 +71,28 @@ describe('buildTypeOrmOptions (issue #181)', () => {
       }
     });
 
+    it('opens the connection on the active dataset: its schema first in the search_path (issue #527)', () => {
+      process.env.DATABASE_URL = 'postgres://db';
+      const { buildTypeOrmOptions } = loadFreshOptions();
+
+      const options = buildTypeOrmOptions('ds_wiktionary_en') as { extra?: Record<string, unknown> };
+
+      expect(options.extra).toEqual({
+        max: 10,
+        idleTimeoutMillis: 10_000,
+        options: '-c search_path=ds_wiktionary_en,public',
+      });
+      // …and leaves the migrations to the start: their journal is in `public`
+      expect((buildTypeOrmOptions('ds_wiktionary_en') as { migrationsRun?: boolean }).migrationsRun).toBe(
+        false,
+      );
+      // the default dataset lives in `public`: nothing is added
+      expect((buildTypeOrmOptions('public') as { extra?: Record<string, unknown> }).extra).toEqual({
+        max: 10,
+        idleTimeoutMillis: 10_000,
+      });
+    });
+
     it('stays on migrations even in development mode', () => {
       process.env.DATABASE_URL = 'postgres://db';
       const prevNodeEnv = process.env.NODE_ENV;

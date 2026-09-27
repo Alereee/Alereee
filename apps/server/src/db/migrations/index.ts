@@ -14,10 +14,16 @@ import { AddGermanAndPortugueseTranslationLanguages1789100000000 } from './17891
 import { AddCaseFoldedWordIndexes1789200000000 } from './1789200000000-AddCaseFoldedWordIndexes';
 import { AddChineseTranslationLanguage1789300000000 } from './1789300000000-AddChineseTranslationLanguage';
 import { AddArabicTranslationLanguage1789400000000 } from './1789400000000-AddArabicTranslationLanguage';
+import { AddDatasets1789600000000 } from './1789600000000-AddDatasets';
 
 // Every migration class must be listed here: both the CLI DataSource and the
 // runtime TypeORM options read this array. An explicit list (instead of a
 // path glob) resolves identically from ts-node and from the compiled dist.
+//
+// These are the shared migrations (issue #527): they run once, in `public` —
+// the settings, the registry of datasets, the journal, the enum types every
+// dataset uses. A change to a dictionary table belongs to
+// ../dataset-migrations, which runs in every dataset schema.
 export const migrations = [
   Baseline1786903614082,
   AddMeaningSynonyms1787504717645,
@@ -35,4 +41,5 @@ export const migrations = [
   AddCaseFoldedWordIndexes1789200000000,
   AddChineseTranslationLanguage1789300000000,
   AddArabicTranslationLanguage1789400000000,
+  AddDatasets1789600000000,
 ];

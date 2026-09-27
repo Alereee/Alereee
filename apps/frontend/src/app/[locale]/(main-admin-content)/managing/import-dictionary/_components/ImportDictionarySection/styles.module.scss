@@ -28,3 +28,11 @@
     }
   }
 }
+
+// the dataset the import writes into (issue #527)
+.target {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
+}

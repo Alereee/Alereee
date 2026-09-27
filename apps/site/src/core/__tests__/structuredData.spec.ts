@@ -105,6 +105,31 @@ describe('structured data', () => {
     });
   });
 
+  // issue #527: an instance may serve a dataset of another source
+  it('names the license and the source of the dataset the instance serves', () => {
+    const terms = {
+      source: 'wiktionary',
+      license: 'CC-BY-SA-4.0',
+      license_url: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      attribution: 'Wiktionary',
+      attribution_url: 'https://en.wiktionary.org',
+      notice: '',
+    };
+
+    expect(definedTermJsonLd({ locale: 'en', word: 'lamp', terms }).inDefinedTermSet).toMatchObject({
+      license: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      sameAs: 'https://en.wiktionary.org',
+    });
+
+    const unnamed = definedTermJsonLd({
+      locale: 'en',
+      word: 'lamp',
+      terms: { ...terms, source: 'custom', license: 'NOASSERTION', license_url: '', attribution_url: null },
+    }).inDefinedTermSet;
+    expect(unnamed).not.toHaveProperty('license');
+    expect(unnamed).not.toHaveProperty('sameAs');
+  });
+
   it('uses absolute URLs everywhere', () => {
     const graphs = [
       webSiteJsonLd({ locale: 'en', description: 'x' }),

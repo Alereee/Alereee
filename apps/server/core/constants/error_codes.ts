@@ -18,6 +18,23 @@ export enum ErrorCodes {
   dataset_upload_missing = 'dataset_upload_missing',
   // one import at a time (issue #268)
   import_in_progress = 'import_in_progress',
+  // several datasets per instance (issue #527)
+  // the database driver has no schemas (SQLite): one dataset, no switching
+  datasets_not_supported = 'datasets_not_supported',
+  dataset_not_found = 'dataset_not_found',
+  // the name is not one of the catalog of datasets
+  dataset_name_invalid = 'dataset_name_invalid',
+  // the active dataset cannot be deleted, nor the one the instance was born with
+  dataset_is_active = 'dataset_is_active',
+  dataset_is_default = 'dataset_is_default',
+  // another dataset is being created, activated or deleted right now
+  datasets_busy = 'datasets_busy',
+  // datasets are never mixed: the data names another source than the dataset it would go into
+  dataset_source_mismatch = 'dataset_source_mismatch',
+  // the attached file is not what the source of the dataset distributes
+  dataset_source_invalid = 'dataset_source_invalid',
+  // the dataset is installed through the import page, not from a source file
+  dataset_not_installable = 'dataset_not_installable',
   translation_doesnt_found = 'translation_doesnt_found',
   setting_field_doesnt_found = 'setting_field_doesnt_found',
   setting_field_already_exists = 'setting_field_already_exists',

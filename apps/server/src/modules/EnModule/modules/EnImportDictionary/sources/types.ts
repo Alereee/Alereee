@@ -24,3 +24,9 @@ export type AcquiredFileT = {
   // deletes those once they are imported, never the user's own files
   temporary: boolean;
 };
+
+/**
+ * A source that does not exist yet when the import is asked for: made inside
+ * the import slot, with the progress of its making on the import's stream
+ */
+export type DatasetSourceFactoryT = (progress: ImportProgressSink) => Promise<DatasetSource>;

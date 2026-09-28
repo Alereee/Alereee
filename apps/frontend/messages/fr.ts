@@ -260,6 +260,15 @@ export default {
     label_size: 'Taille',
     label_version: 'Version',
     label_imported: 'Importé',
+    label_source_version: 'À la source',
+    source_unknown: 'la source n’a pas pu être interrogée',
+    source_checked: 'vérifié le {date}',
+    update_available: 'La source a un fichier plus récent : {latest}. Installé : {installed}.',
+    update_hint:
+      'Téléchargez-le et mettez à jour le jeu de données avec le bouton ci-dessous : les articles modifiés sur cette instance sont conservés.',
+    update_open: 'Ouvrir la page de la source',
+    version_unknown:
+      'La version est le jour où ce jeu de données a été installé, non la version de son fichier. Installez-le de nouveau avec le fichier de la source pour l’enregistrer : d’ici là, un fichier plus récent ne peut pas être signalé.',
     share_alike: 'partage à l’identique',
     size: '{entries} entrées · {senses} sens · environ {size} dans la base',
     never: 'jamais',
@@ -302,6 +311,8 @@ export default {
     optional: 'facultatif',
     step_attach:
       'Joignez ci-dessous ce que vous avez téléchargé, tel quel : ne le décompressez pas, ne le renommez pas. Cliquez sur « Démarrer ».',
+    step_version:
+      'La version du jeu de données est lue dans le fichier : le jour où l’extrait a été produit, l’édition de la publication.',
     step_wait:
       'Le serveur convertit le fichier et l’importe dans un jeu de données à part — environ {minutes} min. Le jeu actif continue d’être servi pendant ce temps ; gardez cette page ouverte.',
     step_wait_update:
@@ -380,6 +391,8 @@ export default {
     data_attribution: 'Attribution :',
     up_to_date: 'Vous avez déjà la dernière version du dictionnaire',
     update_available: 'Une version plus récente du jeu de données est disponible',
+    published_is_own:
+      'Le jeu de données publié est celui du projet et s’importe dans le jeu « default ». « {name} » est un jeu de données d’une autre source : il se met à jour sur la page des jeux de données, avec le fichier de sa source.',
     start_update: 'Mettre à jour le dictionnaire',
     update_summary:
       'Mise à jour terminée : {updated} entrées mises à jour, {added} ajoutées, {kept} conservées avec vos modifications',

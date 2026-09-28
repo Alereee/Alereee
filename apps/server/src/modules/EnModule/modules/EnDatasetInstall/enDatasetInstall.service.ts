@@ -6,7 +6,7 @@ import type { Response } from 'express';
 import { DatasetCatalogEntryT, findCatalogEntry } from '../../../../../core/constants/dataset_catalog';
 import { ErrorCodes } from '../../../../../core/constants/error_codes';
 import { ImportTriggerE } from '../../../../../types';
-import { convert } from '../../../../converters/convert';
+import { convert, versionOfConversion } from '../../../../converters/convert';
 import { findSource } from '../../../../converters/sources';
 import { firstLineOf, packingOf, unpackFiles, WORDNET_FILES } from '../../../../converters/unpack';
 import { DatasetsService } from '../../../DatasetsModule/datasets.service';
@@ -53,10 +53,11 @@ export class EnDatasetInstallService {
 
       const input = await this.inputOf(entry, uploads.file, work);
       if (uploads.pronunciations) await this.assertPronunciations(uploads.pronunciations);
+      const version = await this.versionOf(entry, uploads.file);
 
       const installed = (await this.datasets.list()).datasets.find((dataset) => dataset.name === name);
       await this.importService.importFrom(
-        (progress) => this.convert(entry, input, uploads.pronunciations?.path, progress),
+        (progress) => this.convert(entry, input, version, uploads.pronunciations?.path, progress),
         `${entry.title}, "${uploads.file.originalname}"`,
         new HttpImportProgressSink(res),
         ImportTriggerE.manual,
@@ -118,10 +119,30 @@ export class EnDatasetInstallService {
     }
   }
 
+  /**
+   * The version the dataset is installed with (issue #530): what the
+   * uploaded file says of itself — the day the extract was made, the edition
+   * of the release — read before the file is unpacked or converted. A file
+   * that does not say is recorded by the day of the installation.
+   */
+  private async versionOf(entry: DatasetCatalogEntryT, upload: SourceUploadT): Promise<string> {
+    if (entry.install.kind !== 'convert') throw new BadRequestException(ErrorCodes.dataset_not_installable);
+    const adapter = findSource(entry.install.adapter);
+    if (!adapter) throw new Error(`No converter "${entry.install.adapter}" for the dataset "${entry.name}"`);
+    const version = await versionOfConversion({
+      source: adapter,
+      input: upload.path,
+      sourceOptions: entry.install.options,
+    });
+    this.logger.log(`${entry.title}, "${upload.originalname}": version ${version}`);
+    return version;
+  }
+
   /** Converts the source into a dataset in a folder of its own, removed when the import lets go of it */
   private async convert(
     entry: DatasetCatalogEntryT,
     input: string,
+    version: string,
     pronunciations: string | undefined,
     progress: ImportProgressSink,
   ): Promise<DatasetSource> {
@@ -138,6 +159,8 @@ export class EnDatasetInstallService {
         source: adapter,
         input,
         outDir,
+        // of the uploaded file: what is converted may be a folder it was unpacked into
+        version,
         sourceOptions: { ...entry.install.options, ...(pronunciations ? { cmudict: pronunciations } : {}) },
         log: (message) => this.logger.log(`${entry.title}: ${message}`),
         onProgress: (read, total) => {

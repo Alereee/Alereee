@@ -55,6 +55,26 @@ export type DatasetCatalogFileT = {
   license?: DatasetLicenseT;
 };
 
+/**
+ * How an instance learns that the source has published a newer file (issue
+ * #530). What is asked, and of whom, is stated here like the other facts of
+ * a source — the server makes no request the catalog does not name.
+ */
+export type DatasetUpdateCheckT =
+  /** Nothing to ask: a source that is frozen, a dataset that is checked elsewhere */
+  | { kind: 'none' }
+  /**
+   * The file itself says when it was made: a `HEAD` request for its
+   * `Last-Modified`. A file that is made again every few days is told of
+   * when it is `notice_after_days` newer than the installed one
+   */
+  | { kind: 'last_modified'; url: string; notice_after_days: number }
+  /**
+   * The source publishes releases: the latest one of the GitHub API, its
+   * edition read from the tag by `tag_pattern` (the first group)
+   */
+  | { kind: 'latest_release'; api_url: string; tag_pattern: string };
+
 export type DatasetCatalogEntryT = {
   /** The name of the dataset on an instance, and the tail of its schema */
   name: string;
@@ -89,6 +109,8 @@ export type DatasetCatalogEntryT = {
   install:
     | { kind: 'import' }
     | { kind: 'convert'; adapter: string; options: Record<string, string>; files: DatasetCatalogFileT[] };
+  /** Where a newer file of the source is looked for; the installation stays a step of the admin */
+  update_check: DatasetUpdateCheckT;
 };
 
 const CMUDICT: DatasetCatalogFileT = {
@@ -135,6 +157,8 @@ export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
     ],
     size: { entries: 115_000, senses: 161_000, database_mb: 900, minutes: 10, revision: 'v0.2.0' },
     install: { kind: 'import' },
+    // the import page compares the version with the published dataset of the project
+    update_check: { kind: 'none' },
   },
   {
     name: 'wiktionary',
@@ -178,6 +202,12 @@ export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
           size_mb: 500,
         },
       ],
+    },
+    // the extract is made again every few days: a month is what is worth a notice
+    update_check: {
+      kind: 'last_modified',
+      url: 'https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz',
+      notice_after_days: 30,
     },
   },
   {
@@ -223,6 +253,12 @@ export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
         CMUDICT,
       ],
     },
+    // an edition a year, tagged `2025-edition`
+    update_check: {
+      kind: 'latest_release',
+      api_url: 'https://api.github.com/repos/globalwordnet/english-wordnet/releases/latest',
+      tag_pattern: '^(\\d{4})-edition$',
+    },
   },
   {
     name: 'wordnet_princeton',
@@ -260,6 +296,8 @@ export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
         CMUDICT,
       ],
     },
+    // frozen since 2011
+    update_check: { kind: 'none' },
   },
 ];
 

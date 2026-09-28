@@ -1,8 +1,9 @@
 import { Controller, Delete, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { DatasetT, DatasetsListT } from '../../../types';
+import { DatasetT, DatasetUpdatesT, DatasetsListT } from '../../../types';
 import { AdminGuard } from '../AuthModule/guards/admin.guard';
 import { DatasetsService } from './datasets.service';
+import { DatasetUpdatesService } from './dataset-updates.service';
 
 /**
  * The datasets of the instance (issue #527): admin surface only. The list is
@@ -14,12 +15,26 @@ import { DatasetsService } from './datasets.service';
 @ApiTags('Datasets')
 @Controller('/api/en/datasets')
 export class DatasetsController {
-  constructor(private readonly datasetsService: DatasetsService) {}
+  constructor(
+    private readonly datasetsService: DatasetsService,
+    private readonly datasetUpdatesService: DatasetUpdatesService,
+  ) {}
 
   @Get()
   @UseGuards(AdminGuard)
   async list(): Promise<DatasetsListT> {
     return this.datasetsService.list();
+  }
+
+  /**
+   * Whether the sources of the installed datasets have newer files (issue
+   * #530): the notice on the card of a dataset. The sources are asked once a
+   * day at most; `UPDATE_CHECK=false` asks none
+   */
+  @Get('updates')
+  @UseGuards(AdminGuard)
+  async updates(): Promise<DatasetUpdatesT> {
+    return this.datasetUpdatesService.check();
   }
 
   @Post(':name/activate')

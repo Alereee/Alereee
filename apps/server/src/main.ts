@@ -192,7 +192,7 @@ async function bootstrap() {
   );
   logger.log(
     isUpdateCheckEnabled()
-      ? 'Update check: on — the admin UI is told about a newer release (asks api.github.com; UPDATE_CHECK=false turns it off)'
+      ? 'Update check: on — the admin UI is told about a newer release and about newer files of the installed datasets (asks api.github.com and the sources of those datasets; UPDATE_CHECK=false turns it off)'
       : 'Update check: off (UPDATE_CHECK=false) — no outgoing request',
   );
   logger.log(

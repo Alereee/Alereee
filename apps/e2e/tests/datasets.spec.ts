@@ -72,6 +72,10 @@ test.describe('datasets', () => {
     await expect(dialog).toContainText('Wiktionary contributors');
     await expect(dialog).toContainText('Datasets are never mixed');
     await expect(dialog).toContainText('under its license, CC-BY-SA-4.0');
+    // the version is what the file says of itself (issue #530)
+    await expect(dialog.getByTestId('step-version')).toContainText(
+      'The version of the dataset is read from the file',
+    );
 
     // SQLite: the instruction can be read, the file cannot be attached
     await expect(dialog.getByTestId('install-unsupported')).toBeVisible();
@@ -84,6 +88,17 @@ test.describe('datasets', () => {
     await expect(page.getByRole('dialog')).toContainText('english-wordnet-2025.zip');
     await expect(page.getByRole('dialog')).toContainText('cmudict.dict');
     await expect(page.getByRole('dialog').getByRole('link', { name: 'BSD 2-Clause License' })).toBeVisible();
+  });
+
+  // issue #530: SQLite holds the dataset of the project only, and no source is asked about it
+  test('asks no source about the dataset of the project, and shows no notice', async ({ page }) => {
+    const updates = page.waitForResponse((response) => response.url().endsWith('/api/en/datasets/updates'));
+    await page.goto('/en/managing/datasets');
+    expect((await (await updates).json()).datasets).toEqual([]);
+
+    await expect(page.getByTestId('dataset-default')).toContainText('Version');
+    await expect(page.locator('[data-testid^="dataset-update-"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid^="dataset-source-version-"]')).toHaveCount(0);
   });
 
   test('the API reports the terms of the project dataset', async ({ request }) => {

@@ -10,6 +10,7 @@ import {
 import { readLines } from '../input';
 import { emptyEntry, isRegularForm, phrasalBaseOf } from '../normalize';
 import { termsOfAdapter } from '../terms';
+import { versionOfExtract } from '../version';
 import {
   ConvertedEntryT,
   ConvertedFormT,
@@ -454,6 +455,8 @@ export const wiktionary: SourceAdapterT = {
   description:
     'the English Wiktionary as kaikki.org extracts it: kaikki.org-dictionary-English.jsonl (or .jsonl.gz)',
   provenance: (options) => termsOfAdapter('wiktionary', options),
+  // the extract carries no date in its lines; the gzip it travels in does
+  versionOf: (input) => versionOfExtract(input),
   async convert(input, _options, context) {
     let read = 0;
     for await (const line of readLines(input, context.progress)) {

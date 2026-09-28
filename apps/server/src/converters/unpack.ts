@@ -43,7 +43,15 @@ export class NotASourceError extends Error {
   }
 }
 
-const unpackZip = async (file: string, outDir: string, wanted: readonly string[]): Promise<string[]> => {
+/** Called with the name of every entry of an archive, folders included, as the archive spells it */
+export type ArchiveEntryListenerT = (name: string) => void;
+
+const unpackZip = async (
+  file: string,
+  outDir: string,
+  wanted: readonly string[],
+  onEntry?: ArchiveEntryListenerT,
+): Promise<string[]> => {
   const zip = await new Promise<yauzl.ZipFile>((resolve, reject) => {
     yauzl.open(file, { lazyEntries: true }, (error, opened) => (error ? reject(error) : resolve(opened)));
   });
@@ -54,6 +62,7 @@ const unpackZip = async (file: string, outDir: string, wanted: readonly string[]
       zip.on('end', resolve);
       zip.on('entry', (entry: yauzl.Entry) => {
         void (async () => {
+          onEntry?.(entry.fileName);
           const name = path.posix.basename(entry.fileName);
           if (!entry.fileName.endsWith('/') && wanted.includes(name) && !found.includes(name)) {
             if (entry.uncompressedSize > MAX_UNPACKED_FILE_BYTES) {
@@ -85,7 +94,12 @@ const tarString = (block: Buffer, start: number, length: number): string => {
 };
 
 /** A tar read as it streams out of gunzip: a header block, the file in blocks of 512, the next header */
-const unpackTarGz = async (file: string, outDir: string, wanted: readonly string[]): Promise<string[]> => {
+const unpackTarGz = async (
+  file: string,
+  outDir: string,
+  wanted: readonly string[],
+  onEntry?: ArchiveEntryListenerT,
+): Promise<string[]> => {
   const found: string[] = [];
   const input = createReadStream(file).pipe(createGunzip());
   let pending: Buffer = Buffer.alloc(0);
@@ -130,6 +144,7 @@ const unpackTarGz = async (file: string, outDir: string, wanted: readonly string
         const size = parseInt(tarString(header, 124, 12).trim() || '0', 8);
         if (!Number.isFinite(size) || size < 0) throw new NotASourceError('not a tar archive');
         const type = String.fromCharCode(header[156] || 0x30);
+        onEntry?.(tarString(header, 0, 100));
         const name = path.posix.basename(tarString(header, 0, 100));
         remaining = size;
         padding = (TAR_BLOCK - (size % TAR_BLOCK)) % TAR_BLOCK;
@@ -156,15 +171,52 @@ export const unpackFiles = async (
   file: string,
   outDir: string,
   wanted: readonly string[],
+  onEntry?: ArchiveEntryListenerT,
 ): Promise<string[]> => {
   const packing = await packingOf(file);
   if (packing === 'plain') throw new NotASourceError('neither a zip nor a tar.gz archive');
   await mkdir(outDir, { recursive: true });
   try {
-    return packing === 'zip' ? await unpackZip(file, outDir, wanted) : await unpackTarGz(file, outDir, wanted);
+    return packing === 'zip'
+      ? await unpackZip(file, outDir, wanted, onEntry)
+      : await unpackTarGz(file, outDir, wanted, onEntry);
   } catch (error) {
     if (error instanceof NotASourceError) throw error;
     throw new NotASourceError(error instanceof Error ? error.message : String(error));
+  }
+};
+
+/** The names of the entries of a packed release, a zip or a tar.gz; nothing is written */
+export const archiveEntries = async (file: string): Promise<string[]> => {
+  const packing = await packingOf(file);
+  if (packing === 'plain') throw new NotASourceError('neither a zip nor a tar.gz archive');
+  const names: string[] = [];
+  const listen: ArchiveEntryListenerT = (name) => names.push(name);
+  try {
+    // nothing is wanted, so nothing is unpacked and the folder is never made
+    await (packing === 'zip' ? unpackZip(file, '', [], listen) : unpackTarGz(file, '', [], listen));
+  } catch (error) {
+    if (error instanceof NotASourceError) throw error;
+    throw new NotASourceError(error instanceof Error ? error.message : String(error));
+  }
+  return names;
+};
+
+/**
+ * When a gzipped file was made, as its header says (RFC 1952, MTIME): the
+ * instant the source packed it. Null for a file that is not gzipped and for
+ * one packed without a date.
+ */
+export const gzipModifiedAt = async (file: string): Promise<Date | null> => {
+  const handle = await open(file, 'r');
+  try {
+    const head = Buffer.alloc(8);
+    const { bytesRead } = await handle.read(head, 0, 8, 0);
+    if (bytesRead < 8 || head[0] !== 0x1f || head[1] !== 0x8b) return null;
+    const seconds = head.readUInt32LE(4);
+    return seconds > 0 ? new Date(seconds * 1000) : null;
+  } finally {
+    await handle.close();
   }
 };
 

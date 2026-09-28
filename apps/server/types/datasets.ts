@@ -53,3 +53,41 @@ export type DatasetProvenanceT = Pick<
 export type GetDatasetsResT = DatasetsListT | ErrorResT;
 export type DatasetResT = DatasetT | ErrorResT;
 export type DeleteDatasetResT = { success: true } | ErrorResT;
+
+/**
+ * What the source of an installed dataset has published (issue #530): the
+ * admin UI says on the card of the dataset when a newer file exists. A
+ * notice for the owner — the installation stays manual, and nothing of this
+ * is a part of the public API.
+ */
+export type DatasetUpdateT = {
+  name: string;
+  /** The version the dataset is installed with; null when it holds nothing yet */
+  installed: string | null;
+  /** The version the newest file of the source would be installed with; null when the source could not be asked */
+  latest: string | null;
+  /** The page of the source the newer file is downloaded from */
+  url: string | null;
+  /**
+   * Whether the installed version says which file of the source the dataset
+   * holds. False for a dataset recorded by the day of its installation where
+   * the source counts editions: it has to be installed again to know
+   */
+  comparable: boolean;
+  /**
+   * The source has a file that is worth installing: a newer edition, or an
+   * extract that is a month newer than the installed one. False when the
+   * two versions cannot be compared
+   */
+  update_available: boolean;
+  checked_at: string | null;
+};
+
+export type DatasetUpdatesT = {
+  /** false when `UPDATE_CHECK` is off: no source is asked */
+  enabled: boolean;
+  /** The installed datasets whose source can be asked, in the order of the catalog */
+  datasets: DatasetUpdateT[];
+};
+
+export type GetDatasetUpdatesResT = DatasetUpdatesT | ErrorResT;

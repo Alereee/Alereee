@@ -18,8 +18,10 @@ yarn workspace server convert wordnet --edition princeton --input wn3.1.dict.tar
 yarn workspace server convert --help
 ```
 
-`--version` names the version of the dataset (the day of the conversion by default), `--limit n`
-stops after `n` records of the source for a trial run. The input is the file as it is
+`--version` names the version of the dataset; without it the version is the one the file says of
+itself — the day the extract of Wiktionary was made, the edition of a WordNet — and the day of
+the conversion for a file that does not say. `--limit n` stops after `n` records of the source
+for a trial run. The input is the file as it is
 downloaded: packed or not, its format is told by its first bytes.
 
 ## The sources
@@ -78,14 +80,18 @@ A source is a converter and an entry of the catalog:
 
 1. **The entry** in `DATASET_CATALOG` (`core/constants/dataset_catalog.ts`): the name of the
    dataset, its `source` in the public API, the license with its link, the attribution line,
-   what an entry carries, and the files to download — name, direct link, page of the source,
-   size. Read the license of the source, not a summary of it: a share-alike or a non-commercial
+   what an entry carries, the files to download — name, direct link, page of the source,
+   size — and `update_check`: how an instance learns of a newer file (`last_modified` of a file,
+   the `latest_release` of a repository on GitHub, or `none` for a source that is frozen). Read the license of the source, not a summary of it: a share-alike or a non-commercial
    license changes what an instance may do. The datasets page and its instruction are built
    from the entry; the texts that are not data are `about_<name>` in the message catalogs of
    the admin UI, in every interface language.
 2. **The adapter**, one module under `sources/` that exports a `SourceAdapterT` (`types.ts`):
    `name`, `description` (one line for `--help`), `provenance` — `termsOfAdapter(name, options)`,
-   the terms of the catalog — and `convert(input, options, context)`. It reads the input **as a
+   the terms of the catalog — `versionOf(input, options)` and `convert(input, options, context)`.
+   `versionOf` answers the version the file of the source says of itself, or `null`: it reads the
+   file as it was downloaded and asks nothing of the source (`version.ts` has what the present
+   sources read — the header of a gzip, the names in an archive). It reads the input **as a
    stream** (`readLines` in `input.ts`; the dumps are gigabytes, `context.progress` takes the
    bytes read) and calls `context.emit(entry)` for every entry, in the order of the source, and
    `context.skip(reason)` for every record it leaves out. An entry is a `ConvertedEntryT`:

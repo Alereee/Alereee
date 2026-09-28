@@ -48,6 +48,31 @@ describe('Datasets (e2e, issue #527)', () => {
     await request(server()).delete('/api/en/datasets/default').expect(401);
   });
 
+  // issue #530: the sources of the installed datasets are asked for newer files; the
+  // project's own dataset has no source to ask, and nothing is asked when the check is off
+  it('asks no source about the dataset the instance was born with', async () => {
+    const realFetch = global.fetch;
+    const fetchMock = jest.fn();
+    const flag = process.env.UPDATE_CHECK;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      await request(server()).get('/api/en/datasets/updates').expect(401);
+
+      delete process.env.UPDATE_CHECK;
+      const asked = await request(server()).get('/api/en/datasets/updates').set(auth).expect(200);
+      expect(asked.body).toEqual({ enabled: true, datasets: [] });
+
+      process.env.UPDATE_CHECK = 'false';
+      const silent = await request(server()).get('/api/en/datasets/updates').set(auth).expect(200);
+      expect(silent.body).toEqual({ enabled: false, datasets: [] });
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      global.fetch = realFetch;
+      if (flag === undefined) delete process.env.UPDATE_CHECK;
+      else process.env.UPDATE_CHECK = flag;
+    }
+  });
+
   it('lists the catalog: the dataset the instance was born with, active, and the ones it could hold', async () => {
     const res = await request(server()).get('/api/en/datasets').set(auth).expect(200);
     const list = res.body as DatasetsListT;

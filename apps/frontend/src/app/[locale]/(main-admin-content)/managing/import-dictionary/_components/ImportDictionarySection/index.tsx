@@ -65,6 +65,11 @@ export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
     kept: number;
   } | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState<number>(0);
+  // The published dataset is the project's own and goes into the project's
+  // dataset only: its version is compared with that one, and an import of it
+  // into a dataset of a public source would be refused (issue #530). Those
+  // are updated on the datasets page, from the file of their source.
+  const ownTarget = (targetName ?? activeName) === DEFAULT_DATASET_NAME;
   const [activeVersion, setInstalledVersion] = React.useState<string | undefined>(yourVersion);
   // the version the chosen dataset holds: the active one's from the settings, another one's from the registry
   const installedVersion = intoActive
@@ -91,7 +96,8 @@ export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
   const inProgress = status === ImportStatusE.in_progress;
   // a populated dictionary updates in place (issue #328): entries the admin
   // edited are kept, the rest is replaced with the new dataset
-  const updateAvailable = !!installedVersion && !!latestVersion && installedVersion !== latestVersion;
+  const updateAvailable =
+    ownTarget && !!installedVersion && !!latestVersion && installedVersion !== latestVersion;
   // the server runs one import at a time (issue #268): while the automatic
   // load on first start or an import from another session holds the slot,
   // the start button waits — the banner above says what is running
@@ -99,11 +105,11 @@ export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
   const lockedByOther = !inProgress && !!slot?.running;
   const fromHuggingFace = sourceTab === ImportSourceTabE.huggingface;
   const isUpToDate =
-    fromHuggingFace && !!installedVersion && !!latestVersion && installedVersion === latestVersion;
+    ownTarget && fromHuggingFace && !!installedVersion && !!latestVersion && installedVersion === latestVersion;
   // nothing chosen disables the start: an archive (uploaded or picked on the
   // server) on the archive tab, at least one jsonl slot on the files tab
   const canStart =
-    fromHuggingFace ||
+    (fromHuggingFace && ownTarget) ||
     (sourceTab === ImportSourceTabE.archive && (!!archive || !!serverPath)) ||
     (sourceTab === ImportSourceTabE.files && JSONL_SLOTS.some((slot) => !!slotFiles[slot]));
 
@@ -291,6 +297,11 @@ export const ImportDictionarySection: React.FC<ImportDictionarySectionP> = ({
                   />
                 )}
                 {updateAvailable && !inProgress && <Text type="warning">{t('update_available')}</Text>}
+                {!ownTarget && (
+                  <Text type="secondary" data-testid="published-not-for-target">
+                    {t('published_is_own', { name: targetName ?? activeName })}
+                  </Text>
+                )}
               </div>
             ),
           },

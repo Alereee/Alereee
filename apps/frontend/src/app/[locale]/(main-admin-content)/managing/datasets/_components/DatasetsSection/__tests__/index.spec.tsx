@@ -14,6 +14,7 @@ jest.mock('next-intl', () => ({
 jest.mock('@/core/api/EnApi', () => ({
   EnApi: {
     getDatasets: jest.fn(),
+    getDatasetUpdates: jest.fn(),
     installDataset: jest.fn(),
     activateDataset: jest.fn(),
     deleteDataset: jest.fn(),
@@ -81,6 +82,7 @@ describe('DatasetsSection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (EnApi.getDatasets as jest.Mock).mockResolvedValue(listOf());
+    (EnApi.getDatasetUpdates as jest.Mock).mockResolvedValue({ enabled: true, datasets: [] });
   });
 
   it('shows every dataset of the catalog with its terms, installed or not', () => {
@@ -297,6 +299,137 @@ describe('DatasetsSection', () => {
     fireEvent.click(confirm);
     await waitFor(() => expect(EnApi.deleteDataset).toHaveBeenCalledWith('wiktionary'));
     expect(EnApi.getDatasets).toHaveBeenCalled();
+  });
+
+  // issue #530: what the source of an installed dataset has now
+  describe('a newer file of the source', () => {
+    const checked_at = '2026-11-01T12:00:00.000Z';
+    const installed = listOf({
+      wiktionary: { ...INSTALLED, version: '2026.09.25' },
+      wordnet: { ...INSTALLED, version: '2025' },
+    });
+
+    it('is told on the card of the dataset, with the page it is downloaded from', async () => {
+      (EnApi.getDatasetUpdates as jest.Mock).mockResolvedValue({
+        enabled: true,
+        datasets: [
+          {
+            name: 'wiktionary',
+            installed: '2026.09.25',
+            latest: '2026.10.30',
+            url: 'https://kaikki.org/dictionary/English/',
+            comparable: true,
+            update_available: true,
+            checked_at,
+          },
+          {
+            name: 'wordnet',
+            installed: '2025',
+            latest: '2025',
+            url: null,
+            comparable: true,
+            update_available: false,
+            checked_at,
+          },
+        ],
+      });
+      renderSection(installed);
+
+      const notice = within(await screen.findByTestId('dataset-update-wiktionary'));
+      expect(
+        notice.getByText('update_available {"latest":"2026.10.30","installed":"2026.09.25"}'),
+      ).toBeInTheDocument();
+      expect(notice.getByText(/update_hint/)).toBeInTheDocument();
+      expect(notice.getByRole('link', { name: 'update_open' })).toHaveAttribute(
+        'href',
+        'https://kaikki.org/dictionary/English/',
+      );
+      expect(screen.getByTestId('dataset-source-version-wiktionary')).toHaveTextContent('2026.10.30');
+
+      // the edition that is installed is the latest: what the source has is shown, nothing is told
+      expect(screen.getByTestId('dataset-source-version-wordnet')).toHaveTextContent('2025');
+      expect(screen.queryByTestId('dataset-update-wordnet')).not.toBeInTheDocument();
+      // the datasets nothing is asked about say nothing of a source
+      for (const name of ['default', 'wordnet_princeton']) {
+        expect(screen.queryByTestId(`dataset-source-version-${name}`)).not.toBeInTheDocument();
+      }
+    });
+
+    it('says when the source could not be asked, and stays silent when the check is off or fails', async () => {
+      (EnApi.getDatasetUpdates as jest.Mock).mockResolvedValue({
+        enabled: true,
+        datasets: [
+          {
+            name: 'wiktionary',
+            installed: '2026.09.25',
+            latest: null,
+            url: null,
+            comparable: true,
+            update_available: false,
+            checked_at,
+          },
+        ],
+      });
+      const { unmount } = renderSection(installed);
+      expect(await screen.findByTestId('dataset-source-version-wiktionary')).toHaveTextContent(
+        'source_unknown',
+      );
+      expect(screen.queryByTestId('dataset-update-wiktionary')).not.toBeInTheDocument();
+      unmount();
+
+      for (const answer of [
+        { enabled: false, datasets: [] },
+        { error: true, message: 'unknown_error' },
+      ]) {
+        (EnApi.getDatasetUpdates as jest.Mock).mockResolvedValue(answer);
+        const view = renderSection(installed);
+        await waitFor(() => expect(EnApi.getDatasetUpdates).toHaveBeenCalled());
+        expect(screen.queryByTestId('dataset-source-version-wiktionary')).not.toBeInTheDocument();
+        expect(screen.queryByText(/unknown_error/)).not.toBeInTheDocument();
+        view.unmount();
+      }
+    });
+
+    it('says of a dataset recorded by the day of its installation that its edition is not known', async () => {
+      (EnApi.getDatasetUpdates as jest.Mock).mockResolvedValue({
+        enabled: true,
+        datasets: [
+          {
+            name: 'wordnet',
+            installed: '2026.09.27',
+            latest: '2025',
+            url: null,
+            comparable: false,
+            update_available: false,
+            checked_at,
+          },
+        ],
+      });
+      renderSection(listOf({ wordnet: INSTALLED }));
+
+      expect(await screen.findByTestId('dataset-version-unknown-wordnet')).toHaveTextContent('version_unknown');
+      expect(screen.queryByTestId('dataset-update-wordnet')).not.toBeInTheDocument();
+    });
+
+    it('is not told of a dataset the instance does not hold', async () => {
+      (EnApi.getDatasetUpdates as jest.Mock).mockResolvedValue({
+        enabled: true,
+        datasets: [
+          {
+            name: 'wiktionary',
+            installed: null,
+            latest: '2026.10.30',
+            url: null,
+            comparable: true,
+            update_available: true,
+            checked_at,
+          },
+        ],
+      });
+      renderSection(listOf());
+      await waitFor(() => expect(EnApi.getDatasetUpdates).toHaveBeenCalled());
+      expect(screen.queryByTestId('dataset-update-wiktionary')).not.toBeInTheDocument();
+    });
   });
 
   it('shows the catalog on SQLite, says why nothing can be installed and offers no upload', () => {

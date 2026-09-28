@@ -256,6 +256,15 @@ export default {
     label_size: 'Size',
     label_version: 'Version',
     label_imported: 'Imported',
+    label_source_version: 'At the source',
+    source_unknown: 'the source could not be asked',
+    source_checked: 'checked {date}',
+    update_available: 'The source has a newer file: {latest}. Installed: {installed}.',
+    update_hint:
+      'Download it and update the dataset with the button below: the entries edited on this instance are kept.',
+    update_open: 'Open the page of the source',
+    version_unknown:
+      'The version is the day this dataset was installed, not the version of its file. Install it again from the file of the source to record it: until then a newer file cannot be told.',
     share_alike: 'share-alike',
     size: '{entries} entries · {senses} senses · about {size} in the database',
     never: 'never',
@@ -295,6 +304,8 @@ export default {
     step_optional_pronunciations: 'Optional, for the pronunciations — WordNet has none of its own:',
     optional: 'optional',
     step_attach: 'Attach what you downloaded below, as it is: do not unpack or rename it. Press “Start”.',
+    step_version:
+      'The version of the dataset is read from the file: the day the extract was made, the edition of the release.',
     step_wait:
       'The server converts the file and imports it into a dataset of its own — about {minutes} min. The active dataset keeps serving meanwhile; keep this page open.',
     step_wait_update:
@@ -373,6 +384,8 @@ export default {
     data_attribution: 'Attribution:',
     up_to_date: 'You already have the latest dictionary version',
     update_available: 'A newer dataset version is available',
+    published_is_own:
+      'The published dataset is the one of the project and goes into the dataset “default”. “{name}” is a dataset of another source: it is updated on the datasets page, from the file of its source.',
     start_update: 'Update the dictionary',
     update_summary: 'Update finished: {updated} entries updated, {added} added, {kept} kept with your edits',
     auto_import_running: 'The dictionary is being loaded automatically: {stage} {percent}%',

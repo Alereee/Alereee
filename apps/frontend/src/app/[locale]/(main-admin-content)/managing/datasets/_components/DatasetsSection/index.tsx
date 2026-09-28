@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Alert, App, Button, Card, Popconfirm, Tag, Typography } from 'antd';
 import { useLocale, useTranslations } from 'next-intl';
 import { DATASET_CATALOG, DatasetCatalogEntryT } from 'server/core/constants/dataset_catalog';
-import { DatasetT, DatasetsListT } from 'server/types';
+import { DatasetT, DatasetUpdateT, DatasetsListT } from 'server/types';
 import { EnApi } from '@/core/api/EnApi';
 import { InstallDataset } from './components/InstallDataset';
 import { formatCount, formatMegabytes } from './utils';
@@ -35,6 +35,14 @@ export const DatasetsSection: React.FC<DatasetsSectionP> = ({ initial }) => {
   const [list, setList] = React.useState<DatasetsListT | undefined>(initial);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [instruction, setInstruction] = React.useState<DatasetCatalogEntryT | null>(null);
+  // what the sources of the installed datasets have now (issue #530); a
+  // notice, so a failure of the request is no error of the page
+  const [updates, setUpdates] = React.useState<DatasetUpdateT[]>([]);
+
+  const checkUpdates = React.useCallback(async () => {
+    const res = await EnApi.getDatasetUpdates();
+    setUpdates('error' in res ? [] : res.datasets);
+  }, []);
 
   const reload = React.useCallback(async () => {
     const res = await EnApi.getDatasets();
@@ -43,11 +51,14 @@ export const DatasetsSection: React.FC<DatasetsSectionP> = ({ initial }) => {
       return;
     }
     setList(res);
-  }, [message, tErr]);
+    // the version that is installed may have changed: the notice is about it
+    await checkUpdates();
+  }, [message, tErr, checkUpdates]);
 
   React.useEffect(() => {
-    if (!initial) void reload();
-  }, [initial, reload]);
+    if (initial) void checkUpdates();
+    else void reload();
+  }, [initial, reload, checkUpdates]);
 
   const run = async (
     key: string,
@@ -74,6 +85,7 @@ export const DatasetsSection: React.FC<DatasetsSectionP> = ({ initial }) => {
     const installed = state?.installed ?? false;
     const active = state?.active ?? false;
     const fromSource = entry.install.kind === 'convert';
+    const update = installed ? updates.find((item) => item.name === entry.name) : undefined;
 
     return (
       <Card
@@ -140,11 +152,49 @@ export const DatasetsSection: React.FC<DatasetsSectionP> = ({ initial }) => {
             <>
               <dt>{t('label_version')}</dt>
               <dd>{state?.version ?? '—'}</dd>
+              {update && (
+                <>
+                  <dt>{t('label_source_version')}</dt>
+                  <dd data-testid={`dataset-source-version-${entry.name}`}>
+                    {update.latest ?? t('source_unknown')}
+                    {update.checked_at && (
+                      <Text type="secondary" className={styles.checked}>
+                        {t('source_checked', { date: new Date(update.checked_at).toLocaleString(locale) })}
+                      </Text>
+                    )}
+                  </dd>
+                </>
+              )}
               <dt>{t('label_imported')}</dt>
               <dd>{state?.imported_at ? new Date(state.imported_at).toLocaleString(locale) : t('never')}</dd>
             </>
           )}
         </dl>
+
+        {update?.installed && !update.comparable && (
+          <Paragraph type="secondary" data-testid={`dataset-version-unknown-${entry.name}`}>
+            {t('version_unknown')}
+          </Paragraph>
+        )}
+        {update?.update_available && (
+          <Alert
+            type="warning"
+            showIcon
+            className={styles.update}
+            data-testid={`dataset-update-${entry.name}`}
+            title={t('update_available', { latest: update.latest ?? '', installed: update.installed ?? '' })}
+            description={
+              <>
+                {t('update_hint')}{' '}
+                {update.url && (
+                  <a href={update.url} target="_blank" rel="noreferrer noopener">
+                    {t('update_open')}
+                  </a>
+                )}
+              </>
+            }
+          />
+        )}
 
         <div className={styles.actions}>
           {supported && installed && !active && (

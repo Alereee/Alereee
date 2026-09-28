@@ -371,7 +371,10 @@ export type PublicMetaV1T = {
   // version of the server (package.json)
   app_version: string;
   // version of the dataset the dictionary was last imported from; null when
-  // the data was authored in place or imported from a dataset without a manifest
+  // the data was authored in place or imported from a dataset without a manifest.
+  // A string to show, without a promised format: `1.0.0` for the project's
+  // dataset, the day of the extract for Wiktionary (`2026.09.25`), the
+  // edition for a WordNet (`2025`) — what the file of the source says (issue #530)
   dataset_version: string | null;
   // the dictionary data license (issue #270): SPDX identifier, its text, and
   // the attribution line a consumer has to show

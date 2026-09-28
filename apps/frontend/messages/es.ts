@@ -259,6 +259,15 @@ export default {
     label_size: 'Tamaño',
     label_version: 'Versión',
     label_imported: 'Importado',
+    label_source_version: 'En la fuente',
+    source_unknown: 'no se pudo consultar la fuente',
+    source_checked: 'comprobado el {date}',
+    update_available: 'La fuente tiene un archivo más reciente: {latest}. Instalado: {installed}.',
+    update_hint:
+      'Descárguelo y actualice el conjunto de datos con el botón de abajo: las entradas editadas en esta instancia se conservan.',
+    update_open: 'Abrir la página de la fuente',
+    version_unknown:
+      'La versión es el día en que se instaló este conjunto de datos, no la versión de su archivo. Instálelo de nuevo con el archivo de la fuente para registrarla: hasta entonces no se puede avisar de un archivo más reciente.',
     share_alike: 'compartir igual',
     size: '{entries} entradas · {senses} acepciones · unos {size} en la base de datos',
     never: 'nunca',
@@ -301,6 +310,8 @@ export default {
     optional: 'opcional',
     step_attach:
       'Adjunte abajo lo que descargó, tal cual: no lo descomprima ni le cambie el nombre. Pulse «Iniciar».',
+    step_version:
+      'La versión del conjunto de datos se lee del archivo: el día en que se hizo el extracto, la edición de la publicación.',
     step_wait:
       'El servidor convierte el archivo y lo importa en un conjunto de datos propio: unos {minutes} min. El conjunto activo sigue sirviéndose mientras tanto; mantenga esta página abierta.',
     step_wait_update:
@@ -379,6 +390,8 @@ export default {
     data_attribution: 'Atribución:',
     up_to_date: 'Ya tienes la última versión del diccionario',
     update_available: 'Hay una versión más reciente del dataset',
+    published_is_own:
+      'El conjunto de datos publicado es el del proyecto y se importa en el conjunto «default». «{name}» es un conjunto de datos de otra fuente: se actualiza en la página de conjuntos de datos, con el archivo de su fuente.',
     start_update: 'Actualizar el diccionario',
     update_summary:
       'Actualización terminada: {updated} entradas actualizadas, {added} añadidas, {kept} conservadas con tus ediciones',

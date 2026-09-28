@@ -91,6 +91,13 @@ export type SourceAdapterT = {
   description: string;
   /** Where the data comes from and under which terms: the manifest carries it, the instance shows it */
   provenance: (options: Record<string, string>) => Required<ManifestProvenanceT>;
+  /**
+   * The version of the file the source distributes, as the file says it
+   * (issue #530): the day an extract was made, the edition of a release.
+   * Null when the file does not say — the day of the conversion is recorded
+   * then. Nothing is asked of the source
+   */
+  versionOf: (input: string, options: Record<string, string>) => Promise<string | null>;
   /** Reads `input` (the file the source distributes, packed or not) and emits its entries */
   convert: (input: string, options: Record<string, string>, context: ConverterContextT) => Promise<void>;
 };

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Settings } from '../SettingsModule/entities/settings.entity';
 import { Dataset } from './entities/dataset.entity';
 import { DatasetsService } from './datasets.service';
+import { DatasetUpdatesService } from './dataset-updates.service';
 
 /**
  * The registry of datasets and the active one (issue #527). Global like the
@@ -13,7 +14,7 @@ import { DatasetsService } from './datasets.service';
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([Dataset, Settings])],
-  providers: [DatasetsService],
-  exports: [DatasetsService],
+  providers: [DatasetsService, DatasetUpdatesService],
+  exports: [DatasetsService, DatasetUpdatesService],
 })
 export class DatasetsModule {}

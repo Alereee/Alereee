@@ -331,18 +331,64 @@ describe('ImportDictionarySection: the target dataset', () => {
   });
 
   it('names the dataset the page was opened for and shows the version that dataset holds', async () => {
-    mockImportStreaming(completedChunks);
+    (EnApi.uploadDictionary as jest.Mock).mockImplementation(
+      async (_files: unknown, _manual: unknown, handleChunk: HandleChunkT) => {
+        completedChunks.forEach(handleChunk);
+        return { success: true };
+      },
+    );
     renderSection({ datasets, yourVersion: '1.0.0', initialTarget: 'wiktionary' });
 
     expect(screen.getByText('dataset_hint')).toBeInTheDocument();
     expect(screen.getByText('your_version: 2026.09')).toBeInTheDocument();
+
+    // an export of such a dataset goes into it: the request names the dataset
+    fireEvent.click(screen.getByRole('tab', { name: 'source_archive' }));
+    await screen.findByText('upload_text');
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
+      target: { files: [new File(['zip'], 'export.zip', { type: 'application/zip' })] },
+    });
+    await screen.findByText('export.zip');
     fireEvent.click(screen.getByText('start_importing'));
     await screen.findByText('100.00%');
-    expect(EnApi.importDictionary).toHaveBeenCalledWith(
-      { dataset: 'wiktionary' },
-      expect.any(Function),
-      expect.any(Function),
-    );
+    expect((EnApi.uploadDictionary as jest.Mock).mock.calls[0][1]).toEqual({ dataset: 'wiktionary' });
+  });
+
+  // issue #530: the published dataset is the project's own. Its version says nothing about a
+  // dataset of another source, and it does not go into one
+  it('compares the version with the published dataset for the dataset of the project only', () => {
+    renderSection({ datasets, yourVersion: '1.0.0', latestVersion: '1.1.0', initialTarget: 'wiktionary' });
+
+    expect(screen.getByText('your_version: 2026.09')).toBeInTheDocument();
+    expect(screen.queryByText('update_available')).not.toBeInTheDocument();
+    expect(screen.queryByText('start_update')).not.toBeInTheDocument();
+    expect(screen.getByTestId('published-not-for-target')).toHaveTextContent('published_is_own');
+    expect(screen.getByText('start_importing').closest('button')).toBeDisabled();
+    expect(EnApi.importDictionary).not.toHaveBeenCalled();
+  });
+
+  it('does the same when the dataset of another source is the active one', () => {
+    const active = {
+      ...datasets!,
+      active: 'wiktionary',
+      datasets: datasets!.datasets.map((dataset) => ({ ...dataset, active: dataset.name === 'wiktionary' })),
+    };
+    // the settings mirror the version of the active dataset
+    renderSection({ datasets: active, yourVersion: '2026.09', latestVersion: '2026.09' });
+
+    expect(screen.queryByText('update_available')).not.toBeInTheDocument();
+    expect(screen.queryByText('up_to_date')).not.toBeInTheDocument();
+    expect(screen.getByTestId('published-not-for-target')).toBeInTheDocument();
+    expect(screen.getByText('start_importing').closest('button')).toBeDisabled();
+  });
+
+  it('offers the update of the project dataset as before', () => {
+    renderSection({ datasets, yourVersion: '1.0.0', latestVersion: '1.1.0' });
+
+    expect(screen.getByText('update_available')).toBeInTheDocument();
+    expect(screen.getByText('start_update')).toBeInTheDocument();
+    expect(screen.queryByTestId('published-not-for-target')).not.toBeInTheDocument();
+    expect(screen.getByText('start_importing').closest('button')).toBeEnabled();
   });
 
   it('ignores a dataset of the link that is not installed', () => {

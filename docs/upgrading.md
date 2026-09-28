@@ -33,6 +33,9 @@ How it works:
   request.
 - **Turning it off.** `UPDATE_CHECK=false` ([environment.md](./environment.md)): no outgoing
   request at all, no notice. The startup log names the setting.
+- **The datasets have a notice of their own.** The same switch covers the check for a newer file
+  of a source — Wiktionary, the Open English WordNet — shown on the card of the dataset
+  ([`datasets.md`](./datasets.md#versions-and-newer-files-of-a-source)).
 
 Closing the notice hides it for that release in this browser; the next release shows it again.
 The two links of the notice lead to the release notes on GitHub and to this page.
@@ -180,6 +183,24 @@ The version that reads a headword from every dataset at once
   connection limit of a managed Postgres, next to `DB_POOL_SIZE`;
 - the settings gain a field the server writes, `dataset_removed_at`: when a dataset was last
   deleted. It dates the answers of the new routes and is not meant to be edited.
+
+## Upgrading to a version that reads the versions from the files
+
+The version that records a dataset of a public source by what its file says
+([`datasets.md`](./datasets.md#versions-and-newer-files-of-a-source)) needs no migration:
+
+- **a dataset that is installed keeps the version it has** — the day it was installed. Install
+  it again from the file of its source, the one you have or a newer one, to record the version of
+  the file; until then the card of a WordNet dataset says that its edition is not known and gives
+  no notice of a newer one, and the one of Wiktionary counts its 30 days from the day of the
+  installation;
+- with `UPDATE_CHECK` on, an instance that holds Wiktionary or the Open English WordNet asks
+  kaikki.org and the GitHub API once a day. An instance that must make no outgoing request has
+  `UPDATE_CHECK=false` already, and asks nothing;
+- `dataset_version` of `/api/v1/meta` changes for such a dataset at its next installation, from a
+  day to a day or an edition. It was never promised a format;
+- the import page offers the update of the published dataset for the dataset of the project
+  only. It used to offer it for a dataset of another source too, and the server refused.
 
 ## The dictionary is updated separately
 

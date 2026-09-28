@@ -222,7 +222,13 @@ export const InstallDataset: React.FC<InstallDatasetP> = ({
                 {t(`step_optional_${file.field}`)} {download(file)}
               </li>
             ))}
-            <li>{t('step_attach')}</li>
+            <li>
+              {t('step_attach')}{' '}
+              {/* what the version of the dataset will be, and why the file goes in as it is (issue #530) */}
+              <Text type="secondary" data-testid="step-version">
+                {t('step_version')}
+              </Text>
+            </li>
             <li>{t(installed ? 'step_wait_update' : 'step_wait', { minutes: entry.size.minutes })}</li>
             <li>{t('step_activate')}</li>
           </ol>

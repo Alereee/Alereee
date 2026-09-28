@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { AvailableTranslationLanguagesE, EnAreaVariantsE, EnPartOfSpeechE } from '../../../types';
-import { convert, versionOfToday } from '../convert';
+import { convert, versionOfConversion, versionOfToday } from '../convert';
 import { emptyEntry } from '../normalize';
 import { ConvertedEntryT, ConvertedMeaningT, SourceAdapterT } from '../types';
 import { DatasetWriter } from '../writer';
@@ -209,6 +209,7 @@ describe('convert', () => {
         ...PROVENANCE,
         attribution: `A fixture${options.extra ? ` with ${options.extra}` : ''}`,
       }),
+      versionOf: async () => null,
       convert: async (_input, options, context) => {
         seen.push(options);
         await context.emit(entry('lamp', EnPartOfSpeechE.noun));
@@ -236,5 +237,42 @@ describe('convert', () => {
 
   it('versions a dataset by the day of its conversion when none is given', () => {
     expect(versionOfToday(new Date('2026-09-27T10:00:00Z'))).toBe('2026.09.27');
+  });
+
+  // issue #530: the version is the one of the file, not of the day it was converted
+  it('takes the version the file says, unless one is named; the day when the file cannot be asked', async () => {
+    const source = (versionOf: SourceAdapterT['versionOf']): SourceAdapterT => ({
+      name: 'fixture',
+      description: 'a fixture',
+      provenance: () => PROVENANCE,
+      versionOf,
+      convert: async () => undefined,
+    });
+    const asked: Array<[string, Record<string, string>]> = [];
+    const says = source(async (input, options) => {
+      asked.push([input, options]);
+      return '2025';
+    });
+
+    expect(await versionOfConversion({ source: says, input: 'a file', sourceOptions: { edition: 'x' } })).toBe(
+      '2025',
+    );
+    expect(asked).toEqual([['a file', { edition: 'x' }]]);
+    expect(await versionOfConversion({ source: says, input: 'a file', version: '7.0' })).toBe('7.0');
+
+    const today = versionOfToday();
+    expect(await versionOfConversion({ source: source(async () => null), input: 'a file' })).toBe(today);
+    // what is no version is not written as one: it goes into the manifest and the names of files
+    expect(await versionOfConversion({ source: source(async () => 'the latest one'), input: 'a file' })).toBe(
+      today,
+    );
+    expect(
+      await versionOfConversion({
+        source: source(async () => {
+          throw new Error('not a file');
+        }),
+        input: 'nowhere',
+      }),
+    ).toBe(today);
   });
 });

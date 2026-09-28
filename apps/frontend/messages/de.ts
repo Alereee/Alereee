@@ -260,6 +260,15 @@ export default {
     label_size: 'Umfang',
     label_version: 'Version',
     label_imported: 'Importiert',
+    label_source_version: 'In der Quelle',
+    source_unknown: 'die Quelle konnte nicht abgefragt werden',
+    source_checked: 'geprüft am {date}',
+    update_available: 'Die Quelle hat eine neuere Datei: {latest}. Installiert: {installed}.',
+    update_hint:
+      'Laden Sie sie herunter und aktualisieren Sie den Datensatz mit der Schaltfläche unten: Die auf dieser Instanz bearbeiteten Einträge bleiben erhalten.',
+    update_open: 'Seite der Quelle öffnen',
+    version_unknown:
+      'Die Version ist der Tag, an dem dieser Datensatz installiert wurde, nicht die Version seiner Datei. Installieren Sie ihn erneut aus der Datei der Quelle, um sie festzuhalten: Bis dahin kann keine neuere Datei gemeldet werden.',
     share_alike: 'Share-Alike',
     size: '{entries} Einträge · {senses} Bedeutungen · etwa {size} in der Datenbank',
     never: 'nie',
@@ -301,6 +310,8 @@ export default {
     optional: 'optional',
     step_attach:
       'Hängen Sie das Heruntergeladene unten an, so wie es ist: nicht entpacken, nicht umbenennen. Klicken Sie auf „Starten“.',
+    step_version:
+      'Die Version des Datensatzes wird aus der Datei gelesen: der Tag, an dem der Auszug erstellt wurde, die Ausgabe der Veröffentlichung.',
     step_wait:
       'Der Server konvertiert die Datei und importiert sie in einen eigenen Datensatz – etwa {minutes} Min. Der aktive Datensatz wird währenddessen weiter ausgeliefert; lassen Sie diese Seite geöffnet.',
     step_wait_update:
@@ -379,6 +390,8 @@ export default {
     data_attribution: 'Namensnennung:',
     up_to_date: 'Sie haben bereits die neueste Version des Wörterbuchs',
     update_available: 'Eine neuere Datensatzversion ist verfügbar',
+    published_is_own:
+      'Der veröffentlichte Datensatz ist der des Projekts und wird in den Datensatz „default“ importiert. „{name}“ ist ein Datensatz einer anderen Quelle: Er wird auf der Seite der Datensätze aktualisiert, aus der Datei seiner Quelle.',
     start_update: 'Wörterbuch aktualisieren',
     update_summary:
       'Update abgeschlossen: {updated} Einträge aktualisiert, {added} hinzugefügt, {kept} mit Ihren Bearbeitungen behalten',

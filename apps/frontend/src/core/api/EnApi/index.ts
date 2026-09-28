@@ -54,6 +54,7 @@ import {
   GetDatasetManifestResT,
   DatasetResT,
   DeleteDatasetResT,
+  GetDatasetUpdatesResT,
   GetDatasetsResT,
   PublicSearchDetailedV1ResT,
   PublicSearchV1ResT,
@@ -380,6 +381,14 @@ export class EnApi extends AbstractBaseApi {
   // structural calls answer 409 `datasets_not_supported`
   static async getDatasets(): Promise<GetDatasetsResT> {
     return this.get<GetDatasetsResT>(`${this.baseURL}/en/datasets`);
+  }
+
+  /**
+   * Whether the sources of the installed datasets have newer files (issue
+   * #530); the server asks a source once a day at most
+   */
+  static async getDatasetUpdates(): Promise<GetDatasetUpdatesResT> {
+    return this.get<GetDatasetUpdatesResT>(`${this.baseURL}/en/datasets/updates`);
   }
 
   /**

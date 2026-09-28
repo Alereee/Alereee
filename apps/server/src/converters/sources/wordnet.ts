@@ -14,6 +14,7 @@ import {
   SourceAdapterT,
 } from '../types';
 import { unpackFiles, WORDNET_FILES } from '../unpack';
+import { editionOfOpenEnglishWordnet, releaseEntries, versionOfPrincetonWordnet } from '../version';
 import { loadCmudict } from './cmudict';
 
 /**
@@ -286,5 +287,12 @@ export const wordnet: SourceAdapterT = {
     'WordNet in its database format: english-wordnet-<year>.zip of the Open English WordNet, or the tar.gz of ' +
     'Princeton WordNet with --edition princeton (packed or unpacked); --cmudict <file> adds pronunciations',
   provenance: (options) => termsOfAdapter('wordnet', options),
+  // the pronunciations of CMUdict have no version and are not a part of this one
+  versionOf: async (input, options) => {
+    const entries = await releaseEntries(input);
+    return options.edition === 'princeton'
+      ? versionOfPrincetonWordnet(entries)
+      : editionOfOpenEnglishWordnet(entries);
+  },
   convert: convertWordnet,
 };

@@ -67,7 +67,8 @@ has the same indexes.
 **Updating.** A source publishes newer files; the instance does not fetch them. On the card of
 an installed dataset _Update from a newer file_ opens the same instruction: the entries are
 replaced with the ones of the newer file, the entries you edited are kept, entries that are
-gone from the source are not deleted. The version of a dataset is the day it was installed.
+gone from the source are not deleted. When the source has a file that is worth installing, the
+card says so ([below](#versions-and-newer-files-of-a-source)).
 
 > [!NOTE]
 > The file goes to the server in one request, up to 2 GiB. A reverse proxy in front of the
@@ -91,12 +92,13 @@ curl -b cookies.txt -X POST http://localhost:3010/api/en/datasets/wiktionary/act
 curl -b cookies.txt -X DELETE http://localhost:3010/api/en/datasets/wordnet       # not the active one, not `default`
 ```
 
-| Route                                   | What it does                                                                                   |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `GET /api/en/datasets`                  | `{ supported, active, datasets: [...] }`: the catalog with `installed`, `active`, `version`    |
-| `POST /api/en/datasets/{name}/install`  | installs or updates from the file of the source. `400 dataset_source_invalid` for another file |
-| `POST /api/en/datasets/{name}/activate` | makes it the one the instance serves                                                           |
-| `DELETE /api/en/datasets/{name}`        | drops the dataset with its schema. `409 dataset_is_active` / `dataset_is_default`              |
+| Route                                   | What it does                                                                                                                                               |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/en/datasets`                  | `{ supported, active, datasets: [...] }`: the catalog with `installed`, `active`, `version`                                                                |
+| `GET /api/en/datasets/updates`          | `{ enabled, datasets: [{ name, installed, latest, url, comparable, update_available, checked_at }] }`: what the sources of the installed datasets have now |
+| `POST /api/en/datasets/{name}/install`  | installs or updates from the file of the source. `400 dataset_source_invalid` for another file                                                             |
+| `POST /api/en/datasets/{name}/activate` | makes it the one the instance serves                                                                                                                       |
+| `DELETE /api/en/datasets/{name}`        | drops the dataset with its schema. `409 dataset_is_active` / `dataset_is_default`                                                                          |
 
 One import or installation runs at a time, and no dataset is activated or deleted while one
 runs (`409 import_in_progress`, `409 datasets_busy`). On SQLite the routes that change the set
@@ -106,6 +108,66 @@ of datasets answer `409 datasets_not_supported`.
 through the import page: with more than one dataset installed the page offers _Import into_,
 and `dataset` of the import request names a dataset of the catalog, installing it when it is
 not ([`offline-import.md`](./offline-import.md)).
+
+## Versions and newer files of a source
+
+**The version of a dataset is what its file says of itself.** It is read when the dataset is
+installed, from the file as it was downloaded; the source is not asked, so an instance without
+internet access records the same version as one with it, and two instances that installed the
+same file report the same `dataset_version`.
+
+| Dataset              | Where the file says it                                       | Version      |
+| -------------------- | ------------------------------------------------------------ | ------------ |
+| English Wiktionary   | the header of the gzip: the day the extract was made, in UTC | `2026.09.25` |
+| Open English WordNet | the folder of the archive, `oewn2025/`                       | `2025`       |
+| Princeton WordNet    | the name of its build log, `dict/log.grind.3.1`              | `3.1`        |
+| the project's own    | `version` of the manifest of the published dataset           | `1.0.0`      |
+
+- **Attach the file as it is.** An extract that was unpacked and packed again has lost its date,
+  an archive packed without its folder its edition: the dataset is then recorded by **the day of
+  the installation**, as every dataset was before the versions were read from the files.
+- **The pronunciations of CMUdict have no version** and are not a part of the version of a
+  WordNet dataset.
+- **An installation takes no version from the admin.** Like the license and the attribution,
+  the version of a file is a fact of the source. Two other ways into a dataset do carry a version
+  that somebody wrote: an export of another instance, imported on the import page, brings the
+  version of its manifest, and a manifest filled in by hand there brings the one that was typed
+  ([`offline-import.md`](./offline-import.md)). The settings field `en_dataset_version`, which
+  mirrors the version of the active dataset and is what `GET /api/v1/meta` reports, can be
+  corrected by hand too; the registry and the card of the dataset keep what was installed.
+- **A dataset installed by an earlier version of the server** keeps the day of its installation
+  until it is installed again: the server does not have the file any more.
+- The version is written into every entry of the dataset, into the registry and the manifest of
+  an export, and is what `GET /api/v1/meta` and the groups of `GET /api/v1/words/{word}/datasets`
+  report. It is a string a client shows, not one it computes with.
+
+**A newer file of the source** is told on the card of the dataset: what is installed, what the
+source has now, and a notice when the difference is worth an installation.
+
+| Dataset              | What is asked, once a day at most                                       | The notice appears                                          |
+| -------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
+| English Wiktionary   | `HEAD` of the extract on kaikki.org, for its `Last-Modified`            | when the extract of the source is **30 days or more** newer |
+| Open English WordNet | the latest release of `globalwordnet/english-wordnet` on the GitHub API | when its edition is newer than the installed one            |
+| Princeton WordNet    | nothing: frozen since 2011                                              | never                                                       |
+| the project's own    | nothing here: the import page compares it with the published dataset    | on the import page                                          |
+
+- **A notice, not an update.** The file is downloaded and attached by the admin, as at the
+  first installation; the link of the notice leads to the page of the source.
+- **Wiktionary is made again every few days**, so a notice for every new extract would never go
+  away; the card shows the day of the extract of the source at any time.
+- **Only installed datasets are asked about**, and only by an instance that may: with
+  `UPDATE_CHECK=false` no request leaves the server ([`environment.md`](./environment.md)). What
+  is asked is stated in the catalog of datasets, next to the terms of the source. The answers are
+  kept in memory for a day, a failure for half an hour; nothing is written to the database.
+- **What is sent**: an anonymous request with a `User-Agent` of `vocab-bloom-hub/<version>`,
+  nothing about the instance or its data. The file itself is not downloaded.
+- **A version that cannot be compared gets no notice**: a dataset recorded by the day of its
+  installation does not say which edition it holds, and nothing is guessed. The card says so and
+  asks to install the dataset again from the file of its source (`comparable: false`).
+- **An older file can be installed over a newer one**: the version becomes the one of the file
+  that was attached, and the notice of a newer file appears again.
+- `GET /api/en/datasets/updates` (admin) answers what the card shows. Nothing of it is a part of
+  the public API.
 
 ## What a switch changes
 

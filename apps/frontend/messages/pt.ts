@@ -259,6 +259,15 @@ export default {
     label_size: 'Tamanho',
     label_version: 'Versão',
     label_imported: 'Importado',
+    label_source_version: 'Na fonte',
+    source_unknown: 'não foi possível consultar a fonte',
+    source_checked: 'verificado em {date}',
+    update_available: 'A fonte tem um arquivo mais recente: {latest}. Instalado: {installed}.',
+    update_hint:
+      'Baixe-o e atualize o conjunto de dados com o botão abaixo: as entradas editadas nesta instância são mantidas.',
+    update_open: 'Abrir a página da fonte',
+    version_unknown:
+      'A versão é o dia em que este conjunto de dados foi instalado, não a versão do arquivo. Instale-o novamente com o arquivo da fonte para registrá-la: até lá não é possível avisar sobre um arquivo mais recente.',
     share_alike: 'compartilha igual',
     size: '{entries} entradas · {senses} acepções · cerca de {size} no banco de dados',
     never: 'nunca',
@@ -301,6 +310,8 @@ export default {
     optional: 'opcional',
     step_attach:
       'Anexe abaixo o que você baixou, como está: não descompacte nem renomeie. Clique em “Iniciar”.',
+    step_version:
+      'A versão do conjunto de dados é lida do arquivo: o dia em que o extrato foi feito, a edição da publicação.',
     step_wait:
       'O servidor converte o arquivo e o importa para um conjunto de dados próprio — cerca de {minutes} min. O conjunto ativo continua sendo servido enquanto isso; mantenha esta página aberta.',
     step_wait_update:
@@ -378,6 +389,8 @@ export default {
     data_attribution: 'Atribuição:',
     up_to_date: 'Você já tem a versão mais recente do dicionário',
     update_available: 'Há uma versão mais recente do dataset',
+    published_is_own:
+      'O conjunto de dados publicado é o do projeto e é importado para o conjunto “default”. “{name}” é um conjunto de dados de outra fonte: ele é atualizado na página de conjuntos de dados, com o arquivo de sua fonte.',
     start_update: 'Atualizar o dicionário',
     update_summary:
       'Atualização concluída: {updated} verbetes atualizados, {added} adicionados, {kept} mantidos com suas edições',

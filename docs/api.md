@@ -435,7 +435,10 @@ in the ids come up slightly more often, which does not matter for a "word of the
 (the server's `package.json`), the dataset — `dataset` (its name on the instance, `default`
 for the one it was born with), `source` (where its data comes from: `vocab-bloom-hub`,
 `wiktionary`, `wordnet`, `princeton-wordnet`) and `dataset_version` (the version of the dataset the dictionary
-was last imported from, `null` for data authored in place or imported without a manifest) —,
+was last imported from, `null` for data authored in place or imported without a manifest; a
+string to show, without a promised format: `1.0.0` for the project's dataset, the day of the
+extract for Wiktionary, `2026.09.25`, the edition for a WordNet, `2025` —
+[`datasets.md`](./datasets.md#versions-and-newer-files-of-a-source)) —,
 the terms of the data — `license` (the SPDX identifier, `"CC-BY-4.0"` for the project's
 dataset, `"CC-BY-SA-4.0"` for Wiktionary), `license_url`, `attribution` (the line a consumer
 has to show, see [`DATA_LICENSE.md`](../DATA_LICENSE.md)) and `attribution_url` (where the line

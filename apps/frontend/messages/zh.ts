@@ -249,6 +249,14 @@ export default {
     label_size: '规模',
     label_version: '版本',
     label_imported: '导入时间',
+    label_source_version: '来源处的版本',
+    source_unknown: '无法查询来源',
+    source_checked: '检查于 {date}',
+    update_available: '来源有较新的文件：{latest}。已安装：{installed}。',
+    update_hint: '请下载该文件，并用下方的按钮更新数据集：在此实例上编辑过的词条会保留。',
+    update_open: '打开来源页面',
+    version_unknown:
+      '这里的版本是安装该数据集的日期，而不是其文件的版本。请用来源的文件重新安装以记录文件版本：在此之前无法提示有较新的文件。',
     share_alike: '相同方式共享',
     size: '{entries} 个词条 · {senses} 个义项 · 在数据库中约占 {size}',
     never: '从未',
@@ -288,6 +296,7 @@ export default {
     step_optional_pronunciations: '可选，用于发音——WordNet 本身没有发音：',
     optional: '可选',
     step_attach: '把下载的文件原样添加到下方：不要解压，也不要改名。然后点击“开始”。',
+    step_version: '数据集的版本读取自文件本身：提取文件的生成日期，或发布的版次。',
     step_wait:
       '服务器会转换该文件并导入到单独的数据集中——约 {minutes} 分钟。在此期间，已启用的数据集照常提供服务；请保持此页面打开。',
     step_wait_update:
@@ -358,6 +367,8 @@ export default {
     data_attribution: '署名：',
     up_to_date: '您已拥有最新版本的词典',
     update_available: '有新版本的数据集可用',
+    published_is_own:
+      '已发布的数据集属于本项目，只能导入数据集“default”。“{name}”是其他来源的数据集：请在数据集页面用其来源的文件更新。',
     start_update: '更新词典',
     update_summary: '更新完成：已更新 {updated} 个词条，新增 {added} 个，保留您修改过的 {kept} 个',
     auto_import_running: '正在自动加载词典：{stage} {percent}%',

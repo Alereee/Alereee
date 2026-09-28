@@ -9,6 +9,7 @@ import { App } from 'supertest/types';
 
 import { AppModule } from '../src/modules/AppModule/app.module';
 import { checkIsPostgres } from '../configuration';
+import { findCatalogEntry } from '../core/constants/dataset_catalog';
 import { filesOf, writeTarGz, writeZip } from '../src/converters/__tests__/pack';
 import { createJwt } from '../core/utils/auth';
 import { hashLoginString } from '../core/utils/crypto';
@@ -34,8 +35,13 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
   const auth = { Authorization: '' };
   const server = () => app.getHttpServer();
   const supported = checkIsPostgres();
-  const sources: Record<'wiktionary' | 'wordnet' | 'princeton' | 'cmudict', string> = {
+  const sources: Record<
+    'wiktionary' | 'wiktionaryNewer' | 'wiktionaryUndated' | 'wordnet' | 'princeton' | 'cmudict',
+    string
+  > = {
     wiktionary: '',
+    wiktionaryNewer: '',
+    wiktionaryUndated: '',
     wordnet: '',
     princeton: '',
     cmudict: path.join(FIXTURES, 'cmudict.dict'),
@@ -77,15 +83,31 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
 
     // the fixtures as their sources pack them, under names that say nothing: an upload has none
     dir = await mkdtemp(path.join(os.tmpdir(), 'vocab-bloom-e2e-sources-'));
+    // the extract says when it was made in the header of its gzip (issue #530);
+    // packed again by a tool that writes no date, it does not
+    const extract = await readFile(path.join(FIXTURES, 'kaikki.jsonl'));
+    const madeAt = (day: string): Buffer => {
+      const packed = gzipSync(extract);
+      packed.writeUInt32LE(Math.floor(Date.parse(day) / 1000), 4);
+      return packed;
+    };
     sources.wiktionary = path.join(dir, 'a');
-    await writeFile(sources.wiktionary, gzipSync(await readFile(path.join(FIXTURES, 'kaikki.jsonl'))));
+    await writeFile(sources.wiktionary, madeAt('2026-09-25T10:02:34Z'));
+    sources.wiktionaryNewer = path.join(dir, 'a2');
+    await writeFile(sources.wiktionaryNewer, madeAt('2026-09-27T08:00:00Z'));
+    sources.wiktionaryUndated = path.join(dir, 'a3');
+    await writeFile(sources.wiktionaryUndated, gzipSync(extract));
     sources.wordnet = await writeZip(
       path.join(dir, 'b'),
       await filesOf(path.join(FIXTURES, 'wordnet'), 'oewn2025/'),
     );
     sources.princeton = await writeTarGz(
       path.join(dir, 'c'),
-      await filesOf(path.join(FIXTURES, 'wordnet'), 'dict/'),
+      [
+        ...(await filesOf(path.join(FIXTURES, 'wordnet'), 'dict/')),
+        // the build log a release of Princeton is versioned by
+        { name: 'dict/log.grind.3.1', content: Buffer.from('grind\n') },
+      ],
       ['dict/'],
     );
 
@@ -157,7 +179,8 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
     expect(chunks[0]).toEqual({ percent: 0, stage: CONVERTING });
     expect(chunks.filter((chunk) => chunk.stage === CONVERTING).at(-1)?.percent).toBe(100);
     expect(chunks.at(-1)).toEqual(
-      expect.objectContaining({ percent: 100, stage: COMPLETED, datasetVersion: expect.any(String) }),
+      // the version is the day the extract was made, not the day it was installed (issue #530)
+      expect.objectContaining({ percent: 100, stage: COMPLETED, datasetVersion: '2026.09.25' }),
     );
     // a first install adds, it has nothing to update
     expect(chunks.at(-1)).not.toHaveProperty('updated_entries');
@@ -169,7 +192,7 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
         active: false,
         source: 'wiktionary',
         license: 'CC-BY-SA-4.0',
-        version: chunks.at(-1)?.datasetVersion,
+        version: '2026.09.25',
         imported_at: expect.any(String),
       }),
     );
@@ -183,6 +206,19 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
 
   it('serves it under the terms of Wiktionary once it is activated', async () => {
     await request(server()).post('/api/en/datasets/wiktionary/activate').set(auth).expect(200);
+
+    // the version of the file is what the instance reports, here and in the read of every dataset
+    const served = await request(server()).get('/api/v1/meta').expect(200);
+    expect(served.body.data).toEqual(
+      expect.objectContaining({ dataset: 'wiktionary', dataset_version: '2026.09.25' }),
+    );
+    const groups = await request(server()).get('/api/v1/words/lamp/datasets').expect(200);
+    expect(
+      groups.body.data.map((group: { dataset: string; dataset_version: string | null }) => [
+        group.dataset,
+        group.dataset_version,
+      ]),
+    ).toContainEqual(['wiktionary', '2026.09.25']);
 
     const lamp = await request(server()).get('/api/v1/words/lamp').expect(200);
     expect(lamp.body.meta).toEqual({ word: 'lamp', count: 3, variants: [] });
@@ -242,13 +278,22 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
   it('updates an installed dataset from a newer file: the entries are replaced, not doubled', async () => {
     const before = (await request(server()).get('/api/v1/meta').expect(200)).body.data.counts;
 
-    const res = await install('wiktionary', sources.wiktionary).expect(201);
+    const res = await install('wiktionary', sources.wiktionaryNewer).expect(201);
     const last = chunksOf(res.text).at(-1);
     await released();
 
     expect(last).toEqual(
-      expect.objectContaining({ stage: COMPLETED, added_entries: 0, kept_user_modified: 0 }),
+      expect.objectContaining({
+        stage: COMPLETED,
+        added_entries: 0,
+        kept_user_modified: 0,
+        // the newer file says its own day
+        datasetVersion: '2026.09.27',
+      }),
     );
+    expect(await datasetOf('wiktionary')).toEqual(expect.objectContaining({ version: '2026.09.27' }));
+    const meta = await request(server()).get('/api/v1/meta').expect(200);
+    expect(meta.body.data.dataset_version).toBe('2026.09.27');
     expect(last?.updated_entries).toBeGreaterThan(0);
     const lamp = await request(server()).get('/api/v1/words/lamp').expect(200);
     expect(lamp.body.meta).toEqual({ word: 'lamp', count: 3, variants: [] });
@@ -256,13 +301,35 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
     expect(before.entries).toBeGreaterThan(0);
   });
 
+  it('records the day of the installation for a file that does not say when it was made (issue #530)', async () => {
+    const res = await install('wiktionary', sources.wiktionaryUndated).expect(201);
+    await released();
+
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10).replace(/-/g, '.');
+    // the suite may run over midnight
+    expect([today, yesterday]).toContain(chunksOf(res.text).at(-1)?.datasetVersion);
+    expect([today, yesterday]).toContain((await datasetOf('wiktionary'))?.version);
+  });
+
   it('installs both editions of WordNet, each into its own dataset, from a zip and from a tar.gz', async () => {
     const open = await install('wordnet', sources.wordnet, sources.cmudict).expect(201);
-    expect(chunksOf(open.text).at(-1)?.stage).toBe(COMPLETED);
+    // the edition of the release; the pronunciations have no version and are not a part of it (issue #530)
+    expect(chunksOf(open.text).at(-1)).toEqual(
+      expect.objectContaining({ stage: COMPLETED, datasetVersion: '2025' }),
+    );
     await released();
     const princeton = await install('wordnet_princeton', sources.princeton).expect(201);
-    expect(chunksOf(princeton.text).at(-1)?.stage).toBe(COMPLETED);
+    expect(chunksOf(princeton.text).at(-1)).toEqual(
+      expect.objectContaining({ stage: COMPLETED, datasetVersion: '3.1' }),
+    );
     await released();
+    expect((await list()).datasets.map((dataset) => [dataset.name, dataset.version])).toEqual(
+      expect.arrayContaining([
+        ['wordnet', '2025'],
+        ['wordnet_princeton', '3.1'],
+      ]),
+    );
 
     expect(
       (await list()).datasets.map((dataset) => [dataset.name, dataset.installed, dataset.license]),
@@ -301,6 +368,7 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
     expect(meta.body.data).toEqual(
       expect.objectContaining({
         dataset: 'wordnet_princeton',
+        dataset_version: '3.1',
         license: 'WordNet',
         attribution: expect.stringContaining('Princeton University'),
       }),
@@ -381,5 +449,64 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
       'wordnet',
       'wordnet_princeton',
     ]);
+  });
+
+  // issue #530: the sources are asked about what the instance holds, and the answer is compared
+  // with the versions the files were installed with. The sources are never called from the suite
+  it('tells when the source of an installed dataset has a newer file', async () => {
+    const realFetch = global.fetch;
+    const flag = process.env.UPDATE_CHECK;
+    delete process.env.UPDATE_CHECK;
+    const asked: string[] = [];
+    // what the catalog tells to ask, and nothing else: the address is compared as a whole
+    const wiktionary = findCatalogEntry('wiktionary')?.update_check;
+    const wordnet = findCatalogEntry('wordnet')?.update_check;
+    const extractUrl = wiktionary?.kind === 'last_modified' ? wiktionary.url : '';
+    const releasesUrl = wordnet?.kind === 'latest_release' ? wordnet.api_url : '';
+    // an extract made in six weeks from now, the edition of the next year
+    const inSixWeeks = new Date(Date.now() + 42 * 86_400_000);
+    global.fetch = (async (url: string) => {
+      asked.push(String(url));
+      if (String(url) === releasesUrl) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ tag_name: '2026-edition', html_url: 'https://x.example/r' }),
+        };
+      }
+      if (String(url) === extractUrl) {
+        return { ok: true, status: 200, headers: new Headers({ 'last-modified': inSixWeeks.toUTCString() }) };
+      }
+      throw new Error(`the suite asks nothing of ${String(url)}`);
+    }) as unknown as typeof fetch;
+
+    try {
+      const res = await request(server()).get('/api/en/datasets/updates').set(auth).expect(200);
+      expect(res.body.enabled).toBe(true);
+      expect(
+        res.body.datasets.map(
+          (dataset: { name: string; installed: string; latest: string; update_available: boolean }) => [
+            dataset.name,
+            dataset.installed,
+            dataset.latest,
+            dataset.update_available,
+          ],
+        ),
+      ).toEqual([
+        [
+          'wiktionary',
+          (await datasetOf('wiktionary'))?.version,
+          inSixWeeks.toISOString().slice(0, 10).replace(/-/g, '.'),
+          true,
+        ],
+        ['wordnet', '2025', '2026', true],
+      ]);
+      // Princeton WordNet is frozen and the project's dataset is checked on the import page: two sources, two requests
+      expect([...asked].sort()).toEqual([releasesUrl, extractUrl].sort());
+    } finally {
+      global.fetch = realFetch;
+      if (flag === undefined) delete process.env.UPDATE_CHECK;
+      else process.env.UPDATE_CHECK = flag;
+    }
   });
 });

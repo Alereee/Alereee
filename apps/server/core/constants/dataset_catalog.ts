@@ -1,4 +1,5 @@
 import { DATA_LICENSE, LICENSE_URLS } from './data_license';
+import { CMUDICT_NOTICE, OPEN_ENGLISH_WORDNET_NOTICE, WORDNET_3_1_NOTICE } from './dataset_notices';
 import { DEFAULT_DATASET_NAME, OWN_DATASET_SOURCE } from './datasets';
 
 // The datasets an instance can hold (issue #527): the project's own and the
@@ -26,6 +27,13 @@ export type DatasetLicenseT = {
   spdx: string;
   name: string;
   url: string;
+};
+
+/** A notice a source asks to be kept, word for word, with every copy of its data */
+export type DatasetNoticeT = {
+  /** Whose notice it is */
+  title: string;
+  text: string;
 };
 
 /** A file the admin downloads from the source and attaches to the install request */
@@ -64,6 +72,12 @@ export type DatasetCatalogEntryT = {
   attribution_url: string;
   /** The provenance notice to pass on to readers; '' when the source asks for none */
   notice: string;
+  /**
+   * The texts that have to travel with the data (issue #531): shown to
+   * readers, written into the LICENSE file of an export. A license that is
+   * named by its link — Creative Commons — needs none
+   */
+  notices: DatasetNoticeT[];
   features: DatasetFeatureE[];
   /** Base entries and senses of the revision that was measured, megabytes in Postgres, minutes to install */
   size: { entries: number; senses: number; database_mb: number; minutes: number; revision: string };
@@ -91,6 +105,10 @@ const CMUDICT: DatasetCatalogFileT = {
 // WordNet has no pronunciations of its own; the line is part of the terms
 // whether or not the file was attached, so the terms stay what the code says
 const WITH_CMUDICT = 'pronunciations, where given, from the CMU Pronouncing Dictionary (BSD 2-Clause)';
+const CMUDICT_NOTICE_OF_A_DATASET: DatasetNoticeT = {
+  title: 'CMU Pronouncing Dictionary — the pronunciations, where given',
+  text: CMUDICT_NOTICE,
+};
 
 export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
   {
@@ -104,6 +122,7 @@ export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
     attribution: DATA_LICENSE.attribution,
     attribution_url: 'https://huggingface.co/datasets/Fristail27/vocab-bloom-hub-en',
     notice: DATA_LICENSE.notice,
+    notices: [],
     features: [
       DatasetFeatureE.definitions,
       DatasetFeatureE.examples,
@@ -133,6 +152,7 @@ export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
       'Wiktionary contributors (https://en.wiktionary.org), CC BY-SA 4.0; extracted by wiktextract (https://kaikki.org)',
     attribution_url: 'https://en.wiktionary.org',
     notice: '',
+    notices: [],
     features: [
       DatasetFeatureE.definitions,
       DatasetFeatureE.examples,
@@ -175,6 +195,10 @@ export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
     attribution: `Open English WordNet (https://en-word.net), CC BY 4.0, derived from Princeton WordNet; ${WITH_CMUDICT}`,
     attribution_url: 'https://en-word.net',
     notice: '',
+    notices: [
+      { title: 'Open English WordNet and the WordNet it is derived from', text: OPEN_ENGLISH_WORDNET_NOTICE },
+      CMUDICT_NOTICE_OF_A_DATASET,
+    ],
     features: [
       DatasetFeatureE.definitions,
       DatasetFeatureE.examples,
@@ -211,6 +235,7 @@ export const DATASET_CATALOG: readonly DatasetCatalogEntryT[] = [
     attribution: `WordNet, Copyright Princeton University (https://wordnet.princeton.edu); ${WITH_CMUDICT}`,
     attribution_url: 'https://wordnet.princeton.edu',
     notice: '',
+    notices: [{ title: 'WordNet 3.1', text: WORDNET_3_1_NOTICE }, CMUDICT_NOTICE_OF_A_DATASET],
     features: [
       DatasetFeatureE.definitions,
       DatasetFeatureE.examples,
@@ -251,6 +276,46 @@ export const catalogTerms = (entry: DatasetCatalogEntryT) => ({
   attribution_url: entry.attribution_url,
   notice: entry.notice,
 });
+
+/** The notices of a dataset as one text, each under the name of its owner; '' when it has none */
+export const noticesText = (entry: DatasetCatalogEntryT): string =>
+  entry.notices.map((notice) => `${notice.title}\n\n${notice.text}`).join('\n\n\n');
+
+/** What an export and a converted dataset say about their modifications */
+export type LicenseFileOptionsT = {
+  /** Entries that were changed or added where the copy was made */
+  modified_entries?: number;
+};
+
+/**
+ * The LICENSE file of a copy of a dataset: the terms the catalog states and
+ * the notices of the source in full. A copy that was edited says so — the
+ * Creative Commons licenses ask that modifications are indicated.
+ */
+export const licenseFileOf = (entry: DatasetCatalogEntryT, options: LicenseFileOptionsT = {}): string =>
+  [
+    `${entry.title}`,
+    `Source: ${entry.homepage}`,
+    `License: ${entry.license.name} (${entry.license.spdx}), ${entry.license.url}`,
+    `Attribution: ${entry.attribution}`,
+    ...(entry.share_alike
+      ? ['Share-alike: what is made from this data has to stay under the same license.']
+      : []),
+    ...(entry.notice ? [`Notice: ${entry.notice}`] : []),
+    ...(options.modified_entries
+      ? [
+          '',
+          `This copy differs from its source: ${options.modified_entries} of its entries were changed or added ` +
+            'on the instance it was exported from. The modified entries are the ones the history of edits ' +
+            'of the dataset names.',
+        ]
+      : []),
+    ...(entry.notices.length ? ['', '', noticesText(entry)] : []),
+    '',
+  ].join('\n');
+
+/** The name of the file the terms of a dataset travel in */
+export const LICENSE_FILE_NAME = 'LICENSE';
 
 /** The catalog entry an adapter of src/converters writes, by the options it was run with */
 export const findCatalogEntryOfAdapter = (

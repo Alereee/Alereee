@@ -72,8 +72,25 @@ def test_headword_reads_and_by_id(client: VocabBloomClient) -> None:
     assert len(translations.data.short_translations) == 1
     assert translations.data.meaning_translations[0].meaning_id > 0
 
+    # the history of edits (issue #531): the fixture words were added on the instance
+    history = client.history("ran")
+    assert (history.meta.word, history.meta.count) == ("ran", 1)
+    change = history.data[0]
+    assert (change.entity.value, change.action.value, change.origin.value) == ("word", "create", "admin")
+    assert (change.part_of_speech, change.record, change.author) == ("verb", None, None)
+    assert change.diff is not None
+    assert (change.diff["transcription"].before, change.diff["transcription"].after) == (None, "/rʌn/")
+
     forms = client.forms("run")
     assert [(f.word, f.form_of_word.value, f.word_id) for f in forms.data] == [("ran", "past_simple", run_id)]
+    # a part of an entry carries the mark of the entry, and so does a search item (issue #531)
+    assert forms.data[0].modified is True
+    assert client.search("run").data[0].modified is True
+    # …and names where the data comes from, like the whole entry and the edits of it (issue #527)
+    assert forms.data[0].source == "vocab-bloom-hub"
+    assert client.search("run").data[0].source == "vocab-bloom-hub"
+    assert change.source == "vocab-bloom-hub"
+    assert client.meta().data.modified_entries == 3
 
     assert client.word_by_id(run_id).data.word == "run"
 

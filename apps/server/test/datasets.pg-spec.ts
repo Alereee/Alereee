@@ -6,7 +6,7 @@ import { DataSource } from 'typeorm';
 
 import { AppModule } from '../src/modules/AppModule/app.module';
 import { DatasetsService } from '../src/modules/DatasetsModule/datasets.service';
-import { prepareDatabase } from '../src/db/datasets';
+import { prepareDatabase, runDatasetMigrations } from '../src/db/datasets';
 import { createJwt } from '../core/utils/auth';
 import { hashLoginString } from '../core/utils/crypto';
 import { DatasetsListT, EnAreaVariantsE, EnPartOfSpeechE, EnWordFormsE } from '../types';
@@ -32,6 +32,8 @@ const DICTIONARY_TABLES = [
   'en_meaning_synonyms',
   'en_meaning_antonyms',
   'suggestions',
+  // the history of edits (issue #531)
+  'en_changes',
 ];
 
 describe('datasets in schemas (Postgres, issue #527)', () => {
@@ -183,6 +185,67 @@ describe('datasets in schemas (Postgres, issue #527)', () => {
     expect(await foreignKeysOf(SCHEMA)).toEqual(await foreignKeysOf('public'));
   });
 
+  it('starts the history empty: an entry edited before is not guessed to differ from its source (issue #531)', async () => {
+    // the schema as the version before the history left it: no table, two entries, one of them edited
+    await dataSource.query(`DROP TABLE "${SCHEMA}"."en_changes"`);
+    await dataSource.query(
+      `DELETE FROM "${SCHEMA}"."dataset_migrations" WHERE "name" IN ('AddChanges1789700000000', 'ChangesCarryValues1789900000000')`,
+    );
+    await dataSource.query(
+      `INSERT INTO "${SCHEMA}"."en_entries" ("word", "user_modified") VALUES ($1, true), ($2, false)`,
+      [`${HEADWORD}edited`, `${HEADWORD}plain`],
+    );
+
+    try {
+      expect(await runDatasetMigrations(SCHEMA)).toEqual([
+        'AddChanges1789700000000',
+        'ChangesCarryValues1789900000000',
+      ]);
+      expect(await dataSource.query(`SELECT count(*)::int AS n FROM "${SCHEMA}"."en_changes"`)).toEqual([
+        { n: 0 },
+      ]);
+      // the entry is still kept through an update: that is what its flag says, and all it says
+      expect(
+        await dataSource.query(
+          `SELECT "word" FROM "${SCHEMA}"."en_entries" WHERE "user_modified" = true AND "word" LIKE $1`,
+          [`${HEADWORD}%`],
+        ),
+      ).toEqual([{ word: `${HEADWORD}edited` }]);
+      // applied once: a second start has nothing to run
+      expect(await runDatasetMigrations(SCHEMA)).toEqual([]);
+    } finally {
+      await dataSource.query(`DELETE FROM "${SCHEMA}"."en_entries" WHERE "word" LIKE $1`, [`${HEADWORD}%`]);
+    }
+  });
+
+  it('drops the rows without values an earlier build of the history wrote, and keeps the edits (issue #531)', async () => {
+    // the table as that build left it: a guess for an entry flagged `user_modified`, next to a recorded edit
+    await dataSource.query(
+      `DELETE FROM "${SCHEMA}"."dataset_migrations" WHERE "name" = 'ChangesCarryValues1789900000000'`,
+    );
+    await dataSource.query(`ALTER TABLE "${SCHEMA}"."en_changes" ALTER COLUMN "diff" DROP NOT NULL`);
+    await dataSource.query(
+      `INSERT INTO "${SCHEMA}"."en_changes" ("headword", "part_of_speech", "entity", "action", "diff", "origin")
+       VALUES ($1, NULL, 'word', 'update', NULL, 'legacy'),
+              ($1, 'noun', 'word', 'update', '{"description":{"before":"a","after":"b"}}', 'admin')`,
+      [`${HEADWORD}edited`],
+    );
+
+    try {
+      expect(await runDatasetMigrations(SCHEMA)).toEqual(['ChangesCarryValues1789900000000']);
+      expect(
+        await dataSource.query(`SELECT "headword", "origin", "part_of_speech" FROM "${SCHEMA}"."en_changes"`),
+      ).toEqual([{ headword: `${HEADWORD}edited`, origin: 'admin', part_of_speech: 'noun' }]);
+      await expect(
+        dataSource.query(
+          `INSERT INTO "${SCHEMA}"."en_changes" ("headword", "entity", "action", "origin") VALUES ('x', 'word', 'update', 'admin')`,
+        ),
+      ).rejects.toThrow(/null value in column "diff"/);
+    } finally {
+      await dataSource.query(`DELETE FROM "${SCHEMA}"."en_changes"`);
+    }
+  });
+
   it('serves the active dataset only: a word written to one is not in the other', async () => {
     const before = await dataSource.query(`SELECT count(*)::int AS n FROM "public"."en_words"`);
 
@@ -221,6 +284,15 @@ describe('datasets in schemas (Postgres, issue #527)', () => {
     const found = await request(server()).get(`/api/v1/words/${HEADWORD}`).expect(200);
     expect(found.body.data[0].word).toBe(HEADWORD);
     expect(await dataSource.query(`SELECT count(*)::int AS n FROM "${SCHEMA}"."en_words"`)).toEqual([{ n: 1 }]);
+    // the history of the edit lies with the dataset it was made in, and nowhere else (issue #531)
+    const changesBefore = await dataSource.query(
+      `SELECT count(*)::int AS n FROM "public"."en_changes" WHERE "headword" = $1`,
+      [HEADWORD],
+    );
+    expect(changesBefore).toEqual([{ n: 0 }]);
+    expect(
+      await dataSource.query(`SELECT "headword", "entity", "action" FROM "${SCHEMA}"."en_changes"`),
+    ).toEqual([{ headword: HEADWORD, entity: 'word', action: 'create' }]);
 
     // …and back: the default dataset never saw the word, its rows are what they were
     await request(server()).post('/api/en/datasets/default/activate').set(auth).expect(200);
@@ -231,6 +303,95 @@ describe('datasets in schemas (Postgres, issue #527)', () => {
       `SELECT "value" FROM "public"."settings" WHERE "field" = 'active_dataset'`,
     );
     expect(setting).toEqual([{ value: 'default' }]);
+  });
+
+  it('keeps the histories apart: an edit marks the word in its dataset only, a name leaves them all (issue #531)', async () => {
+    const SHARED = 'dataset-shared-word';
+    // the same headword in both datasets, as two sources both have "run"; no history yet
+    for (const schema of ['public', SCHEMA]) {
+      await dataSource.query(`INSERT INTO "${schema}"."en_entries" ("word") VALUES ($1)`, [SHARED]);
+      await dataSource.query(
+        `INSERT INTO "${schema}"."en_words" ("word", "part_of_speech", "form_of_word", "description", "generated")
+         VALUES ($1, 'noun', 'base_form', 'what the source says', false)`,
+        [SHARED],
+      );
+    }
+    const readers = async () => {
+      const word = await request(server()).get(`/api/v1/words/${SHARED}`).expect(200);
+      const history = await request(server()).get(`/api/v1/words/${SHARED}/history`).expect(200);
+      return { word: word.body.data[0], history: history.body.data };
+    };
+
+    try {
+      await request(server()).post(`/api/en/datasets/${NAME}/activate`).set(auth).expect(200);
+      const { word } = await readers();
+      await request(server())
+        .patch(`/api/en/common-info/${word.id}`)
+        .set(auth)
+        .send({ description: 'what the owner says' })
+        .expect(200);
+
+      const edited = await readers();
+      expect(edited.word).toEqual(
+        expect.objectContaining({ description: 'what the owner says', modified: true }),
+      );
+      expect(edited.history).toEqual([
+        expect.objectContaining({
+          entity: 'word',
+          action: 'update',
+          diff: { description: { before: 'what the source says', after: 'what the owner says' } },
+        }),
+      ]);
+
+      // the other dataset has the word as its source has it, and no history of it
+      await request(server()).post('/api/en/datasets/default/activate').set(auth).expect(200);
+      const untouched = await readers();
+      expect(untouched.word).toEqual(
+        expect.objectContaining({ description: 'what the source says', modified: false }),
+      );
+      expect(untouched.history).toEqual([]);
+      const listed = await request(server()).get(`/api/en/changes?headword=${SHARED}`).set(auth).expect(200);
+      expect(listed.body.total).toBe(0);
+
+      // a name is taken out of every dataset of the instance, the active one or not
+      for (const schema of ['public', SCHEMA]) {
+        await dataSource.query(
+          `INSERT INTO "${schema}"."en_changes" ("headword", "part_of_speech", "entity", "action", "diff", "origin", "author")
+           VALUES ($1, 'noun', 'word', 'update', '{"transcription":{"before":null,"after":"x"}}', 'suggestion', 'Ada Lovelace')`,
+          [SHARED],
+        );
+      }
+      await request(server())
+        .post('/api/en/changes/forget-author')
+        .set(auth)
+        .send({ author: 'Ada Lovelace' })
+        .expect(200)
+        .expect({ success: true, forgotten: 2 });
+      for (const schema of ['public', SCHEMA]) {
+        expect(
+          await dataSource.query(
+            `SELECT count(*)::int AS n FROM "${schema}"."en_changes" WHERE "author" IS NOT NULL`,
+          ),
+        ).toEqual([{ n: 0 }]);
+      }
+
+      // taking the edit back in its dataset: jsonb keeps no order of keys, the values are compared all the same
+      await request(server()).post(`/api/en/datasets/${NAME}/activate`).set(auth).expect(200);
+      const own = await request(server()).get(`/api/en/changes?headword=${SHARED}`).set(auth).expect(200);
+      const edit = (own.body.items as Array<{ id: number; origin: string }>).find(
+        (item) => item.origin === 'admin',
+      );
+      // the row of the reader came later and is about another field
+      await request(server()).post(`/api/en/changes/${edit?.id}/revert`).set(auth).expect(200);
+      expect((await readers()).word).toEqual(expect.objectContaining({ description: 'what the source says' }));
+    } finally {
+      await request(server()).post('/api/en/datasets/default/activate').set(auth).expect(200);
+      for (const schema of ['public', SCHEMA]) {
+        await dataSource.query(`DELETE FROM "${schema}"."en_changes" WHERE "headword" = $1`, [SHARED]);
+        await dataSource.query(`DELETE FROM "${schema}"."en_words" WHERE "word" = $1`, [SHARED]);
+        await dataSource.query(`DELETE FROM "${schema}"."en_entries" WHERE "word" = $1`, [SHARED]);
+      }
+    }
   });
 
   it('switches under load: no request meets the closed connection', async () => {
@@ -355,6 +516,14 @@ describe('datasets in schemas (Postgres, issue #527)', () => {
       await request(server()).post(`/api/en/datasets/${other}/activate`).set(auth).expect(200);
       const found = await request(server()).get(`/api/v1/words/${word}`).expect(200);
       expect(found.body.data[0]).toEqual(expect.objectContaining({ word, source: 'wordnet' }));
+      // every answer that carries the entry names the source, the search and the parts of the entry too
+      const flat = await request(server()).get(`/api/v1/search?search=${word}`).expect(200);
+      expect(flat.body.data[0]).toEqual(expect.objectContaining({ word, source: 'wordnet', modified: false }));
+      const forms = await request(server()).get(`/api/v1/words/${word}/forms`).expect(200);
+      const meanings = await request(server()).get(`/api/v1/words/${word}/meanings`).expect(200);
+      for (const part of [...forms.body.data, ...meanings.body.data] as Array<{ source: string }>) {
+        expect(part.source).toBe('wordnet');
+      }
       // …under its own terms
       const meta = await request(server()).get('/api/v1/meta').expect(200);
       expect(meta.body.data).toEqual(

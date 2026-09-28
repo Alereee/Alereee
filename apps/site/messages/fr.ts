@@ -132,6 +132,33 @@ export default {
     network_error: "La requête n'a pas atteint l'API : {error}",
     no_response: 'Rien envoyé pour le moment.',
   },
+  // the terms of the data the word pages show (issue #531)
+  terms: {
+    title: 'Conditions des données du dictionnaire',
+    intro: 'D’où viennent les mots de ce site et sous quelles conditions ils sont affichés.',
+    source: 'Source',
+    license: 'Licence',
+    attribution: 'Attribution',
+    notice: 'Avis',
+    modified:
+      'Une entrée modifiée ou ajoutée par le propriétaire de ce site l’indique sous sa catégorie grammaticale ; elle relève de la même licence.',
+    use_title: 'Si vous utilisez ces données',
+    use_intro:
+      'Les données peuvent être copiées et réutilisées selon leur licence. Voici ce qui est demandé à qui le fait.',
+    use_attribution: 'Citez la source : affichez l’attribution indiquée ci-dessus et un lien vers la licence.',
+    use_modified:
+      'Dites d’un article modifié qu’il a été modifié. L’API marque ces articles : un mot et chacune de ses parties portent modified: true, la marque peut donc être transmise telle quelle.',
+    use_history:
+      'Ce qui a été modifié est public : {method} liste les modifications d’un mot avec les valeurs avant et après, et nomme le lecteur qui a envoyé une correction lorsqu’il a demandé à être nommé.',
+    use_same_license: 'Un article modifié relève de la même licence que le reste des données.',
+    use_share_alike:
+      'La licence impose le partage dans les mêmes conditions : ce qui est construit sur les données reste sous la même licence.',
+    use_notice:
+      'Conservez les avis de la source, reproduits ci-dessous en entier, avec chaque copie des données.',
+    use_more: 'Les conditions en détail',
+    own_license: 'Pourquoi cette licence, et ce qu’elle permet',
+    full_text: 'Les avis de la source, en entier',
+  },
   word: {
     index_title: 'Mots',
     index_intro:
@@ -186,6 +213,32 @@ export default {
     try_in_playground: 'essayez-la dans le playground',
     license_note: 'données sous {license}',
     ai_note: 'généré par IA, peut contenir des erreurs',
+    modified_note: 'modifié ou ajouté par le propriétaire de ce site',
+    history_title: 'Ce qui a été modifié sur ce site',
+    other_spellings: 'Autres graphies',
+    history_intro:
+      'Modifications apportées par le propriétaire de ce site à cet article, de la plus récente à la plus ancienne.',
+    history_terms: 'Ce que cela implique si vous utilisez les données',
+    history_entity_word: 'Article',
+    history_entity_word_form: 'Forme du mot',
+    history_entity_meaning: 'Sens',
+    history_entity_meaning_translation: 'Traduction d’un sens',
+    history_entity_short_translation: 'Traduction courte',
+    history_action_create: 'ajouté',
+    history_action_update: 'modifié',
+    history_action_delete: 'supprimé',
+    history_reader: 'correction envoyée par un lecteur',
+    history_author: 'correction envoyée par {name}',
+    history_before: 'avant',
+    history_after: 'maintenant',
+    history_field_description: 'description',
+    history_field_transcription: 'prononciation',
+    history_field_definition: 'définition',
+    history_field_title: 'titre',
+    history_field_examples: 'exemples',
+    history_field_synonyms: 'synonymes',
+    history_field_antonyms: 'antonymes',
+    history_field_word: 'graphie',
     report_license_note:
       'Une correction acceptée par le propriétaire devient partie des données du dictionnaire, publiées sous {license}.',
     report_button: 'Signaler une erreur',
@@ -198,6 +251,10 @@ export default {
     report_send: 'Envoyer le signalement',
     report_sending: 'Envoi…',
     report_cancel: 'Annuler',
+    report_author: 'Votre nom, pour être cité comme auteur de la correction (facultatif)',
+    report_author_consent:
+      'Afficher ce nom à côté de la correction sur ce site et dans les copies des données du dictionnaire. Un nom publié ne peut pas être retiré des copies que d’autres ont faites.',
+    report_author_consent_needed: 'Cochez la case pour être nommé, ou laissez le nom vide.',
     report_done: 'Merci — le signalement est dans la file de modération.',
     report_rate_limited: 'Trop de signalements depuis cet appareil — réessayez plus tard.',
     report_queue_full: 'La file est pleine pour le moment — réessayez quand le propriétaire l’aura traitée.',

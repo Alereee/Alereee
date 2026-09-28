@@ -156,6 +156,9 @@ class AsyncVocabBloomClient:
     async def antonyms(self, headword: str, *, options: RequestOptions | None = None) -> m.LinksResponse:
         return await self._get(headword_path(headword, "/antonyms"), None, m.LinksResponse, options)
 
+    async def history(self, headword: str, *, options: RequestOptions | None = None) -> m.HistoryResponse:
+        return await self._get(headword_path(headword, "/history"), None, m.HistoryResponse, options)
+
     async def words(
         self, *, options: RequestOptions | None = None, **filters: Unpack[ListOptions]
     ) -> m.WordsResponse:

@@ -2,6 +2,7 @@ import { APIRequestContext, expect, Page, test } from '@playwright/test';
 
 import { API_URL } from '../config';
 import { seedWord } from '../helpers/seed';
+import { pickOption } from '../helpers/select';
 
 // Branches of the add-word wizard beyond the minimal happy path covered in
 // word-crud.spec.ts: forms + meaning + meaning translation filled through the
@@ -40,7 +41,7 @@ test.describe('add-word wizard branches', () => {
 
     await page.getByRole('textbox').fill('stumble');
     await page.getByRole('combobox').last().click();
-    await page.locator('.ant-select-item-option[title="verb"]').click();
+    await pickOption(page, 'verb');
     await page.getByRole('button', { name: 'check-circle' }).click();
 
     // Basic information
@@ -100,7 +101,7 @@ test.describe('add-word wizard branches', () => {
     await page.goto('/en/managing/add-word');
     await page.getByRole('textbox').fill('hollow');
     await page.getByRole('combobox').last().click();
-    await page.locator('.ant-select-item-option[title="verb"]').click();
+    await pickOption(page, 'verb');
     await page.getByRole('button', { name: 'check-circle' }).click();
 
     await expect(page.getByText('Word already exists')).toBeVisible();

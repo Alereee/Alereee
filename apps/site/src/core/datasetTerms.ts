@@ -15,6 +15,8 @@ export type DatasetTermsT = {
   attribution: string;
   attribution_url: string | null;
   notice: string;
+  /** The notices of the source in full, for a license that wants its text on every copy (issue #531) */
+  license_text: string;
 };
 
 /** The terms of the project's dataset: what an instance of 1.0, or one that does not answer, is taken to serve */
@@ -25,6 +27,7 @@ export const OWN_DATASET_TERMS: DatasetTermsT = {
   attribution: '',
   attribution_url: null,
   notice: '',
+  license_text: '',
 };
 
 /** An SPDX identifier the way a reader writes it: `CC-BY-SA-4.0` → `CC BY-SA 4.0` */

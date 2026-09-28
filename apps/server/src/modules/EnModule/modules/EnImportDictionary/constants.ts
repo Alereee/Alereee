@@ -1,4 +1,5 @@
 import { AvailableTranslationLanguagesE } from '../../../../../types';
+import { LICENSE_FILE_NAME } from '../../../../../core/constants/dataset_catalog';
 
 export enum EnDictionaryImportPhasesE {
   saving_words,
@@ -17,6 +18,8 @@ export enum EnDictionaryImportPhasesE {
   // a file of a public source being turned into the project's format (issue #527);
   // like the download, the stage reports its own bytes
   converting_source,
+  // the history of the edits of the dataset (issue #531)
+  saving_changes,
 }
 
 export const SYSTEM_FIELDS = ['id', 'createdAt', 'updateAt', 'updatedAt'];
@@ -42,6 +45,9 @@ export const DATASET_FILE_NAMES = {
   meanings: 'vocab-bloom-hub-en-meanings.jsonl',
   meaningTranslations: 'vocab-bloom-hub-en-meaning-translations.jsonl',
   shortTranslations: 'vocab-bloom-hub-en-short-translations.jsonl',
+  // what was changed or added where the dataset was edited (issue #531): a
+  // line per edit, with its values. Absent in a dataset nobody edited
+  changes: 'vocab-bloom-hub-en-changes.jsonl',
 } as const;
 
 export type TranslationFileKindT = 'meaningTranslations' | 'shortTranslations';
@@ -63,11 +69,15 @@ export const translationFileNames = (kind: TranslationFileKindT): string[] =>
 export const MANIFEST_FILE_NAME = 'manifest.json';
 
 // Every file a dataset may contain; anything else in a local directory or an
-// uploaded archive is rejected before the import starts (issue #269)
+// uploaded archive is rejected before the import starts (issue #269). The
+// LICENSE file is for the people who get the copy (issue #531): the import
+// takes it for a part of a dataset and reads nothing from it — the terms of
+// a dataset are the catalog's
 export const DATASET_KNOWN_FILE_NAMES: readonly string[] = [
   ...Object.values(DATASET_FILE_NAMES),
   ...TRANSLATION_FILE_KINDS.flatMap((kind) => translationFileNames(kind)),
   MANIFEST_FILE_NAME,
+  LICENSE_FILE_NAME,
 ];
 
 export const DATASET_REPO = 'Fristail27/vocab-bloom-hub-en';
@@ -101,6 +111,7 @@ export const UPLOAD_FILE_FIELDS: Readonly<Record<string, string>> = {
       [`short_translations_${language}`, translationFileName('shortTranslations', language)],
     ]),
   ),
+  changes: DATASET_FILE_NAMES.changes,
   manifest: MANIFEST_FILE_NAME,
 };
 export type UploadFileFieldT = keyof typeof UPLOAD_FILE_FIELDS;

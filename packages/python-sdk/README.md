@@ -71,6 +71,7 @@ async with AsyncVocabBloomClient("https://dict.example.com") as client:
 | `forms(headword)`                           | `GET /words/{word}/forms`               | `FormsResponse`                                                                                                |
 | `synonyms(headword)`                        | `GET /words/{word}/synonyms`            | `LinksResponse` — the linked headwords per meaning                                                             |
 | `antonyms(headword)`                        | `GET /words/{word}/antonyms`            | `LinksResponse`                                                                                                |
+| `history(headword)`                         | `GET /words/{word}/history`             | `HistoryResponse` — what was changed on the instance, with the values before and after                         |
 | `words(**filters, cursor, limit, with_...)` | `GET /words`                            | `WordsResponse` (one page)                                                                                     |
 | `iter_words(**filters, ...)`                | `GET /words`, following the cursor      | `Iterator[Word]`                                                                                               |
 | `iter_search_detailed(search, *, ...)`      | `GET /search/detailed`, page after page | `Iterator[Word]` — stops at the server's page cap (`DETAILED_SEARCH_MAX_PAGE`, 20)                             |
@@ -147,4 +148,9 @@ uv run pytest                                     # unit tests + the client agai
 
 ## License
 
-MIT — the dictionary data an instance serves is [CC BY 4.0](https://github.com/Fristail27/vocab-bloom-hub/blob/main/DATA_LICENSE.md).
+MIT for the client. The dictionary data comes under the license of the dataset the instance
+serves — CC BY 4.0 for the project's own, the license of the source for another: read `license`,
+`attribution` and `license_text` from `meta()` and show them with the data. An entry the owner of
+the instance changed carries `modified: true`, and `client.history(headword)` says what was changed: say next
+to such an entry that it was changed. What the licenses ask for:
+[DATA_LICENSE.md](https://github.com/Fristail27/vocab-bloom-hub/blob/main/DATA_LICENSE.md#using-data-that-was-changed-on-an-instance).

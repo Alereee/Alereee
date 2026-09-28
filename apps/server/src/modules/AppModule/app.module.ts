@@ -10,8 +10,7 @@ import { SettingsModule } from '../SettingsModule/settings.module';
 import { PublicApiModule } from '../PublicApiModule/public-api.module';
 import { SuggestionsModule } from '../SuggestionsModule/suggestions.module';
 import { apiSurfaceMiddleware } from '../../core/middleware/api-surface.middleware';
-import { buildTypeOrmOptions } from '../../db/typeorm-options';
-import { prepareDatabase } from '../../db/datasets';
+import { typeOrmRoot } from '../../db/typeorm-root';
 import { DatasetsModule } from '../DatasetsModule/datasets.module';
 import { DatasetsService } from '../DatasetsModule/datasets.service';
 import { switchGateMiddleware } from '../DatasetsModule/switch-gate';
@@ -42,11 +41,9 @@ import { getLoggerParams } from '../../core/logging/logger';
     // (AppThrottlerGuard) is attached to login, the legacy search aliases and
     // the whole public prefix (PUBLIC_API_RATE_LIMIT).
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 100 }] }),
-    TypeOrmModule.forRootAsync({
-      // the migrations of `public` and of every dataset schema run first, and
-      // answer the schema of the active dataset (issue #527)
-      useFactory: async () => buildTypeOrmOptions(await prepareDatabase()),
-    }),
+    // the migrations of `public` and of every dataset schema run first, and
+    // answer the schema of the active dataset (issue #527)
+    TypeOrmModule.forRootAsync(typeOrmRoot),
     DatasetsModule,
     ConfigModule.forRoot({
       isGlobal: true,

@@ -1,6 +1,12 @@
 import 'server-only';
 
-import type { PublicHeadwordV1ResT, PublicMetaV1ResT, PublicWordV1ResT } from 'server/types';
+import type {
+  PublicChangeV1T,
+  PublicHeadwordHistoryV1ResT,
+  PublicHeadwordV1ResT,
+  PublicMetaV1ResT,
+  PublicWordV1ResT,
+} from 'server/types';
 
 import { serverApiBase } from './apiBase';
 import { DatasetTermsT, OWN_DATASET_TERMS } from './datasetTerms';
@@ -46,6 +52,27 @@ export const fetchHeadword = async (word: string): Promise<HeadwordResultT> => {
   }
 };
 
+/**
+ * GET /api/v1/words/{word}/history: what was changed on the instance in the
+ * entries of a headword (issue #531). The page stands without it: no answer
+ * is an empty history, the entries still say that they were changed.
+ */
+export const fetchHeadwordHistory = async (word: string): Promise<PublicChangeV1T[]> => {
+  try {
+    const res = await getWithOneRetry(() =>
+      fetch(`${serverApiBase()}/v1/words/${encodeURIComponent(word)}/history`, {
+        headers: internalApiHeaders(),
+        next: { revalidate: REVALIDATE_SECONDS },
+      }),
+    );
+    if (!res.ok) return [];
+
+    return ((await res.json()) as PublicHeadwordHistoryV1ResT).data;
+  } catch {
+    return [];
+  }
+};
+
 /** GET /api/v1/random: the headword of a random base-form entry, null when the API does not answer */
 export const fetchRandomWord = async (): Promise<string | null> => {
   try {
@@ -80,6 +107,7 @@ export const fetchDatasetTerms = async (): Promise<DatasetTermsT> => {
       attribution: data.attribution,
       attribution_url: data.attribution_url ?? null,
       notice: data.notice,
+      license_text: data.license_text ?? '',
     };
   } catch {
     return OWN_DATASET_TERMS;

@@ -57,6 +57,8 @@ export default defineConfig({
         // the suite is hermetic: no request to api.github.com for the update notice (issue #477)
         UPDATE_CHECK: 'false',
         PUBLIC_API_RATE_LIMIT: '10000/60',
+        // the suite files a handful of reports from one address
+        SUGGESTIONS_RATE_LIMIT: '100/60',
       },
     },
     {

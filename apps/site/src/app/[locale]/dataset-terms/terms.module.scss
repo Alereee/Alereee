@@ -1,0 +1,53 @@
+.page {
+  padding-block: 32px 64px;
+
+  h1 {
+    margin: 0 0 12px;
+  }
+
+  h2 {
+    margin: 32px 0 12px;
+    font-size: 1.2rem;
+  }
+}
+
+.intro {
+  margin: 0 0 24px;
+  color: var(--muted);
+}
+
+.terms {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 8px 24px;
+  margin: 0 0 24px;
+
+  dt {
+    color: var(--muted);
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.text {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.use {
+  margin: 0 0 16px;
+  padding-inline-start: 20px;
+
+  li {
+    margin: 6px 0;
+  }
+}

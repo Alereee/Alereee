@@ -148,10 +148,10 @@ Writing a migration, the troubleshooting of a failed one and the full workflow a
 An instance can hold several dictionaries, one of them served ([`datasets.md`](./datasets.md)).
 In the database a dataset is a **schema** — a namespace of tables inside the one database:
 
-| Schema      | What lives there                                                                                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `public`    | the shared tables (`settings`, `datasets`, `audit_log`, `migrations`), the enum types, the `pg_trgm` extension — and the dictionary tables of the `default` dataset, where they always were |
-| `ds_<name>` | the dictionary tables of the dataset `<name>` with their indexes, its moderation queue (`suggestions`) and its own journal of applied migrations (`dataset_migrations`)                     |
+| Schema      | What lives there                                                                                                                                                                                                 |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `public`    | the shared tables (`settings`, `datasets`, `audit_log`, `migrations`), the enum types, the `pg_trgm` extension — and the dictionary tables of the `default` dataset, where they always were                      |
+| `ds_<name>` | the dictionary tables of the dataset `<name>` with their indexes, the history of its edits (`en_changes`), its moderation queue (`suggestions`) and its own journal of applied migrations (`dataset_migrations`) |
 
 - **The tables are the same in every schema**, so are the queries: the connection of the server
   carries `search_path = ds_<name>, public`, and `en_words` resolves to the table of the active

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { App, Button, Popconfirm, Tag, Typography } from 'antd';
-import { useParams } from 'next/navigation';
+import { App, Button, Collapse, Popconfirm, Tag, Typography } from 'antd';
+import { useParams, useRouter } from 'next/navigation';
 import { EditOutlined } from '@ant-design/icons';
 import {
+  DatasetT,
   EnMeaningT,
   EnPartOfSpeechE,
   EnShortTranslationT,
@@ -28,6 +29,11 @@ import { UpdateTypeE, WordCardModeE } from './constants';
 import { EditCommonDataModal } from '@/app/[locale]/(main-admin-content)/managing/_components/WordCard/components/EditCommonDataModal';
 import { CommonInfoDataT } from '@/app/[locale]/(main-admin-content)/managing/_components/EnWordForm/types';
 import { EnApi } from '@/core/api/EnApi';
+import { ChangesHistory } from '@/components/ChangesHistory';
+import {
+  EditedDatasetContext,
+  EditLicenseNote,
+} from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 import styles from './styles.module.scss';
 
 const { Text } = Typography;
@@ -35,16 +41,49 @@ const { Text } = Typography;
 type WordCardP = {
   word: EnWordT;
   mode?: WordCardModeE | undefined;
+  // the dataset the word belongs to (issue #531): the card and its dialogs
+  // say under which license an edit is published
+  dataset?: DatasetT | undefined;
 };
 
-export const WordCard: React.FC<WordCardP> = ({ word, mode = WordCardModeE.view }) => {
+export const WordCard: React.FC<WordCardP> = ({ word, mode = WordCardModeE.view, dataset }) => {
   const [state, setState] = useState<EnWordT>(word);
   const [showEditDataModal, setShowEditDataModal] = useState<boolean>(false);
   const t = useTranslations('en_managing_words');
   const tError = useTranslations('errors');
-  const { wordId } = useParams();
+  const tChanges = useTranslations('changes');
+  const { wordId, locale } = useParams();
+  const router = useRouter();
   const { message } = App.useApp();
+  // the history under the card is read again after every edit made in the card (issue #531)
+  const [edits, setEdits] = useState(0);
+  const shown = useRef(state);
+  useEffect(() => {
+    if (shown.current === state) return;
+    shown.current = state;
+    setEdits((current) => current + 1);
+  }, [state]);
+
+  // a change was taken back: the card shows what the entry says now
+  const reload = async () => {
+    const res = await EnApi.getWordById(word.id);
+    if ('error' in res) {
+      // the creation of the word itself was taken back
+      router.push(`/${locale as string}/managing`);
+      return;
+    }
+    setState(res);
+  };
   const formNames = FormsByPartOfSpeech[word.part_of_speech];
+
+  // An edit that changed something flags the entry as modified on the server
+  // (issue #328); one that changed nothing does not. The server knows which
+  // it was, so the card asks it instead of assuming
+  const syncUserModified = async () => {
+    const res = await EnApi.getWordById(word.id);
+    if ('error' in res) return;
+    setState((p) => ({ ...p, user_modified: res.user_modified }));
+  };
 
   const editCommonInfo = async (data: Omit<CommonInfoDataT, 'id' | 'form_of_word' | 'base_phrasal'>) => {
     // The card data carries `version` (loaded with the word), but the edit
@@ -55,9 +94,8 @@ export const WordCard: React.FC<WordCardP> = ({ word, mode = WordCardModeE.view 
       message.error(tError(res.message));
     } else {
       setShowEditDataModal(false);
-
-      // every admin edit flags the entry as user-modified on the server (issue #328)
-      setState((p) => ({ ...p, ...data, user_modified: true }));
+      setState((p) => ({ ...p, ...data }));
+      void syncUserModified();
     }
   };
 
@@ -76,62 +114,65 @@ export const WordCard: React.FC<WordCardP> = ({ word, mode = WordCardModeE.view 
   const updateFormOfWord = (f: EnWordFormT, type: UpdateTypeE) => {
     switch (type) {
       case UpdateTypeE.add:
-        setState((p) => ({ ...p, user_modified: true, forms: [...p.forms, f] }));
+        setState((p) => ({ ...p, forms: [...p.forms, f] }));
         break;
       case UpdateTypeE.edit:
-        setState((p) => ({ ...p, user_modified: true, forms: p.forms.map((fo) => (fo.id === f.id ? f : fo)) }));
+        setState((p) => ({ ...p, forms: p.forms.map((fo) => (fo.id === f.id ? f : fo)) }));
         break;
       case UpdateTypeE.delete:
-        setState((p) => ({ ...p, user_modified: true, forms: p.forms.filter((fo) => fo.id !== f.id) }));
+        setState((p) => ({ ...p, forms: p.forms.filter((fo) => fo.id !== f.id) }));
         break;
     }
+    void syncUserModified();
   };
 
   const updateShortTranslation = (t: EnShortTranslationT, type: UpdateTypeE) => {
     switch (type) {
       case UpdateTypeE.add:
-        setState((p) => ({ ...p, user_modified: true, short_translations: [...p.short_translations, t] }));
+        setState((p) => ({ ...p, short_translations: [...p.short_translations, t] }));
         break;
       case UpdateTypeE.edit:
         setState((p) => ({
           ...p,
-          user_modified: true,
           short_translations: p.short_translations.map((tr) => (tr.id === t.id ? t : tr)),
         }));
         break;
       case UpdateTypeE.delete:
         setState((p) => ({
           ...p,
-          user_modified: true,
           short_translations: p.short_translations.filter((f) => f.id !== t.id),
         }));
         break;
     }
+    void syncUserModified();
   };
 
   const updateMeaning = (m: EnMeaningT, type: UpdateTypeE) => {
     switch (type) {
       case UpdateTypeE.add:
-        setState((p) => ({ ...p, user_modified: true, meanings: [...p.meanings, m] }));
+        setState((p) => ({ ...p, meanings: [...p.meanings, m] }));
         break;
       case UpdateTypeE.edit:
         setState((p) => ({
           ...p,
-          user_modified: true,
           meanings: p.meanings.map((tr) => (tr.id === m.id ? m : tr)),
         }));
         break;
       case UpdateTypeE.delete:
-        setState((p) => ({ ...p, user_modified: true, meanings: p.meanings.filter((f) => f.id !== m.id) }));
+        setState((p) => ({ ...p, meanings: p.meanings.filter((f) => f.id !== m.id) }));
         break;
     }
+    void syncUserModified();
   };
 
-  const updatePhrasal = (v: string | null) =>
-    setState((p) => ({ ...p, user_modified: true, base_phrasal: v || undefined }));
+  const updatePhrasal = (v: string | null) => {
+    setState((p) => ({ ...p, base_phrasal: v || undefined }));
+    void syncUserModified();
+  };
 
   return (
-    <>
+    <EditedDatasetContext.Provider value={mode === WordCardModeE.edit ? dataset : undefined}>
+      {mode === WordCardModeE.edit && <EditLicenseNote />}
       <EditCommonDataModal
         data={state}
         isOpen={showEditDataModal}
@@ -244,6 +285,31 @@ export const WordCard: React.FC<WordCardP> = ({ word, mode = WordCardModeE.view 
           headword={word.word}
         />
       </section>
-    </>
+      {mode === WordCardModeE.edit && (
+        // a wrapper of its own: the margin of a class does not outweigh the styles of the component
+        <div className={styles.history}>
+          <Collapse
+            items={[
+              {
+                key: 'history',
+                label: tChanges('title'),
+                children: (
+                  <>
+                    <p className={styles.historyIntro}>{tChanges('intro')}</p>
+                    <ChangesHistory
+                      headword={word.word}
+                      partOfSpeech={word.part_of_speech}
+                      pageSize={10}
+                      refreshKey={edits}
+                      onReverted={reload}
+                    />
+                  </>
+                ),
+              },
+            ]}
+          />
+        </div>
+      )}
+    </EditedDatasetContext.Provider>
   );
 };

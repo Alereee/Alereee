@@ -131,6 +131,33 @@ export default {
     network_error: 'La petición no llegó a la API: {error}',
     no_response: 'Aún no se ha enviado nada.',
   },
+  // the terms of the data the word pages show (issue #531)
+  terms: {
+    title: 'Condiciones de los datos del diccionario',
+    intro: 'De dónde proceden las palabras de este sitio y bajo qué condiciones se muestran.',
+    source: 'Fuente',
+    license: 'Licencia',
+    attribution: 'Atribución',
+    notice: 'Aviso',
+    modified:
+      'Una entrada modificada o añadida por el propietario de este sitio lo indica bajo su categoría gramatical; se rige por la misma licencia.',
+    use_title: 'Si usa estos datos',
+    use_intro:
+      'Los datos se pueden copiar y reutilizar según su licencia. A quien lo haga se le pide lo siguiente.',
+    use_attribution: 'Cite la fuente: muestre la atribución indicada arriba y enlace a la licencia.',
+    use_modified:
+      'Diga de una entrada cambiada que fue cambiada. La API marca esas entradas: una palabra y cada una de sus partes llevan modified: true, de modo que la marca se puede transmitir tal cual.',
+    use_history:
+      'Lo que se cambió es público: {method} enumera las ediciones de una palabra con los valores anteriores y posteriores, y nombra al lector que envió una corrección cuando pidió ser nombrado.',
+    use_same_license: 'Una entrada cambiada queda bajo la misma licencia que el resto de los datos.',
+    use_share_alike:
+      'La licencia exige compartir igual: lo que se construye sobre los datos permanece bajo la misma licencia.',
+    use_notice:
+      'Conserve los avisos de la fuente, reproducidos abajo íntegramente, con cada copia de los datos.',
+    use_more: 'Las condiciones en detalle',
+    own_license: 'Por qué esta licencia y qué permite',
+    full_text: 'Los avisos de la fuente, completos',
+  },
   word: {
     index_title: 'Palabras',
     index_intro:
@@ -185,6 +212,32 @@ export default {
     try_in_playground: 'pruébala en el playground',
     license_note: 'datos bajo {license}',
     ai_note: 'generado por IA, puede contener errores',
+    modified_note: 'modificado o añadido por el propietario de este sitio',
+    history_title: 'Qué se cambió en este sitio',
+    other_spellings: 'Otras grafías',
+    history_intro:
+      'Ediciones que el propietario de este sitio hizo en esta entrada, de la más reciente a la más antigua.',
+    history_terms: 'Qué significa esto si usa los datos',
+    history_entity_word: 'Entrada',
+    history_entity_word_form: 'Forma de la palabra',
+    history_entity_meaning: 'Significado',
+    history_entity_meaning_translation: 'Traducción de un significado',
+    history_entity_short_translation: 'Traducción breve',
+    history_action_create: 'añadido',
+    history_action_update: 'cambiado',
+    history_action_delete: 'eliminado',
+    history_reader: 'corrección enviada por un lector',
+    history_author: 'corrección enviada por {name}',
+    history_before: 'antes',
+    history_after: 'ahora',
+    history_field_description: 'descripción',
+    history_field_transcription: 'pronunciación',
+    history_field_definition: 'definición',
+    history_field_title: 'título',
+    history_field_examples: 'ejemplos',
+    history_field_synonyms: 'sinónimos',
+    history_field_antonyms: 'antónimos',
+    history_field_word: 'grafía',
     report_license_note:
       'Una corrección aceptada por el dueño pasa a formar parte de los datos del diccionario, publicados bajo {license}.',
     report_button: 'Reportar un error',
@@ -197,6 +250,10 @@ export default {
     report_send: 'Enviar el reporte',
     report_sending: 'Enviando…',
     report_cancel: 'Cancelar',
+    report_author: 'Su nombre, para que figure como autor de la corrección (opcional)',
+    report_author_consent:
+      'Mostrar este nombre junto a la corrección en este sitio y en las copias de los datos del diccionario. Un nombre publicado no se puede retirar de las copias que otros hayan hecho.',
+    report_author_consent_needed: 'Marque la casilla para que figure su nombre, o deje el nombre vacío.',
     report_done: 'Gracias — el reporte está en la cola de moderación.',
     report_rate_limited: 'Demasiados reportes desde este dispositivo — inténtalo más tarde.',
     report_queue_full: 'La cola está llena ahora mismo — inténtalo cuando el dueño la haya revisado.',

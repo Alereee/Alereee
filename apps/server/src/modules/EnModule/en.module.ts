@@ -11,11 +11,7 @@ import { SettingsModule } from '../SettingsModule/settings.module';
 import { EnController } from './en.controller';
 import { EnService } from './en.service';
 import { WordRowsService } from './word-rows.service';
-import { EnMeaning } from './entities/en_meaning.entity';
-import { EnEntry } from './entities/en_entry.entity';
-import { EnWord } from './entities/en_word.entity';
-import { EnMeaningTranslation } from './entities/en_meaning_translation.entity';
-import { EnShortTranslation } from './entities/en_short_translation.entity';
+import { DICTIONARY_ENTITIES } from './entities/dictionary-entities';
 import { EnShortTranslationService } from './modules/EnShortTranslation/enShortTranslation.service';
 import { EnShortTranslationController } from './modules/EnShortTranslation/enShortTranslation.controller';
 import { EnMeaningTranslationController } from './modules/EnMeaningTranslation/enMeaningTranslation.controller';
@@ -33,6 +29,8 @@ import { EnStatisticsController } from './modules/EnStatistics/enStatistics.cont
 import { EnStatisticsService } from './modules/EnStatistics/enStatistics.service';
 import { EnAdminListsController } from './modules/EnAdminLists/enAdminLists.controller';
 import { EnAdminListsService } from './modules/EnAdminLists/enAdminLists.service';
+import { EnChangesController } from './modules/EnChanges/enChanges.controller';
+import { EnChangesService } from './modules/EnChanges/enChanges.service';
 
 @Module({
   imports: [
@@ -44,7 +42,7 @@ import { EnAdminListsService } from './modules/EnAdminLists/enAdminLists.service
     DatasetsModule,
     // provides SuggestionsService for the moderation controller below (issue #327)
     SuggestionsModule,
-    TypeOrmModule.forFeature([EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation]),
+    TypeOrmModule.forFeature(DICTIONARY_ENTITIES),
     // the import service records the dataset version of the last import
     SettingsModule,
   ],
@@ -62,6 +60,8 @@ import { EnAdminListsService } from './modules/EnAdminLists/enAdminLists.service
     DatasetsController,
     // a dataset installed from the file of its source: converted, then imported
     EnDatasetInstallController,
+    // the history of edits (issue #531): /api/en/changes, before GET /api/en/:id as well
+    EnChangesController,
     EnController,
     EnShortTranslationController,
     EnMeaningTranslationController,
@@ -80,11 +80,12 @@ import { EnAdminListsService } from './modules/EnAdminLists/enAdminLists.service
     EnSearchService,
     EnStatisticsService,
     EnAdminListsService,
+    EnChangesService,
     // one-click accept of an edit suggestion (issue #327): needs the edit
     // services above, so it lives in this module's context
     SuggestionApplyService,
   ],
-  // the public API reuses the search service and the statistics counters
-  exports: [EnService, EnSearchService, EnStatisticsService, WordRowsService],
+  // the public API reuses the search service, the statistics counters and the history of edits
+  exports: [EnService, EnSearchService, EnStatisticsService, WordRowsService, EnChangesService],
 })
 export class EnModule {}

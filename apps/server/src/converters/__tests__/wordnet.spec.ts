@@ -25,7 +25,11 @@ const expectImportable = async (dir: string): Promise<void> => {
   for (const file of files) expect(DATASET_KNOWN_FILE_NAMES).toContain(file);
   const manifest = parseManifest(JSON.parse(await readFile(path.join(dir, 'manifest.json'), 'utf-8')));
   expect(manifest).not.toBeNull();
-  expect(Object.keys(manifest!.files).sort()).toEqual(files.filter((file) => file !== 'manifest.json').sort());
+  expect(Object.keys(manifest!.files).sort()).toEqual(
+    files.filter((file) => !['manifest.json', 'LICENSE'].includes(file)).sort(),
+  );
+  // the terms of the source travel with the copy, its notices in full (issue #531)
+  expect(files).toContain('LICENSE');
   for (const [file, { lines }] of Object.entries(manifest!.files)) {
     expect((await readJsonl(dir, file)).length).toBe(lines);
   }
@@ -197,6 +201,24 @@ describe('wordnet: the dataset', () => {
     );
     // what was unpacked to be read is gone
     expect((await readdir(os.tmpdir())).filter((name) => name.startsWith('vocab-bloom-wordnet-'))).toEqual([]);
+  });
+
+  it('writes the notices of WordNet and of CMUdict into the LICENSE of the dataset, word for word', async () => {
+    await convert({
+      source: findSource('wordnet')!,
+      input: path.join(FIXTURES, 'wordnet'),
+      outDir,
+      sourceOptions: { edition: 'princeton' },
+    });
+
+    const license = await readFile(path.join(outDir, 'LICENSE'), 'utf-8');
+    expect(license).toContain('Princeton WordNet 3.1');
+    expect(license).toContain('License: WordNet 3.0 license (WordNet), https://wordnet.princeton.edu/');
+    expect(license).toContain('WordNet 3.1 Copyright 2011 by Princeton University.  All rights reserved.');
+    expect(license).toContain('that the same appear on ALL copies of the software, database and');
+    expect(license).toContain('Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.');
+    // a converted dataset is what the source says: nothing in it was modified
+    expect(license).not.toContain('differs from its source');
   });
 
   it('refuses an input that is not a release', async () => {

@@ -185,7 +185,7 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
     await request(server()).post('/api/en/datasets/wiktionary/activate').set(auth).expect(200);
 
     const lamp = await request(server()).get('/api/v1/words/lamp').expect(200);
-    expect(lamp.body.meta).toEqual({ word: 'lamp', count: 3 });
+    expect(lamp.body.meta).toEqual({ word: 'lamp', count: 3, variants: [] });
     const noun = lamp.body.data.find((entry: { part_of_speech: string }) => entry.part_of_speech === 'noun');
     expect(noun).toEqual(
       expect.objectContaining({
@@ -233,6 +233,8 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
         attribution: expect.stringContaining('Wiktionary contributors'),
         attribution_url: 'https://en.wiktionary.org',
         notice: '',
+        // a Creative Commons license is named by its link
+        license_text: '',
       }),
     );
   });
@@ -249,7 +251,7 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
     );
     expect(last?.updated_entries).toBeGreaterThan(0);
     const lamp = await request(server()).get('/api/v1/words/lamp').expect(200);
-    expect(lamp.body.meta).toEqual({ word: 'lamp', count: 3 });
+    expect(lamp.body.meta).toEqual({ word: 'lamp', count: 3, variants: [] });
     // the counts of /meta are cached for a minute: the rows are what is compared
     expect(before.entries).toBeGreaterThan(0);
   });
@@ -303,6 +305,56 @@ describe('installing a dataset from its source (e2e, issue #527)', () => {
         attribution: expect.stringContaining('Princeton University'),
       }),
     );
+    // the WordNet license wants its notice on every copy of the data: the API carries it in full (issue #531)
+    expect(meta.body.data.license_text).toContain(
+      'WordNet 3.1 Copyright 2011 by Princeton University.  All rights reserved.',
+    );
+    expect(meta.body.data.license_text).toContain('Carnegie Mellon University');
+  });
+
+  // issue #531: a dataset of a public source says nothing about generated text, so it holds none
+  it('takes a word the owner wrote into a dataset of a source, and nothing a model generated', async () => {
+    await request(server()).post('/api/en/datasets/wiktionary/activate').set(auth).expect(200);
+    const word = (generated: boolean) => ({
+      word: 'lantern',
+      part_of_speech: 'noun',
+      form_of_word: 'base_form',
+      generated,
+      forms: [],
+      meanings: [],
+      short_translations: [],
+    });
+
+    const refused = await request(server()).post('/api/en/add/word').set(auth).send(word(true)).expect(400);
+    expect(refused.body.message).toBe('generated_not_allowed');
+    await request(server()).get('/api/v1/words/lantern').expect(404);
+
+    const added = await request(server()).post('/api/en/add/word').set(auth).send(word(false)).expect(201);
+    const served = await request(server()).get('/api/v1/words/lantern').expect(200);
+    // the word is the owner's, in a dataset of Wiktionary: the reader is told
+    expect(served.body.data[0]).toEqual(expect.objectContaining({ source: 'wiktionary', modified: true }));
+    const marked = await request(server())
+      .patch(`/api/en/common-info/${added.body.id}`)
+      .set(auth)
+      .send({ generated: true })
+      .expect(400);
+    expect(marked.body.message).toBe('generated_not_allowed');
+
+    // …and an import of generated lines stops before it writes them
+    const line = JSON.stringify({ ...word(true), word: 'candle', description: 'generated', version: '1' });
+    const imported = await request(server())
+      .post('/api/en/dictionary/import/upload')
+      .set(auth)
+      .attach('words', Buffer.from(`${line}\n`), 'words.jsonl');
+    expect(chunksOf(imported.text).some((chunk) => chunk.stage === COMPLETED)).toBe(false);
+    await released();
+    await request(server()).get('/api/v1/words/candle').expect(404);
+
+    // the dataset of the project is what models generated, and says so
+    await request(server()).post('/api/en/datasets/default/activate').set(auth).expect(200);
+    await request(server()).post('/api/en/add/word').set(auth).send(word(true)).expect(201);
+    const own = await request(server()).get('/api/v1/words/lantern').expect(200);
+    expect(own.body.data[0]).toEqual(expect.objectContaining({ source: 'vocab-bloom-hub', modified: true }));
   });
 
   it('keeps the datasets apart: the file of one source does not go into the dataset of another', async () => {

@@ -2,23 +2,30 @@ import React from 'react';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import type { PublicWordV1MeaningT, PublicWordV1T } from 'server/types';
+import type { PublicChangeV1T, PublicWordV1MeaningT, PublicWordV1T } from 'server/types';
 
 import { JsonLd } from '@/components/JsonLd';
 import { Pronounce } from '@/components/Pronounce';
 import { ReportMistake } from '@/components/ReportMistake';
 import { WordSearch } from '@/components/WordSearch';
 import { licenseLabel, OWN_DATASET_SOURCE } from '@/core/datasetTerms';
-import { DictionaryUnavailableError, fetchDatasetTerms, fetchHeadword } from '@/core/dictionary';
+import {
+  DictionaryUnavailableError,
+  fetchDatasetTerms,
+  fetchHeadword,
+  fetchHeadwordHistory,
+} from '@/core/dictionary';
 import { pageMeta, trimDescription } from '@/core/site';
 import { breadcrumbJsonLd, definedTermJsonLd } from '@/core/structuredData';
 import { flagOf } from '@/core/languageFlags';
+import { changesOfEntry } from '@/core/wordHistory';
 import { leadDefinition, localeTranslations, translationLanguages } from '@/core/wordPage';
 import { Link } from '@/i18n/navigation';
 import { LocaleParamsP } from '@/types/common';
 
 import styles from '../word.module.scss';
 import { ForLanguage, TranslationLanguageProvider, TranslationPicker } from './_components/TranslationLanguage';
+import { WordHistory } from './_components/WordHistory';
 
 type WordPageP = LocaleParamsP<{ word: string }>;
 
@@ -39,7 +46,9 @@ const wordPath = (word: string): string => `/word/${encodeURIComponent(word)}`;
 
 // The one URL of a headword is its normalized spelling, `meta.word` of the
 // API answer (issue #480): /en/word/Bloom answered 200 with a canonical of
-// its own, one indexable page per spelling variant. A 308 folds them
+// its own, one indexable page per spelling variant. A 308 folds them. Where
+// the dictionary holds "Test" next to "test" they are two words, and the
+// API keeps the case of the one that was asked for: two pages, no redirect
 const canonicalOrRedirect = (locale: string, word: string, canonical: string): void => {
   if (word !== canonical) permanentRedirect(`/${locale}${wordPath(canonical)}`);
 };
@@ -178,13 +187,29 @@ const Meaning = ({ meaning, t }: { meaning: PublicWordV1MeaningT; t: TranslateT 
   </li>
 );
 
-const Entry = ({ entry, t }: { entry: PublicWordV1T; t: TranslateT }) => {
+type EntryP = {
+  entry: PublicWordV1T;
+  // the spelling the page is about: an entry of another spelling says its own
+  headword: string;
+  // what was changed in this entry on the instance (issue #531)
+  changes: PublicChangeV1T[];
+  locale: string;
+  t: TranslateT;
+};
+
+const Entry = ({ entry, headword, changes, locale, t }: EntryP) => {
   const grammar = grammarOf(entry, t);
 
   return (
-    <section className={styles.entry}>
+    <section className={styles.entry} data-testid={`entry-${entry.id}`}>
       <div className={styles.entryHead}>
         <h2>{entry.part_of_speech.replace(/_/g, ' ')}</h2>
+        {/* "ran" leads to the verb "run", "TEST" to "Test" and "test": the entry names the word it is */}
+        {entry.word !== headword && (
+          <span className={styles.entrySpelling} data-testid="entry-spelling">
+            <WordLink word={entry.word} />
+          </span>
+        )}
         {entry.word_level && <span className={styles.tag}>{entry.word_level}</span>}
         {entry.language_register && <span className={styles.tag}>{entry.language_register}</span>}
         {entry.area_variant && <span className={styles.tag}>{entry.area_variant}</span>}
@@ -200,6 +225,12 @@ const Entry = ({ entry, t }: { entry: PublicWordV1T; t: TranslateT }) => {
         {entry.is_obsolete && <span className={styles.tag}>{t('obsolete')}</span>}
         {entry.transcription && <span className={styles.transcription}>{ipa(entry.transcription)}</span>}
       </div>
+      {/* the licenses of the datasets ask that a reader is told (issue #531) */}
+      {entry.modified && (
+        <p className={styles.modified} data-testid="entry-modified">
+          {t('modified_note')}
+        </p>
+      )}
       {grammar.length > 0 && <p className={styles.grammar}>{grammar.join(' · ')}</p>}
       {entry.pattern && entry.pattern.length > 0 && (
         <p className={styles.grammar}>
@@ -238,6 +269,7 @@ const Entry = ({ entry, t }: { entry: PublicWordV1T; t: TranslateT }) => {
           ))}
         </p>
       )}
+      <WordHistory locale={locale} changes={changes} t={t} />
     </section>
   );
 };
@@ -256,6 +288,11 @@ export default async function WordPage({ params }: WordPageP) {
   const { data, meta } = headword.result;
   canonicalOrRedirect(locale, word, meta.word);
   const transcription = data.find((entry) => entry.transcription)?.transcription;
+  // what was changed on the instance (issue #531): asked for only where an entry says it was
+  const history = data.some((entry) => entry.modified) ? await fetchHeadwordHistory(meta.word) : [];
+  // the other spellings of the headword, but for the ones the page itself shows the entries of
+  const shown = new Set(data.map((entry) => entry.word));
+  const variants = (meta.variants ?? []).filter((variant) => !shown.has(variant));
   // the locale's translations on the first screen, before the entries
   const translations = localeTranslations(data, locale);
   // the terms of the data the page shows (issue #527)
@@ -292,6 +329,15 @@ export default async function WordPage({ params }: WordPageP) {
             </span>
           </p>
         )}
+        {/* the words the dictionary spells the same but for the case: each is a page of its own */}
+        {variants.length > 0 && (
+          <p className={styles.variants} data-testid="other-spellings">
+            {t('other_spellings')}:{' '}
+            {variants.map((variant) => (
+              <WordLink key={variant} word={variant} />
+            ))}
+          </p>
+        )}
         <div className={styles.metaRow}>
           <div className={styles.metaLeft}>
             <p className={styles.meta}>{t('entries', { count: meta.count })}</p>
@@ -323,7 +369,14 @@ export default async function WordPage({ params }: WordPageP) {
           />
         </div>
         {data.map((entry) => (
-          <Entry key={entry.id} entry={entry} t={t} />
+          <Entry
+            key={entry.id}
+            entry={entry}
+            headword={meta.word}
+            changes={changesOfEntry(history, entry)}
+            locale={locale}
+            t={t}
+          />
         ))}
         <div className={styles.footer}>
           <p>
@@ -333,9 +386,8 @@ export default async function WordPage({ params }: WordPageP) {
             {isOwnData ? (
               <Link href="/docs/data-license">{t('license_note', { license })}</Link>
             ) : (
-              <a href={terms.license_url} rel="license noreferrer" target="_blank">
-                {t('license_note', { license })}
-              </a>
+              // the terms of the source, with its notice in full where it asks for one (issue #531)
+              <Link href="/dataset-terms">{t('license_note', { license })}</Link>
             )}
             {isOwnData ? (
               <>

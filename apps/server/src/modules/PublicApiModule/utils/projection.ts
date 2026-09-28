@@ -1,10 +1,12 @@
 import { getActiveDatasetSource } from '../../../core/utils/active-dataset';
+import { EnChange } from '../../EnModule/entities/en_change.entity';
 import { EnWord } from '../../EnModule/entities/en_word.entity';
 import { EnMeaning } from '../../EnModule/entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../../EnModule/entities/en_meaning_translation.entity';
 import { EnShortTranslation } from '../../EnModule/entities/en_short_translation.entity';
 import { normalizeWordLinks } from '../../EnModule/utils/normalizeWordLinks';
 import {
+  PublicChangeV1T,
   AvailableTranslationLanguagesE,
   EnAreaVariantsE,
   PublicSearchWordV1T,
@@ -77,8 +79,23 @@ export const toPublicForm = (row: EnWord): PublicWordV1FormT => ({
   transcription: row.transcription ?? null,
 });
 
-/** The flat search item: the entry, its grammar and its forms */
-export const toPublicSearchWord = (row: EnWord, similarity?: number): PublicSearchWordV1T => ({
+export type PublicSearchWordOptionsT = {
+  similarity?: number | undefined;
+  // the source of the dataset the row was read from; the active one's when absent
+  source?: string | undefined;
+  // the entry has edits that still show in what is served (WordRowsService.modifiedArticles)
+  modified?: boolean | undefined;
+};
+
+/**
+ * The flat search item: the entry, its grammar and its forms, with where it
+ * comes from (issue #527) and whether it was changed on the instance (issue
+ * #531) — what every answer that carries an entry says of it
+ */
+export const toPublicSearchWord = (
+  row: EnWord,
+  { similarity, source, modified }: PublicSearchWordOptionsT = {},
+): PublicSearchWordV1T => ({
   id: row.id,
   word: row.word.word,
   part_of_speech: row.part_of_speech,
@@ -103,23 +120,23 @@ export const toPublicSearchWord = (row: EnWord, similarity?: number): PublicSear
   base_phrasal: row.base_phrasal?.word?.word ?? null,
   forms: (row.forms ?? []).map(toPublicForm),
   ...(similarity !== undefined && { similarity }),
+  source: source ?? getActiveDatasetSource(),
+  modified: modified ?? false,
 });
 
-export type PublicWordOptionsT = PublicTranslationFilterT & {
-  // map the meanings / short translations (the relation must be loaded);
-  // an unrequested join answers an empty list
-  with_meanings?: boolean;
-  with_translations?: boolean;
-  // the phrasal variants were loaded: list them (absent otherwise)
-  with_phrasal_variants?: boolean;
-  similarity?: number | undefined;
-  // the source of the dataset the row was read from; the active one's when absent
-  source?: string;
-};
+export type PublicWordOptionsT = PublicTranslationFilterT &
+  PublicSearchWordOptionsT & {
+    // map the meanings / short translations (the relation must be loaded);
+    // an unrequested join answers an empty list
+    with_meanings?: boolean;
+    with_translations?: boolean;
+    // the phrasal variants were loaded: list them (absent otherwise)
+    with_phrasal_variants?: boolean;
+  };
 
 /** The full entry: the search item plus meanings, short translations and, when loaded, phrasal variants */
 export const toPublicWord = (row: EnWord, options: PublicWordOptionsT = {}): PublicWordV1T => ({
-  ...toPublicSearchWord(row, options.similarity),
+  ...toPublicSearchWord(row, options),
   meanings: options.with_meanings ? (row.meanings ?? []).map((m) => toPublicMeaning(m, options)) : [],
   short_translations: options.with_translations
     ? (row.short_translations ?? [])
@@ -129,5 +146,24 @@ export const toPublicWord = (row: EnWord, options: PublicWordOptionsT = {}): Pub
   ...(options.with_phrasal_variants && {
     phrasal_variants: (row.phrasal_variants ?? []).map((variant) => variant.word.word),
   }),
-  source: options.source ?? getActiveDatasetSource(),
+});
+
+// the editorial state of the instance stays on the admin API, in the history too
+const EDITORIAL_FIELDS = new Set(['generated', 'generated_by_model', 'version']);
+
+/**
+ * One edit as a reader is shown it (issue #531): no ids — they differ
+ * between instances — and nothing of the editorial state
+ */
+export const toPublicChange = (row: EnChange): PublicChangeV1T => ({
+  created_at: new Date(row.created_at).toISOString(),
+  word: row.headword,
+  part_of_speech: row.part_of_speech,
+  entity: row.entity,
+  action: row.action,
+  record: row.record,
+  diff: Object.fromEntries(Object.entries(row.diff).filter(([field]) => !EDITORIAL_FIELDS.has(field))),
+  origin: row.origin,
+  author: row.author,
+  source: getActiveDatasetSource(),
 });

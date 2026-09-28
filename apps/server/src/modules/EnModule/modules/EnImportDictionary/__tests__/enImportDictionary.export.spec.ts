@@ -3,7 +3,7 @@ import { WordRowsService } from '../../../word-rows.service';
 
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { Writable } from 'node:stream';
@@ -18,7 +18,7 @@ jest.mock('node:fs/promises', () => {
   return { ...actual, unlink: jest.fn(async () => undefined) };
 });
 
-import { EnEntry } from '../../../entities/en_entry.entity';
+import { DICTIONARY_ENTITIES } from '../../../entities/dictionary-entities';
 import { EnWord } from '../../../entities/en_word.entity';
 import { EnMeaning } from '../../../entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../../../entities/en_meaning_translation.entity';
@@ -27,11 +27,12 @@ import { EnService } from '../../../en.service';
 import { EnShortTranslationService } from '../../EnShortTranslation/enShortTranslation.service';
 import { EnMeaningService } from '../../EnMeaning/enMeaning.service';
 import { EnMeaningTranslationService } from '../../EnMeaningTranslation/enMeaningTranslation.service';
-import { EnImportDictionaryService } from '../enImportDictionary.service';
+import { EnImportDictionaryService, ExportOptionsT } from '../enImportDictionary.service';
 import { SettingsService } from '../../../../SettingsModule/settings.service';
 import { EnDictionaryImportPhasesE } from '../constants';
 import {
   AvailableTranslationLanguagesE,
+  CustomVersionDictionaryOfWord,
   EnMeaningT,
   EnPartOfSpeechE,
   EnShortTranslationT,
@@ -113,7 +114,7 @@ describe('EnImportDictionaryService NDJSON export (issue #187)', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation],
+      entities: DICTIONARY_ENTITIES,
       synchronize: true,
     });
     await ds.initialize();
@@ -350,7 +351,109 @@ describe('EnImportDictionaryService NDJSON export (issue #187)', () => {
       'vocab-bloom-hub-en-meanings.jsonl': { lines: 5 },
       'vocab-bloom-hub-en-meaning-translations.ru.jsonl': { lines: 4 },
       'vocab-bloom-hub-en-short-translations.ru.jsonl': { lines: 5 },
+      // the five words were made through the admin services: an edit each (issue #531)
+      'vocab-bloom-hub-en-changes.jsonl': { lines: 5 },
     });
+  });
+
+  // issue #531: the words of this dictionary were made through the admin services, not imported
+  it('says in the manifest and in the LICENSE of the copy how many entries differ from the source', () => {
+    const manifest = JSON.parse(readFileSync(path.join(runDir, 'manifest.json'), 'utf-8')) as {
+      modified_entries?: number;
+    };
+    expect(manifest.modified_entries).toBe(5);
+
+    const license = readFileSync(path.join(runDir, 'LICENSE'), 'utf-8');
+    expect(license).toContain('Vocab Bloom Hub English dataset');
+    expect(license).toContain('License: Creative Commons Attribution 4.0 International (CC-BY-4.0)');
+    expect(license).toContain('This copy differs from its source: 5 of its entries were changed or added');
+  });
+
+  it('carries the history of the edits, a line per edit with its values and without the ids of this database', () => {
+    const lines = readJsonlLines('vocab-bloom-hub-en-changes.jsonl');
+
+    expect(lines.map((line) => [line.headword, line.part_of_speech, line.entity, line.action])).toEqual([
+      ['run', 'verb', 'word', 'create'],
+      ['give', 'verb', 'word', 'create'],
+      ['give up', 'verb', 'word', 'create'],
+      ['in the long run', 'phrase', 'word', 'create'],
+      ['would rather + verb', 'grammar_pattern', 'word', 'create'],
+    ]);
+    expect(Object.keys(lines[0]).sort()).toEqual([
+      'action',
+      'author',
+      'created_at',
+      'diff',
+      'entity',
+      'headword',
+      'origin',
+      'part_of_speech',
+      'record',
+      'superseded_at',
+    ]);
+    expect(lines[0]).toEqual(
+      expect.objectContaining({ origin: 'admin', author: null, superseded_at: null, record: null }),
+    );
+    expect(Date.parse(lines[0].created_at as string)).not.toBeNaN();
+    const diff = lines[0].diff as Record<string, { before: unknown; after: unknown }>;
+    expect(diff.meanings.after).toEqual([expect.objectContaining({ title: 'to move fast' })]);
+  });
+
+  it('exports the entries edited here under the version the owner names, and leaves the dictionary alone', async () => {
+    const words = ds.getRepository(EnWord);
+    const pattern = await words.findOneOrFail({
+      where: { part_of_speech: EnPartOfSpeechE.grammar_pattern },
+      relations: { word: true },
+    });
+    const run = await words
+      .createQueryBuilder('w')
+      .innerJoin('w.word', 'entry')
+      .where('entry.word = :word', { word: 'run' })
+      .andWhere('w.form_of_word = :form', { form: EnWordFormsE.base_form })
+      .getOneOrFail();
+    // as an edit in the admin UI leaves them
+    await words.update({ id: In([run.id, pattern.id]) }, { version: CustomVersionDictionaryOfWord });
+
+    const exportTo = async (options?: ExportOptionsT) => {
+      const res = new FakeProgressRes();
+      await service.exportDictionary(res as unknown as Response, options);
+      const { exportId: id } = JSON.parse(res.chunks[res.chunks.length - 1]) as ProgressChunk;
+      const dir = path.join(os.tmpdir(), 'vocab-bloom-export', id as string);
+      const versions = (fileName: string) =>
+        Object.fromEntries(
+          readFileSync(path.join(dir, fileName), 'utf-8')
+            .split('\n')
+            .filter((line) => line.trim())
+            // a phrase and a grammar pattern are named by `phrase`
+            .map((line) => JSON.parse(line) as { word?: string; phrase?: string; version: string })
+            .map((line) => [line.word ?? line.phrase, line.version]),
+        );
+      const result = {
+        words: versions('vocab-bloom-hub-en-words.jsonl'),
+        patterns: versions('vocab-bloom-hub-en-grammar-patterns.jsonl'),
+      };
+      await rm(dir, { recursive: true, force: true });
+      await rm(path.join(os.tmpdir(), 'vocab-bloom-export', `${id}.zip`), { force: true });
+      return result;
+    };
+
+    try {
+      const asIs = await exportTo();
+      expect(asIs.words.run).toBe(CustomVersionDictionaryOfWord);
+      expect(asIs.patterns['would rather + verb']).toBe(CustomVersionDictionaryOfWord);
+
+      const named = await exportTo({ editedVersion: '2.1.0' });
+      expect(named.words.run).toBe('2.1.0');
+      expect(named.patterns['would rather + verb']).toBe('2.1.0');
+      // an entry nobody edited keeps the version of its dataset
+      expect(named.words.give).toBe(asIs.words.give);
+      expect(named.words.give).not.toBe('2.1.0');
+
+      // the database holds what it held
+      expect((await words.findOneByOrFail({ id: run.id })).version).toBe(CustomVersionDictionaryOfWord);
+    } finally {
+      await words.update({ id: In([run.id, pattern.id]) }, { version: run.version });
+    }
   });
 
   it('packs the archive and serves it once via streamExportFile', async () => {

@@ -62,6 +62,35 @@ describe('ExportDictionarySection', () => {
     saveBlobSpy.mockRestore();
   });
 
+  // the entries edited on the instance carry custom_version; the owner names the version they are published under
+  it('exports the edited entries under the version the owner names', async () => {
+    mockExportStreaming([]);
+    renderSection();
+
+    fireEvent.change(screen.getByLabelText('export_edited_version'), { target: { value: ' 2.1.0 ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'start_exporting' }));
+
+    expect(EnApi.exportDictionary).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), {
+      edited_version: '2.1.0',
+    });
+  });
+
+  it('exports them as they are when no version is named, and takes nothing that is not a version', () => {
+    mockExportStreaming([]);
+    renderSection();
+    expect(screen.getByText('export_edited_version_hint')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('export_edited_version'), { target: { value: 'the next one' } });
+    expect(screen.getByText('export_edited_version_invalid')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'start_exporting' }) as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText('export_edited_version'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'start_exporting' }));
+    expect(EnApi.exportDictionary).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), {
+      edited_version: undefined,
+    });
+  });
+
   it('скачивает и сохраняет файл после чанка completed', async () => {
     const blob = new Blob(['zip']);
     mockExportStreaming([

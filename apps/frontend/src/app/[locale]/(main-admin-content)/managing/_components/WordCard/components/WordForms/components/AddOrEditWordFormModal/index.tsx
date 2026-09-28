@@ -10,6 +10,7 @@ import { ValuesStateT } from './types';
 import { getTitle } from '@/app/[locale]/(main-admin-content)/managing/_components/EnWordForm/components/FormsOfWordLine/utils';
 import { EnApi } from '@/core/api/EnApi';
 import { UpdateTypeE } from '@/app/[locale]/(main-admin-content)/managing/_components/WordCard/constants';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 type AddOrEditWordFormModalP = {
   data: EnWordFormT | null;
@@ -81,6 +82,7 @@ export const AddOrEditWordFormModal: React.FC<AddOrEditWordFormModalP> = ({
       confirmLoading={submitting}
       onCancel={onClose}
     >
+      <EditLicenseNote />
       {data && <Input value={getTitle(data?.form_of_word as string)} disabled />}
       <RegionalLabelSelect
         width={188}

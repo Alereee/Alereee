@@ -1,11 +1,7 @@
 import * as path from 'path';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { checkIsPostgres, parseDatabaseUrl } from '../../configuration';
-import { EnEntry } from '../modules/EnModule/entities/en_entry.entity';
-import { EnWord } from '../modules/EnModule/entities/en_word.entity';
-import { EnMeaning } from '../modules/EnModule/entities/en_meaning.entity';
-import { EnMeaningTranslation } from '../modules/EnModule/entities/en_meaning_translation.entity';
-import { EnShortTranslation } from '../modules/EnModule/entities/en_short_translation.entity';
+import { DICTIONARY_ENTITIES } from '../modules/EnModule/entities/dictionary-entities';
 import { Settings } from '../modules/SettingsModule/entities/settings.entity';
 import { AuditLog } from '../modules/AuditModule/entities/audit_log.entity';
 import { Suggestion } from '../modules/SuggestionsModule/entities/suggestion.entity';
@@ -15,17 +11,7 @@ import { getDbPoolConfig } from '../core/utils/db-pool';
 import { migrations } from './migrations';
 import { searchPathExtra } from './datasets';
 
-export const DB_ENTITIES = [
-  EnEntry,
-  EnWord,
-  EnMeaning,
-  EnMeaningTranslation,
-  EnShortTranslation,
-  Settings,
-  AuditLog,
-  Suggestion,
-  Dataset,
-];
+export const DB_ENTITIES = [...DICTIONARY_ENTITIES, Settings, AuditLog, Suggestion, Dataset];
 
 // checkIsPostgres() is locked at the first call (entity import), so the
 // DataSource driver can never diverge from the entity column types.

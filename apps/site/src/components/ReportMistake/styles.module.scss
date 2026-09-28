@@ -149,3 +149,16 @@
   color: var(--muted);
   font-size: 0.9rem;
 }
+
+// the consent to be named (issue #531)
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+
+  input {
+    margin-block-start: 3px;
+  }
+}

@@ -43,6 +43,14 @@ class CreateSuggestionV1ReqDTO(BaseModel):
     edits: list[SuggestionEditV1DTO] | None = Field(
         None, description="Edit flow: every touched target of the word form with its proposed values"
     )
+    author_name: dict[str, Any] | None = Field(
+        None,
+        description="The name the sender wants to be credited by (issue #531). Kept only together with `author_consent: true`: once the correction is applied the name is shown next to it and travels with the copies of the data",
+    )
+    author_consent: dict[str, Any] | None = Field(
+        None,
+        description="The sender agrees that `author_name` is shown and exported; required when a name is given",
+    )
 
 
 class WordsBatchV1ReqDTO(BaseModel):
@@ -183,11 +191,14 @@ class PublicWordV1ShortTranslationT(BaseModel):
 class PublicHeadwordV1MetaT(BaseModel):
     word: str
     count: int
+    variants: list[str] | None = None
 
 
 class PublicWordFormV1T(BaseModel):
     word_id: int
     part_of_speech: EnPartOfSpeechE
+    source: str | None = None
+    modified: bool | None = None
     id: int
     word: str
     form_of_word: EnWordFormsE
@@ -203,6 +214,8 @@ class PublicHeadwordFormsV1ResT(BaseModel):
 class PublicShortTranslationV1T(BaseModel):
     word_id: int
     part_of_speech: EnPartOfSpeechE
+    source: str | None = None
+    modified: bool | None = None
     id: int
     language: AvailableTranslationLanguagesE
     description: str
@@ -213,6 +226,8 @@ class PublicMeaningTranslationV1T(BaseModel):
     meaning_id: int
     word_id: int
     part_of_speech: EnPartOfSpeechE
+    source: str | None = None
+    modified: bool | None = None
     id: int
     language: AvailableTranslationLanguagesE
     title: str
@@ -225,11 +240,73 @@ class PublicWordLinkV1T(BaseModel):
     word: str
     word_id: int
     part_of_speech: EnPartOfSpeechE
+    source: str | None = None
+    modified: bool | None = None
 
 
 class PublicHeadwordLinksV1ResT(BaseModel):
     data: list[PublicWordLinkV1T]
     meta: PublicHeadwordV1MetaT
+
+
+class ChangeEntityE(Enum):
+    """
+    What was edited
+    """
+
+    word = "word"
+    word_form = "word_form"
+    meaning = "meaning"
+    meaning_translation = "meaning_translation"
+    short_translation = "short_translation"
+
+
+class ChangeActionE(Enum):
+    create = "create"
+    update = "update"
+    delete = "delete"
+
+
+class ChangeFormRecordT(BaseModel):
+    word: str
+    form_of_word: str
+
+
+class ChangeMeaningRecordT(BaseModel):
+    title: str
+    sort_order: int
+
+
+class ChangeTranslationRecordT(BaseModel):
+    meaning: ChangeMeaningRecordT
+    language: str
+    title: str
+
+
+class ChangeShortTranslationRecordT(BaseModel):
+    language: str
+    description: str
+
+
+class ChangeDiffT1(BaseModel):
+    before: Any
+    after: Any
+
+
+class ChangeOriginE(Enum):
+    """
+    Where an edit came from
+    """
+
+    admin = "admin"
+    suggestion = "suggestion"
+    revert = "revert"
+
+
+class PublicHeadwordHistoryV1MetaT(BaseModel):
+    word: str
+    count: int
+    variants: list[str] | None = None
 
 
 class PublicHeadwordTranslationsV1T(BaseModel):
@@ -309,6 +386,8 @@ class PublicSearchWordV1T(BaseModel):
     base_phrasal: str | None = Field(...)
     forms: list[PublicWordV1FormT]
     similarity: float | None = None
+    source: str | None = None
+    modified: bool | None = None
 
 
 class PublicWordV1MeaningTranslationT(BaseModel):
@@ -322,6 +401,8 @@ class PublicWordV1MeaningTranslationT(BaseModel):
 class PublicMeaningV1T(BaseModel):
     word_id: int
     part_of_speech: EnPartOfSpeechE
+    source: str | None = None
+    modified: bool | None = None
     id: int
     sort_order: int
     title: str
@@ -353,6 +434,8 @@ class PublicMetaV1T(BaseModel):
     dataset: str | None = None
     source: str | None = None
     attribution_url: str | None = None
+    license_text: str | None = None
+    modified_entries: int | None = None
     counts: PublicDatasetCountsV1T
     available_languages: PublicAvailableLanguagesV1T
 
@@ -382,11 +465,37 @@ class PublicWordV1MeaningT(BaseModel):
     antonyms: list[str]
 
 
+class PublicChangeV1T(BaseModel):
+    created_at: str
+    word: str
+    part_of_speech: str | None = Field(...)
+    entity: ChangeEntityE
+    action: ChangeActionE
+    record: (
+        ChangeFormRecordT
+        | ChangeMeaningRecordT
+        | ChangeTranslationRecordT
+        | ChangeShortTranslationRecordT
+        | None
+    ) = Field(
+        ...,
+        description="The record of an entry an edit is about, by what it says rather than by its id: ids change when a dataset is updated and differ between instances. Null for the word itself — the headword and the part of speech name it.",
+    )
+    diff: dict[str, ChangeDiffT1]
+    origin: ChangeOriginE
+    author: str | None = Field(...)
+    source: str | None = None
+
+
+class PublicHeadwordHistoryV1ResT(BaseModel):
+    data: list[PublicChangeV1T]
+    meta: PublicHeadwordHistoryV1MetaT
+
+
 class PublicWordV1T(BaseModel):
     meanings: list[PublicWordV1MeaningT]
     short_translations: list[PublicWordV1ShortTranslationT]
     phrasal_variants: list[str] | None = None
-    source: str | None = None
     id: int
     word: str
     part_of_speech: EnPartOfSpeechE
@@ -411,6 +520,8 @@ class PublicWordV1T(BaseModel):
     base_phrasal: str | None = Field(...)
     forms: list[PublicWordV1FormT]
     similarity: float | None = None
+    source: str | None = None
+    modified: bool | None = None
 
 
 class PublicWordV1ResT(BaseModel):

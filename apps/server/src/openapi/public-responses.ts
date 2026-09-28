@@ -36,6 +36,7 @@ export const PUBLIC_RESPONSES: Record<string, PublicResponseSpecT> = {
   PublicWordsController_forms: { type: 'PublicHeadwordFormsV1ResT', errors: [400, 404, 429] },
   PublicWordsController_synonyms: { type: 'PublicHeadwordLinksV1ResT', errors: [400, 404, 429] },
   PublicWordsController_antonyms: { type: 'PublicHeadwordLinksV1ResT', errors: [400, 404, 429] },
+  PublicWordsController_history: { type: 'PublicHeadwordHistoryV1ResT', errors: [400, 404, 429] },
   PublicDictionaryController_random: { type: 'PublicWordV1ResT', errors: [400, 404, 429] },
   PublicDictionaryController_meta: { type: 'PublicMetaV1ResT', errors: [429] },
   PublicOpenApiController_openapi: { type: null, errors: [429, 503] },

@@ -20,6 +20,7 @@ const METHOD_BY_OPERATION: Record<string, keyof VocabBloomClient> = {
   PublicWordsController_forms: 'forms',
   PublicWordsController_synonyms: 'synonyms',
   PublicWordsController_antonyms: 'antonyms',
+  PublicWordsController_history: 'history',
   PublicDictionaryController_random: 'random',
   PublicDictionaryController_meta: 'meta',
   PublicOpenApiController_openapi: 'openapi',

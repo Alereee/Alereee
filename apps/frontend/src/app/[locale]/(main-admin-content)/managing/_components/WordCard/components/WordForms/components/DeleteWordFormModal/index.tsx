@@ -3,6 +3,7 @@ import { useTranslations } from 'next-intl';
 import { Modal, Typography } from 'antd';
 import { EnWordFormT } from 'server/types';
 import styles from './styles.module.scss';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 const { Text } = Typography;
 type AddOrEditWordFormModalP = {
@@ -36,6 +37,7 @@ export const DeleteWordFormModal: React.FC<AddOrEditWordFormModalP> = ({ isOpen,
       onCancel={onClose}
       className={styles.deleteModal}
     >
+      <EditLicenseNote />
       <Text strong>
         {form?.form_of_word} - {form?.word}
       </Text>

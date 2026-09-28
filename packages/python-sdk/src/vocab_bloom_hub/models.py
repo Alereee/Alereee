@@ -19,6 +19,7 @@ ShortTranslation = _g.PublicShortTranslationV1T
 MeaningTranslation = _g.PublicMeaningTranslationV1T
 HeadwordTranslations = _g.PublicHeadwordTranslationsV1T
 WordLink = _g.PublicWordLinkV1T
+Change = _g.PublicChangeV1T
 WordsBatchItem = _g.PublicWordsBatchItemV1T
 Meta = _g.PublicMetaV1T
 DatasetCounts = _g.PublicDatasetCountsV1T
@@ -45,6 +46,7 @@ MeaningsResponse = _g.PublicHeadwordMeaningsV1ResT
 TranslationsResponse = _g.PublicHeadwordTranslationsV1ResT
 FormsResponse = _g.PublicHeadwordFormsV1ResT
 LinksResponse = _g.PublicHeadwordLinksV1ResT
+HistoryResponse = _g.PublicHeadwordHistoryV1ResT
 WordsResponse = _g.PublicWordsV1ResT
 WordsBatchResponse = _g.PublicWordsBatchV1ResT
 MetaResponse = _g.PublicMetaV1ResT
@@ -55,11 +57,13 @@ __all__ = [
     "AreaVariant",
     "AvailableLanguages",
     "Category",
+    "Change",
     "DatasetCounts",
     "DetailedSearchResponse",
     "FormsResponse",
     "HeadwordResponse",
     "HeadwordTranslations",
+    "HistoryResponse",
     "LanguageRegister",
     "LinksResponse",
     "Meaning",

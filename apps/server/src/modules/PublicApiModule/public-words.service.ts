@@ -1,22 +1,26 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsRelations, Repository, SelectQueryBuilder } from 'typeorm';
+import { FindOptionsRelations, In, Repository, SelectQueryBuilder } from 'typeorm';
 import { EnWord } from '../EnModule/entities/en_word.entity';
 import { FULL_WORD_RELATIONS, SEARCH_ITEM_RELATIONS } from '../EnModule/utils/wordRelations';
 import { WordRowsService } from '../EnModule/word-rows.service';
 import { foldedWord } from '../EnModule/utils/foldedWord';
 import { escapeLike } from '../EnModule/modules/EnSearch/utils/escapeLike';
 import { WordLinkKindT } from '../EnModule/utils/normalizeWordLinks';
-import { toPublicWord } from './utils/projection';
+import { toPublicChange, toPublicWord } from './utils/projection';
+import { EnChangesService } from '../EnModule/modules/EnChanges/enChanges.service';
 import { ErrorCodes } from '../../../core/constants/error_codes';
 import { checkIsPostgres } from '../../../configuration';
 import {
   AvailableTranslationLanguagesE,
   EnWordFormsE,
+  PublicEntryRefV1T,
   PublicHeadwordFormsV1ResT,
+  PublicHeadwordHistoryV1ResT,
   PublicHeadwordLinksV1ResT,
   PublicHeadwordMeaningsV1ResT,
   PublicHeadwordTranslationsV1ResT,
+  PublicHeadwordV1MetaT,
   PublicHeadwordV1ResT,
   PublicWordsBatchItemV1T,
   PublicWordsBatchV1ResT,
@@ -26,6 +30,13 @@ import {
 import { WordFiltersV1QueryDTO } from './dto/WordFiltersV1Query.dto';
 import { ListWordsV1QueryDTO, PUBLIC_LIST_DEFAULT_LIMIT } from './dto/ListWordsV1Query.dto';
 import { decodeWordCursor, encodeWordCursor, wordListFingerprint } from './utils/cursor';
+
+/**
+ * What a spelling names in the dictionary: the headword the answer is
+ * about, the other spellings that differ from it by case only, and the base
+ * entries of the headword
+ */
+type ResolvedHeadwordT = { word: string; variants: string[]; ids: number[] };
 
 /**
  * Read-only dictionary lookups of the public API (issue #272): a headword
@@ -39,6 +50,7 @@ export class PublicWordsService {
     @InjectRepository(EnWord)
     private readonly enWordsRep: Repository<EnWord>,
     private readonly wordRows: WordRowsService,
+    private readonly changes: EnChangesService,
   ) {}
 
   // ------------------------------------------------------------ headword
@@ -48,11 +60,18 @@ export class PublicWordsService {
    * or the base form an inflected row ("ran") belongs to. One query for the
    * whole list (the batch lookup, issue #397); per spelling the ids are
    * ordered by part of speech, then id, so the answer is stable. A spelling
-   * with no entry has no key in the result
+   * with no entry has no key in the result.
+   *
+   * The match does not depend on the case of the letters — unless the
+   * dictionary holds several spellings that differ by it, as a dataset of a
+   * public source does ("Test", a match of cricket, and "test"): those are
+   * words of their own, and a request that spells one of them exactly is
+   * answered with that one. A request that spells none of them ("TEST")
+   * gets them all.
    */
-  private async resolveEntryIdsByWords(words: string[]): Promise<Map<string, number[]>> {
-    const found = new Map<string, number[]>();
-    if (words.length === 0) return found;
+  private async resolveHeadwords(asked: string[]): Promise<Map<string, ResolvedHeadwordT>> {
+    const found = new Map<string, ResolvedHeadwordT>();
+    if (asked.length === 0) return found;
     const rows = await this.enWordsRep
       .createQueryBuilder('w')
       .innerJoin('w.word', 'entry')
@@ -62,29 +81,52 @@ export class PublicWordsService {
       .addSelect(['baseForm.id', 'baseForm.part_of_speech'])
       // case-folded: a grammar pattern keeps its sentence capitals in the
       // dictionary and is still found by its lower-case spelling (issue #440)
-      .where(`${foldedWord('entry.word')} IN (:...words)`, { words })
+      .where(`${foldedWord('entry.word')} IN (:...words)`, {
+        words: [...new Set(asked.map((word) => word.toLowerCase()))],
+      })
       .getMany();
-    const byWord = new Map<string, Map<number, EnWord>>();
+    // the spellings the dictionary holds under one case-folded key, each with its base entries
+    const spellings = new Map<string, Map<string, Map<number, EnWord>>>();
     for (const row of rows) {
       const target = row.base_form ?? row;
-      const key = row.word.word.toLowerCase();
-      const targets = byWord.get(key) ?? new Map<number, EnWord>();
+      const folded = row.word.word.toLowerCase();
+      const bySpelling = spellings.get(folded) ?? new Map<string, Map<number, EnWord>>();
+      const targets = bySpelling.get(row.word.word) ?? new Map<number, EnWord>();
       targets.set(target.id, target);
-      byWord.set(key, targets);
+      bySpelling.set(row.word.word, targets);
+      spellings.set(folded, bySpelling);
     }
-    for (const [word, targets] of byWord) {
-      found.set(
-        word,
-        [...targets.values()]
+    for (const word of asked) {
+      const bySpelling = spellings.get(word.toLowerCase());
+      if (!bySpelling) continue;
+      // "Test" and "test" are two words where the dictionary holds both: a
+      // request that spells one of them gets that one. Where the dictionary
+      // holds one spelling the case of the request does not matter
+      const exact = bySpelling.size > 1 ? bySpelling.get(word) : undefined;
+      const targets = exact ?? new Map([...bySpelling.values()].flatMap((entries) => [...entries]));
+      const others = [...bySpelling.keys()].filter((spelling) => !exact || spelling !== word);
+      found.set(word, {
+        word: exact ? word : word.toLowerCase(),
+        variants: bySpelling.size > 1 ? others.sort() : [],
+        ids: [...targets.values()]
           .sort((a, b) => a.part_of_speech.localeCompare(b.part_of_speech) || a.id - b.id)
           .map((row) => row.id),
-      );
+      });
     }
     return found;
   }
 
-  private async resolveEntryIds(word: string): Promise<number[]> {
-    return (await this.resolveEntryIdsByWords([word])).get(word) ?? [];
+  private async resolveHeadword(raw: string): Promise<ResolvedHeadwordT> {
+    const word = raw.trim();
+    const resolved = word ? (await this.resolveHeadwords([word])).get(word) : undefined;
+    if (!resolved) {
+      throw new NotFoundException(ErrorCodes.word_doesnt_found);
+    }
+    return resolved;
+  }
+
+  private metaOf({ word, variants }: ResolvedHeadwordT, count: number): PublicHeadwordV1MetaT {
+    return { word, count, variants };
   }
 
   // Relation rows come back in storage order; the public answer sorts them
@@ -100,72 +142,96 @@ export class PublicWordsService {
   // Every relation of the contract, projected by name (issue #392)
   private async loadFull(ids: number[]): Promise<PublicWordV1T[]> {
     const rows = await this.wordRows.load(ids, FULL_WORD_RELATIONS);
+    const modified = await this.wordRows.modifiedArticles(rows);
     return rows.map((row) =>
       toPublicWord(this.sortRelations(row), {
         with_meanings: true,
         with_translations: true,
         with_phrasal_variants: true,
+        modified: modified.has(row),
       }),
     );
   }
 
-  private normalizeHeadword(raw: string): string {
-    return raw.trim().toLowerCase();
-  }
-
   async getByHeadword(raw: string): Promise<PublicHeadwordV1ResT> {
-    const word = this.normalizeHeadword(raw);
-    const ids = word ? await this.resolveEntryIds(word) : [];
-    if (ids.length === 0) {
-      throw new NotFoundException(ErrorCodes.word_doesnt_found);
-    }
-    const data = await this.loadFull(ids);
-    return { data, meta: { word, count: data.length } };
+    const resolved = await this.resolveHeadword(raw);
+    const data = await this.loadFull(resolved.ids);
+    return { data, meta: this.metaOf(resolved, data.length) };
   }
 
   /**
    * Many headwords in two queries instead of two per word (issue #397): the
-   * spellings are normalized like the single lookup and de-duplicated in
-   * request order; the ones naming no entry go to `meta.not_found`
+   * spellings are matched like the single lookup and de-duplicated in
+   * request order by the headword they name; the ones naming no entry go to
+   * `meta.not_found`
    */
   async getByHeadwords(raws: string[]): Promise<PublicWordsBatchV1ResT> {
-    const words = [...new Set(raws.map((raw) => this.normalizeHeadword(raw)).filter((word) => word !== ''))];
-    const idsByWord = await this.resolveEntryIdsByWords(words);
-    const entries = await this.loadFull([...new Set([...idsByWord.values()].flat())]);
+    const asked = [...new Set(raws.map((raw) => raw.trim()).filter((word) => word !== ''))];
+    const resolved = await this.resolveHeadwords(asked);
+    const entries = await this.loadFull([...new Set([...resolved.values()].flatMap(({ ids }) => ids))]);
     const entryById = new Map(entries.map((entry) => [entry.id, entry]));
-    const data: PublicWordsBatchItemV1T[] = [];
-    const not_found: string[] = [];
-    for (const word of words) {
-      const ids = idsByWord.get(word);
-      if (!ids) {
-        not_found.push(word);
+    const data = new Map<string, PublicWordsBatchItemV1T>();
+    const not_found = new Set<string>();
+    for (const word of asked) {
+      const headword = resolved.get(word);
+      if (!headword) {
+        not_found.add(word.toLowerCase());
         continue;
       }
-      const found = ids
+      // "Run" and "run" name one headword where the dictionary holds one spelling
+      if (data.has(headword.word)) continue;
+      const found = headword.ids
         .map((id) => entryById.get(id))
         .filter((entry): entry is PublicWordV1T => entry !== undefined);
-      data.push({ word, count: found.length, entries: found });
+      data.set(headword.word, { word: headword.word, count: found.length, entries: found });
     }
-    return { data, meta: { count: data.length, not_found } };
+    return { data: [...data.values()], meta: { count: data.size, not_found: [...not_found] } };
+  }
+
+  // The entry a part belongs to, with what the entry itself says of where it
+  // comes from (issue #527) and of whether it was changed (issue #531): a
+  // meaning or a translation served on its own is attributed like the whole
+  private entryRef(entry: PublicWordV1T): PublicEntryRefV1T {
+    return {
+      word_id: entry.id,
+      part_of_speech: entry.part_of_speech,
+      ...(entry.source !== undefined && { source: entry.source }),
+      modified: entry.modified ?? false,
+    };
   }
 
   async getMeaningsByHeadword(raw: string): Promise<PublicHeadwordMeaningsV1ResT> {
     const { data: entries, meta } = await this.getByHeadword(raw);
     const data = entries.flatMap((entry) =>
-      entry.meanings.map((meaning) => ({
-        ...meaning,
-        word_id: entry.id,
-        part_of_speech: entry.part_of_speech,
-      })),
+      entry.meanings.map((meaning) => ({ ...meaning, ...this.entryRef(entry) })),
     );
     return { data, meta };
   }
 
+  /**
+   * The edits of the entries a spelling names (issue #531). The history is
+   * kept by the spelling of the base word, so the entries are found first:
+   * "ran" answers with the history of "run".
+   */
+  async getHistoryByHeadword(raw: string): Promise<PublicHeadwordHistoryV1ResT> {
+    const resolved = await this.resolveHeadword(raw);
+    const rows = await this.enWordsRep.find({
+      where: { id: In(resolved.ids) },
+      select: { id: true, part_of_speech: true, word: { word: true } },
+      relations: { word: true },
+    });
+    const articles = new Set(rows.map((row) => `${row.word.word}\u0000${row.part_of_speech}`));
+    const edits = await this.changes.activeOf([...new Set(rows.map((row) => row.word.word))]);
+    const data = edits
+      // an edit without a part of speech is about every article of its headword
+      .filter((edit) => !edit.part_of_speech || articles.has(`${edit.headword}\u0000${edit.part_of_speech}`))
+      .map(toPublicChange);
+    return { data, meta: { word: resolved.word, count: data.length, variants: resolved.variants } };
+  }
+
   async getFormsByHeadword(raw: string): Promise<PublicHeadwordFormsV1ResT> {
     const { data: entries, meta } = await this.getByHeadword(raw);
-    const data = entries.flatMap((entry) =>
-      entry.forms.map((form) => ({ ...form, word_id: entry.id, part_of_speech: entry.part_of_speech })),
-    );
+    const data = entries.flatMap((entry) => entry.forms.map((form) => ({ ...form, ...this.entryRef(entry) })));
     return { data, meta };
   }
 
@@ -174,12 +240,7 @@ export class PublicWordsService {
     const { data: entries, meta } = await this.getByHeadword(raw);
     const data = entries.flatMap((entry) =>
       entry.meanings.flatMap((meaning) =>
-        meaning[kind].map((word) => ({
-          word,
-          meaning_id: meaning.id,
-          word_id: entry.id,
-          part_of_speech: entry.part_of_speech,
-        })),
+        meaning[kind].map((word) => ({ word, meaning_id: meaning.id, ...this.entryRef(entry) })),
       ),
     );
     return { data, meta };
@@ -195,18 +256,13 @@ export class PublicWordsService {
     const short_translations = entries.flatMap((entry) =>
       entry.short_translations
         .filter((t) => matches(t.language))
-        .map((t) => ({ ...t, word_id: entry.id, part_of_speech: entry.part_of_speech })),
+        .map((t) => ({ ...t, ...this.entryRef(entry) })),
     );
     const meaning_translations = entries.flatMap((entry) =>
       entry.meanings.flatMap((meaning) =>
         meaning.translations
           .filter((t) => matches(t.language))
-          .map((t) => ({
-            ...t,
-            meaning_id: meaning.id,
-            word_id: entry.id,
-            part_of_speech: entry.part_of_speech,
-          })),
+          .map((t) => ({ ...t, meaning_id: meaning.id, ...this.entryRef(entry) })),
       ),
     );
     return { data: { short_translations, meaning_translations }, meta };
@@ -284,7 +340,10 @@ export class PublicWordsService {
     if (with_meanings) relations.meanings = { translations: true, synonyms: true, antonyms: true };
     if (with_translations) relations.short_translations = true;
     const rows = await this.wordRows.load(ids, relations);
-    return rows.map((row) => toPublicWord(this.sortRelations(row), { with_meanings, with_translations }));
+    const modified = await this.wordRows.modifiedArticles(rows);
+    return rows.map((row) =>
+      toPublicWord(this.sortRelations(row), { with_meanings, with_translations, modified: modified.has(row) }),
+    );
   }
 
   // The headword column of en_words, case-folded and ordered by its bytes

@@ -47,14 +47,14 @@ An instance holds several datasets, each in a Postgres schema of its own
 ([`database.md`](./database.md#datasets-a-schema-each)). The dictionary tables exist once per
 dataset, so their migrations run once per dataset:
 
-|                  | Shared                                                          | Dataset                                                                              |
-| ---------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Folder           | `src/db/migrations/`                                            | `src/db/dataset-migrations/`                                                         |
-| Tables           | `settings`, `datasets`, `audit_log`; the enum types; extensions | `en_entries`, `en_words`, `en_meanings`, the translations, the links, `suggestions`  |
-| Runs in          | `public`, once                                                  | every registered schema — `public` for the `default` dataset, every `ds_<name>`      |
-| Journal          | `public.migrations`                                             | `dataset_migrations` of each schema                                                  |
-| Names the schema | yes: `"public"."settings"`                                      | **never**: `"en_words"` — the `search_path` of the connection decides where it lands |
-| Runs             | at server start, first                                          | at server start, after the shared ones; and when a dataset is created                |
+|                  | Shared                                                          | Dataset                                                                                           |
+| ---------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Folder           | `src/db/migrations/`                                            | `src/db/dataset-migrations/`                                                                      |
+| Tables           | `settings`, `datasets`, `audit_log`; the enum types; extensions | `en_entries`, `en_words`, `en_meanings`, the translations, the links, `en_changes`, `suggestions` |
+| Runs in          | `public`, once                                                  | every registered schema — `public` for the `default` dataset, every `ds_<name>`                   |
+| Journal          | `public.migrations`                                             | `dataset_migrations` of each schema                                                               |
+| Names the schema | yes: `"public"."settings"`                                      | **never**: `"en_words"` — the `search_path` of the connection decides where it lands              |
+| Runs             | at server start, first                                          | at server start, after the shared ones; and when a dataset is created                             |
 
 Everything up to `AddDatasets` is history: those migrations built the dictionary tables in
 `public` before datasets existed and stay in the shared list. `DatasetBaseline` builds the same
@@ -62,6 +62,19 @@ tables in a new schema and is recorded as applied in `public` by `AddDatasets`. 
 change to a dictionary table is a dataset migration**; `test:postgres` compares the structure of
 a new schema with `public` (columns, indexes, foreign keys) and fails when the two lists drift
 apart.
+
+The first dataset migrations after the baseline are the ones of the history of edits
+([`datasets.md`](./datasets.md#editing-a-dataset-the-history-of-edits)): `AddChanges` creates
+`en_changes` in every schema, empty; `AddSuggestionAuthor` adds the name a reader asked to be
+credited by to `suggestions`; `ChangesCarryValues` makes the values of an edit mandatory and
+removes the rows without them that the builds before it wrote. `part_of_speech` of `en_changes` is text, not the enum of `en_words`: an enum
+type lives in `public` and is shared by every schema, a column of it would tie a dataset
+migration to a shared one.
+
+Reverting `AddDatasets` (`migration:revert` while it is the newest shared migration) takes the
+registry away and leaves the journal of the dataset migrations of `public` with the rows of the
+migrations that ran since: what they built in `public` is still there, and running the
+migration again finds them applied.
 
 Writing a dataset migration:
 

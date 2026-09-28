@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { buildTypeOrmOptions } from '../src/db/typeorm-options';
+import { typeOrmRoot } from '../src/db/typeorm-root';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import configuration from '../configuration';
@@ -44,7 +44,7 @@ describe('dictionary import sources (e2e, issue #269)', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
         ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 100 }] }),
-        TypeOrmModule.forRoot(buildTypeOrmOptions()),
+        TypeOrmModule.forRootAsync(typeOrmRoot),
         EnModule,
       ],
     }).compile();

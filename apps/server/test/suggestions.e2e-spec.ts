@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
-import { buildTypeOrmOptions } from '../src/db/typeorm-options';
+import { typeOrmRoot } from '../src/db/typeorm-root';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { Repository } from 'typeorm';
@@ -15,6 +15,7 @@ import { Suggestion } from '../src/modules/SuggestionsModule/entities/suggestion
 import { AuditModule } from '../src/modules/AuditModule/audit.module';
 import { AuditLog } from '../src/modules/AuditModule/entities/audit_log.entity';
 import { EnEntry } from '../src/modules/EnModule/entities/en_entry.entity';
+import { EnChange } from '../src/modules/EnModule/entities/en_change.entity';
 import { EnWord } from '../src/modules/EnModule/entities/en_word.entity';
 import { hashLoginString } from '../core/utils/crypto';
 import { createJwt } from '../core/utils/auth';
@@ -51,7 +52,7 @@ describe('Suggestions: the public intake and the moderation queue (e2e, issue #3
       imports: [
         ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
         ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 100_000 }] }),
-        TypeOrmModule.forRoot(buildTypeOrmOptions()),
+        TypeOrmModule.forRootAsync(typeOrmRoot),
         AuditModule,
         // brings SuggestionsModule, the moderation controller and the apply
         // service in the same arrangement the application boots with —
@@ -247,12 +248,16 @@ describe('Suggestions: the public intake and the moderation queue (e2e, issue #3
               changes: { description: 'to move quickly on foot', transcription: '/rʌn/' },
             },
           ],
+          // the sender asks to be credited (issue #531)
+          author_name: '  Ada Lovelace ',
+          author_consent: true,
         })
         .expect(201);
       editId = res.body.data.id as number;
 
       const stored = await suggestionsRep.findOneByOrFail({ id: editId });
       expect(stored.kind).toBe(SuggestionKindE.edit);
+      expect(stored.author_name).toBe('Ada Lovelace');
       expect(stored.edits).toEqual([
         {
           target_type: SuggestionTargetE.word,
@@ -316,9 +321,28 @@ describe('Suggestions: the public intake and the moderation queue (e2e, issue #3
       const stored = await suggestionsRep.findOneByOrFail({ id: editId });
       expect(stored.status).toBe(SuggestionStatusE.resolved);
 
-      // both the word edit and the verdict are in the journal
-      expect(await auditRep.findOneBy({ entity_type: 'word' as never, entity_id: wordRowId })).toBeTruthy();
+      // the history of the entry says what was corrected, that a reader sent it, and who (issue #531)
+      const changes = await app.get<Repository<EnChange>>(getRepositoryToken(EnChange)).find();
+      expect(changes).toEqual([
+        expect.objectContaining({
+          headword: 'run',
+          part_of_speech: 'verb',
+          entity: 'word',
+          action: 'update',
+          origin: 'suggestion',
+          suggestion_id: editId,
+          author: 'Ada Lovelace',
+          diff: {
+            description: { before: null, after: 'to move quickly on foot' },
+            transcription: { before: null, after: '/rʌn/' },
+            version: { before: expect.any(String), after: 'custom_version' },
+          },
+        }),
+      ]);
+
+      // the verdict is an event of the instance; the edit itself is in the history above, and only there
       expect(await auditRep.findOneBy({ entity_type: 'suggestion' as never, entity_id: editId })).toBeTruthy();
+      expect(await auditRep.findOneBy({ entity_type: 'word' as never, entity_id: wordRowId })).toBeNull();
     });
 
     it('refuses to apply twice, or to apply a plain report', async () => {
@@ -326,6 +350,76 @@ describe('Suggestions: the public intake and the moderation queue (e2e, issue #3
 
       const report = await request(server()).post('/api/v1/suggestions').send(validBody()).expect(201);
       await request(server()).post(`/api/en/suggestions/${report.body.data.id}/apply`).set(auth).expect(400);
+    });
+
+    // issue #531: a name is personal data that will be published
+    it('takes a name only with the consent of the sender, and none is fine', async () => {
+      const named = { ...validBody(), author_name: 'Ada Lovelace' };
+      await request(server()).post('/api/v1/suggestions').send(named).expect(400);
+      await request(server())
+        .post('/api/v1/suggestions')
+        .send({ ...named, author_consent: false })
+        .expect(400);
+      await request(server())
+        .post('/api/v1/suggestions')
+        .send({ ...named, author_name: 'x'.repeat(81), author_consent: true })
+        .expect(400);
+
+      const agreed = await request(server())
+        .post('/api/v1/suggestions')
+        .send({ ...named, author_consent: true })
+        .expect(201);
+      expect((await suggestionsRep.findOneByOrFail({ id: agreed.body.data.id })).author_name).toBe(
+        'Ada Lovelace',
+      );
+      // a consent without a name names nobody
+      const anonymous = await request(server())
+        .post('/api/v1/suggestions')
+        .send({ ...validBody(), author_name: '   ', author_consent: true })
+        .expect(201);
+      expect((await suggestionsRep.findOneByOrFail({ id: anonymous.body.data.id })).author_name).toBeNull();
+
+      const queue = await request(server()).get('/api/en/suggestions?limit=50').set(auth).expect(200);
+      expect(queue.body.items.find((item: { id: number }) => item.id === agreed.body.data.id).author_name).toBe(
+        'Ada Lovelace',
+      );
+    });
+
+    // issue #531: whoever gave a name may ask for it to be taken out
+    it('finds the corrections of a reader by their name', async () => {
+      const named = await request(server()).get('/api/en/changes?author=ada%20lo').set(auth).expect(200);
+      expect(named.body.items.map((item: { author: string }) => item.author)).toEqual(['Ada Lovelace']);
+      const nobody = await request(server()).get('/api/en/changes?author=grace').set(auth).expect(200);
+      expect(nobody.body.total).toBe(0);
+    });
+
+    it('takes a name out on request: the correction stays, nobody is named by it', async () => {
+      await request(server())
+        .post('/api/en/changes/forget-author')
+        .send({ author: 'Ada Lovelace' })
+        .expect(401);
+      await request(server()).post('/api/en/changes/forget-author').set(auth).send({}).expect(400);
+
+      // the row of the history and the two reports that carried the name
+      await request(server())
+        .post('/api/en/changes/forget-author')
+        .set(auth)
+        .send({ author: 'Ada Lovelace' })
+        .expect(200)
+        .expect({ success: true, forgotten: 3 });
+
+      const history = await request(server()).get('/api/en/changes?headword=run').set(auth).expect(200);
+      expect(history.body.items).toEqual([
+        expect.objectContaining({
+          origin: 'suggestion',
+          author: null,
+          diff: expect.objectContaining({ description: { before: null, after: 'to move quickly on foot' } }),
+        }),
+      ]);
+      const queue = await request(server()).get('/api/en/suggestions?limit=50').set(auth).expect(200);
+      expect(queue.body.items.map((item: { author_name: string | null }) => item.author_name)).toEqual(
+        queue.body.items.map(() => null),
+      );
     });
 
     it('requires a message for a report but not for an edit', async () => {

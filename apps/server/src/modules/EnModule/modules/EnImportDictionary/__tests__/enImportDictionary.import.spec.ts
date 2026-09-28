@@ -11,6 +11,8 @@ import * as os from 'node:os';
 import * as yazl from 'yazl';
 
 import { EnEntry } from '../../../entities/en_entry.entity';
+import { EnChange } from '../../../entities/en_change.entity';
+import { DICTIONARY_ENTITIES } from '../../../entities/dictionary-entities';
 import { EnWord } from '../../../entities/en_word.entity';
 import { EnMeaning } from '../../../entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../../../entities/en_meaning_translation.entity';
@@ -22,6 +24,9 @@ import { DATASET_VERSION_SETTINGS_FIELD, EnDictionaryImportPhasesE } from '../co
 import { ErrorCodes } from '../../../../../../core/constants/error_codes';
 import {
   AvailableTranslationLanguagesE,
+  ChangeActionE,
+  ChangeEntityE,
+  ChangeOriginE,
   EnEntryTypesE,
   EnAreaVariantsE,
   EnPartOfSpeechE,
@@ -130,7 +135,7 @@ describe('EnImportDictionaryService NDJSON import (issue #87)', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation],
+      entities: DICTIONARY_ENTITIES,
       synchronize: true,
     });
     await ds.initialize();
@@ -465,6 +470,200 @@ describe('EnImportDictionaryService NDJSON import (issue #87)', () => {
         .innerJoin('w.word', 'entry')
         .where('entry.word = :word', { word: headword })
         .getMany();
+
+    // issue #531: the history says which edits still show in what is served
+    describe('the history of edits', () => {
+      const change = (headword: string, extra: Partial<EnChange> = {}) =>
+        ds.getRepository(EnChange).save(
+          ds.getRepository(EnChange).create({
+            headword,
+            part_of_speech: 'verb',
+            entity: ChangeEntityE.word,
+            action: ChangeActionE.update,
+            record: null,
+            diff: { description: { before: 'v1', after: 'mine' } },
+            origin: ChangeOriginE.admin,
+            suggestion_id: null,
+            author: null,
+            superseded_at: null,
+            ...extra,
+          }),
+        );
+      const active = async () =>
+        (await ds.getRepository(EnChange).find({ order: { id: 'ASC' } }))
+          .filter((row) => row.superseded_at === null)
+          .map((row) => [row.headword, row.part_of_speech, row.action]);
+
+      it('an update supersedes the edits of the entries it replaces and leaves the ones it keeps', async () => {
+        mockWordsDataset('0.5.0', [makeSetWord('give', { description: 'v1' }), makeSetWord('take')]);
+        await service.importDictionary({}, new FakeProgressRes() as unknown as ExpressResponse);
+        jest.restoreAllMocks();
+
+        // "give" was edited and then returned to the official version; "take" is still the admin's
+        await change('give');
+        await change('give', { part_of_speech: null });
+        await change('take');
+        await ds.getRepository(EnEntry).update({ word: 'take' }, { user_modified: true });
+
+        mockWordsDataset('0.6.0', [makeSetWord('give', { description: 'v2' }), makeSetWord('take')]);
+        await service.importDictionary({ update: true }, new FakeProgressRes() as unknown as ExpressResponse);
+
+        expect(await active()).toEqual([['take', 'verb', 'update']]);
+        // the rows stay: the history is never erased
+        expect(await ds.getRepository(EnChange).count()).toBe(3);
+        const superseded = await ds.getRepository(EnChange).findOneByOrFail({ headword: 'give' });
+        expect(superseded.superseded_at).toBeInstanceOf(Date);
+        expect(superseded.diff).toEqual({ description: { before: 'v1', after: 'mine' } });
+      });
+
+      it('an article the dataset brings back takes the place of the one that was deleted', async () => {
+        // the admin deleted "give" as a verb, and edited "give" as a noun, which the dataset does not have
+        await change('give', { action: ChangeActionE.delete });
+        await change('give', { part_of_speech: 'noun' });
+        await change('run', { action: ChangeActionE.delete });
+
+        mockWordsDataset('0.5.0', [makeSetWord('give'), makeSetWord('take')]);
+        await service.importDictionary({}, new FakeProgressRes() as unknown as ExpressResponse);
+
+        expect(await active()).toEqual([
+          ['give', 'noun', 'update'],
+          ['run', 'verb', 'delete'],
+        ]);
+      });
+
+      it('reads the history a copy was exported with, once, and the entries it names say they were edited', async () => {
+        const line = (extra: Record<string, unknown> = {}) => ({
+          created_at: '2026-09-27T10:00:00.000Z',
+          headword: 'give',
+          part_of_speech: 'verb',
+          entity: 'meaning',
+          action: 'update',
+          record: { title: 'to hand over', sort_order: 1 },
+          diff: { definition: { before: 'v1', after: 'corrected' } },
+          origin: 'suggestion',
+          author: 'Ada',
+          superseded_at: null,
+          ...extra,
+        });
+        const dataset = () =>
+          mockDatasetFiles({
+            'manifest.json': JSON.stringify({
+              version: '0.5.0',
+              files: {
+                'vocab-bloom-hub-en-words.jsonl': { lines: 1 },
+                'vocab-bloom-hub-en-changes.jsonl': { lines: 4 },
+              },
+            }),
+            'vocab-bloom-hub-en-words.jsonl': toNdjson([makeSetWord('give')]),
+            'vocab-bloom-hub-en-changes.jsonl': toNdjson([
+              line(),
+              line({ created_at: '2026-09-20T10:00:00.000Z', superseded_at: '2026-09-25T10:00:00.000Z' }),
+              // what is not an edit is left out: an action the history does not know, no headword
+              line({ action: 'rename' }),
+              line({ headword: '' }),
+            ]),
+          });
+
+        dataset();
+        const res = new FakeProgressRes();
+        await service.importDictionary({}, res as unknown as ExpressResponse);
+        jest.restoreAllMocks();
+
+        const rows = await ds.getRepository(EnChange).find({ order: { created_at: 'ASC' } });
+        expect(rows).toHaveLength(2);
+        expect(rows[1]).toEqual(
+          expect.objectContaining({
+            headword: 'give',
+            part_of_speech: 'verb',
+            entity: 'meaning',
+            action: 'update',
+            record: { title: 'to hand over', sort_order: 1 },
+            diff: { definition: { before: 'v1', after: 'corrected' } },
+            origin: 'suggestion',
+            author: 'Ada',
+            // the id of a suggestion is known to the instance it was made on only
+            suggestion_id: null,
+            superseded_at: null,
+          }),
+        );
+        expect(new Date(rows[1].created_at).toISOString()).toBe('2026-09-27T10:00:00.000Z');
+        expect(rows[0].superseded_at).toBeInstanceOf(Date);
+        // the entry came from the copy, and the copy says it was edited
+        expect(await active()).toEqual([['give', 'verb', 'update']]);
+        const last = JSON.parse(res.chunks[res.chunks.length - 1]) as { percent: number; stage: number };
+        expect(last).toEqual(expect.objectContaining({ percent: 100 }));
+
+        // the same copy again: nothing is added twice
+        dataset();
+        await service.importDictionary({}, new FakeProgressRes() as unknown as ExpressResponse);
+        expect(await ds.getRepository(EnChange).count()).toBe(2);
+      });
+
+      it('keeps the history of a copy as past where the instance has the entry already', async () => {
+        // "give" is here, from the source; the copy of another instance has it edited
+        mockWordsDataset('0.5.0', [makeSetWord('give', { description: 'v1' })]);
+        await service.importDictionary({}, new FakeProgressRes() as unknown as ExpressResponse);
+        jest.restoreAllMocks();
+
+        const copy = () =>
+          mockDatasetFiles({
+            'manifest.json': JSON.stringify({
+              version: '0.5.0',
+              files: {
+                'vocab-bloom-hub-en-words.jsonl': { lines: 2 },
+                'vocab-bloom-hub-en-changes.jsonl': { lines: 2 },
+              },
+            }),
+            'vocab-bloom-hub-en-words.jsonl': toNdjson([
+              makeSetWord('give', { description: 'edited elsewhere' }),
+              makeSetWord('take', { description: 'edited elsewhere' }),
+            ]),
+            'vocab-bloom-hub-en-changes.jsonl': toNdjson(
+              ['give', 'take'].map((headword) => ({
+                created_at: '2026-09-27T10:00:00.000Z',
+                headword,
+                part_of_speech: 'verb',
+                entity: 'word',
+                action: 'update',
+                record: null,
+                diff: { description: { before: 'v1', after: 'edited elsewhere' } },
+                origin: 'admin',
+                author: null,
+                superseded_at: null,
+              })),
+            ),
+          });
+
+        // added to what is there: "give" stays as it was, "take" comes from the copy
+        copy();
+        await service.importDictionary({}, new FakeProgressRes() as unknown as ExpressResponse);
+        jest.restoreAllMocks();
+        expect(await active()).toEqual([['take', 'verb', 'update']]);
+        expect(await ds.getRepository(EnChange).count()).toBe(2);
+
+        // taken over what is there: "give" is the edited text of the copy now, and says so
+        copy();
+        await service.importDictionary({ update: true }, new FakeProgressRes() as unknown as ExpressResponse);
+        expect((await wordRowsOf('give'))[0].description).toBe('edited elsewhere');
+        expect(await active()).toEqual([
+          ['give', 'verb', 'update'],
+          ['take', 'verb', 'update'],
+        ]);
+        expect(await ds.getRepository(EnChange).count()).toBe(2);
+      });
+
+      it('an import that adds nothing new touches no edit', async () => {
+        mockWordsDataset('0.5.0', [makeSetWord('give')]);
+        await service.importDictionary({}, new FakeProgressRes() as unknown as ExpressResponse);
+        jest.restoreAllMocks();
+        await change('give');
+
+        mockWordsDataset('0.5.0', [makeSetWord('give')]);
+        await service.importDictionary({}, new FakeProgressRes() as unknown as ExpressResponse);
+
+        expect(await active()).toEqual([['give', 'verb', 'update']]);
+      });
+    });
 
     it('replaces existing entries, keeps user-modified ones and reports the summary', async () => {
       mockWordsDataset('0.5.0', [

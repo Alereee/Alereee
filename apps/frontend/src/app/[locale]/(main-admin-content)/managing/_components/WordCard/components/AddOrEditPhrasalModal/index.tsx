@@ -4,6 +4,7 @@ import { Modal } from 'antd';
 import { useTranslations } from 'next-intl';
 import { PhrasalModalMoteE } from './constants';
 import { CheckingBasePhrasalVerb } from '@/app/[locale]/(main-admin-content)/managing/_components/EnWordForm/components/CheckingBasePhrasalVerb';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 type AddOrEditPhrasalModalP = {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const AddOrEditPhrasalModal: React.FC<AddOrEditPhrasalModalP> = ({ isOpen
       open={isOpen}
       onCancel={onClose}
     >
+      <EditLicenseNote />
       <CheckingBasePhrasalVerb value={w} onChange={setW} setCheckedId={setFoundId} />
     </Modal>
   );

@@ -73,7 +73,8 @@ panel to edit it, and SDKs to build on it.
 
 **The admin panel** — eight interface languages
 
-- edit words, senses, translations and links; every change in an audit log
+- edit words, senses, translations and links; every change kept in a history with the values
+  before and after, shown to readers and undone in a click
 - moderate the corrections readers send from the word pages
 - run bulk requests to a language model over a filtered slice of the dictionary
 - import and export the whole dictionary as a dataset, online or from a file

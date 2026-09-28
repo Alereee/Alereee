@@ -75,8 +75,21 @@ carries them in the `meanings` file (earlier datasets nested the meanings in the
   which senses are listed first and in the connotations attached to social, political and
   religious vocabulary.
 
-> [!NOTE]
-> The data contains no personal information.
+### Personal data
+
+The published dataset of the project contains no personal information. The data of **an
+instance** may come to hold one kind: the name a reader asked to be credited by for a
+correction. It is taken only with an explicit consent on the form — the form says that the name
+is shown next to the correction and travels with the copies of the dictionary data, and that a
+published name cannot be taken back from the copies others have made. A report without a name
+is as welcome. The name is stored with the report and, once the owner applies the correction,
+in the history of the entry: shown on the word page, served by
+`GET /api/v1/words/{word}/history`, written into the history file of an export.
+
+On request the owner removes a name with _Take a name out of the history_ (Admin → _History_,
+`POST /api/en/changes/forget-author`): it leaves the history and the reports of every dataset
+of the instance, the corrections stay. Exports made before that still carry it — whoever
+received one is asked separately.
 
 ## Datasets from other sources
 
@@ -93,7 +106,9 @@ public source from the file the source distributes — the server converts it:
 
 Such data is written by people, not generated: `generated` is false on every entry and the
 notice about language models does not apply — a dataset carries the notice of its own source,
-or none. Three things follow from keeping the sources apart:
+or none. The instance keeps it that way: an entry marked as generated is refused in a dataset
+of a public source, by the forms, the API and the import alike. Three things follow from
+keeping the sources apart:
 
 - **A dataset has one source and one license.** Nothing of the project's dataset is added to a
   Wiktionary entry, no translation is borrowed from one dataset for another.
@@ -103,6 +118,22 @@ or none. Three things follow from keeping the sources apart:
 - **Fields the source does not have stay empty** (`""` for the enums, as everywhere): no level
   is guessed, no register is assumed, an irregular verb of WordNet is flagged without forms
   because the source does not say which form is which.
+
+## Edits made on an instance
+
+The owner of an instance may edit any entry, and apply the corrections readers send. The
+licenses of the datasets ask that such changes are indicated, so an instance keeps **a history
+of edits** with every dataset: what was changed, with the values before and after. An entry
+that was changed or added says so — `modified` on a word of the public API, a line on the word
+page — and its history is public (`GET /api/v1/words/{word}/history`). The history travels with
+an export and is read by an import, so a copy of the data keeps the indication. How it works,
+how a change is taken back:
+[`datasets.md`](./datasets.md#editing-a-dataset-the-history-of-edits).
+
+**If you use the data of an instance**, the indication is yours to keep: credit the source, say
+of a changed entry that it was changed, keep it under the license of its dataset. What the
+instance gives for that and what to do with it:
+[`DATA_LICENSE.md`](../DATA_LICENSE.md#using-data-that-was-changed-on-an-instance).
 
 ## Dataset versions
 
@@ -133,7 +164,9 @@ next export):
   rate-limited): _Report a mistake_ opens one form with two modes — a free-text report, or
   the whole entry opened in editable fields to **suggest corrected values** — the admin sees the
   before/after diff on the _Suggestions_ page and applies it in one click (the change goes
-  through the normal edit flow: audited, and the entry is marked as the owner's). The loop
+  through the normal edit flow: it is recorded in the history of the dataset as a correction of
+  a reader, and the entry is marked as the owner's). A reader who wants to be credited gives a
+  name and agrees to have it published ([Personal data](#personal-data)). The loop
   stays inside the instance deliberately: its dictionary may hold the owner's edits the
   published dataset does not have. An applied correction is dictionary data like the rest and
   takes the license of the dataset it corrects — CC BY 4.0 for the project's own, the license
@@ -148,15 +181,17 @@ next export):
 
 ## Where the terms are exposed
 
-| Place                           | What it carries                                                                                                |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `manifest.json` of every export | `source`, `license`, `license_url`, `attribution`, `attribution_url`, `notice`                                 |
-| `GET /api/v1/meta`              | `dataset`, `source`, `license`, `license_url`, `attribution`, `attribution_url`, `notice` ([`api.md`](api.md)) |
-| Every word of `/api/v1`         | `source`                                                                                                       |
-| Word pages of the website       | The license and the attribution of the dataset under every entry and next to _Report a mistake_                |
-| Admin → _Datasets_              | The terms of every dataset of the catalog, as the code states them                                             |
-| Admin → _Export dictionary_     | License, link and attribution line next to the download                                                        |
-| HuggingFace dataset card        | `license: cc-by-4.0` front matter, `LICENSE`, `NOTICE`, this notice (the project's dataset)                    |
+| Place                           | What it carries                                                                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `manifest.json` of every export | `source`, `license`, `license_url`, `attribution`, `attribution_url`, `notice`; `modified_entries` when the data was edited                                  |
+| `LICENSE` of every export       | The license and the notices of the source in full                                                                                                            |
+| `GET /api/v1/meta`              | `dataset`, `source`, `license`, `license_url`, `attribution`, `attribution_url`, `notice`, `license_text`, `modified_entries` ([`api.md`](api.md))           |
+| Every word of `/api/v1`         | `source`, and `modified` when the entry was changed or added on the instance — on the parts of an entry, in the searches and on the edits of the history too |
+| Word pages of the website       | The license and the attribution of the dataset under every entry and next to _Report a mistake_; what was changed on the site                                |
+| `/dataset-terms` of the website | The terms of the active dataset, with the notices of its source in full                                                                                      |
+| Admin → _Datasets_              | The terms of every dataset of the catalog, as the code states them                                                                                           |
+| Admin → _Export dictionary_     | License, link and attribution line next to the download                                                                                                      |
+| HuggingFace dataset card        | `license: cc-by-4.0` front matter, `LICENSE`, `NOTICE`, this notice (the project's dataset)                                                                  |
 
 All of them but the dataset card carry the terms of the **active dataset**, and those are the
 ones the catalog of the code states for it (`apps/server/core/constants/dataset_catalog.ts`;

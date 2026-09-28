@@ -195,7 +195,7 @@ export const DatasetsSection: React.FC<DatasetsSectionP> = ({ initial }) => {
   return (
     <div className={styles.section}>
       {list && !supported && (
-        <Alert type="info" showIcon message={t('not_supported')} data-testid="datasets-unsupported" />
+        <Alert type="info" showIcon title={t('not_supported')} data-testid="datasets-unsupported" />
       )}
       {DATASET_CATALOG.map(card)}
       <InstallDataset

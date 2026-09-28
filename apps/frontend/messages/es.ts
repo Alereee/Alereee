@@ -39,6 +39,13 @@ export default {
       'El archivo no es lo que distribuye la fuente de este conjunto de datos: descárguelo de nuevo como indica la instrucción',
     [ErrorCodes.dataset_not_installable]:
       'Este conjunto de datos se carga en la página de importación, no desde un archivo de una fuente',
+    [ErrorCodes.generated_not_allowed]:
+      'Un conjunto de datos de una fuente pública contiene lo que escribieron personas: no se le puede añadir una entrada generada por un modelo',
+    [ErrorCodes.change_doesnt_found]: 'No se encontró el cambio',
+    [ErrorCodes.change_not_revertible]:
+      'Este cambio no se puede revertir: ya no se ve en lo que se sirve o sus valores nunca se registraron',
+    [ErrorCodes.change_outdated]:
+      'El registro se editó de nuevo después de este cambio, o ya no existe: revierta primero los cambios posteriores',
     [ErrorCodes.dataset_is_active]: 'No se puede eliminar el conjunto de datos activo: active otro primero',
     [ErrorCodes.dataset_is_default]: 'El conjunto de datos predeterminado no se puede eliminar',
     [ErrorCodes.datasets_busy]:
@@ -119,6 +126,7 @@ export default {
     col_kind: 'Tipo',
     col_message: 'Reporte',
     col_dataset_version: 'Dataset',
+    col_author: 'Enviado por',
     col_actions: 'Acciones',
     kind_report: 'reporte',
     kind_edit: 'edición',
@@ -146,7 +154,11 @@ export default {
   },
   history: {
     intro:
-      'Todos los cambios hechos a través de la API de administración, los más recientes primero. Las importaciones aparecen como una fila de resumen. Las filas más antiguas que AUDIT_RETENTION_DAYS (90 por defecto) se eliminan.',
+      'Lo que se hizo en esta instancia, de lo más reciente a lo más antiguo: importaciones, ajustes, cambios de conjunto de datos, decisiones sobre los informes. Las filas más antiguas que AUDIT_RETENTION_DAYS (90 por defecto) se eliminan. Las ediciones del diccionario están en la otra pestaña; las anteriores al historial de ediciones siguen aquí hasta que caduquen.',
+    tab_edits: 'Ediciones del diccionario',
+    tab_events: 'Eventos de la instancia',
+    intro_edits:
+      'Todo lo que se cambió en las entradas del conjunto de datos activo, de lo más reciente a lo más antiguo, con los valores anteriores y posteriores. Este historial es parte de los datos: se conserva para siempre y viaja con la exportación.',
     col_time: 'Cuándo',
     col_action: 'Acción',
     col_entity: 'Qué',
@@ -169,6 +181,55 @@ export default {
     entity_suggestion: 'sugerencia',
     empty: 'Aún no hay cambios registrados.',
     entity_dataset: 'conjunto de datos',
+  },
+  // the history of the edits of a dataset (issue #531)
+  changes: {
+    title: 'Historial de ediciones',
+    intro:
+      'Lo que se cambió en esta entrada en esta instancia, con los valores anteriores y posteriores. A los lectores se les informa de un cambio mientras se ve en lo que se sirve; revertirlo restaura los valores que reemplazó.',
+    col_time: 'Cuándo',
+    col_what: 'Qué',
+    col_changes: 'Valores',
+    col_author: 'Autor',
+    author_admin: 'administrador',
+    author_reader: 'un lector, sin nombre',
+    filter_author: 'Nombre del autor…',
+    col_state: 'Estado',
+    action_create: 'añadido',
+    action_update: 'cambiado',
+    action_delete: 'eliminado',
+    entity_word: 'entrada',
+    entity_word_form: 'forma de la palabra',
+    entity_meaning: 'significado',
+    entity_meaning_translation: 'traducción de un significado',
+    entity_short_translation: 'traducción breve',
+    origin_admin: 'administrador',
+    origin_suggestion: 'corrección de un lector',
+    origin_revert: 'revertido',
+    state_active: 'visible',
+    state_superseded: 'ya no se ve desde el {date}',
+    more_fields: 'y {count} más',
+    before: 'antes',
+    after: 'después',
+    show_values: 'Mostrar los valores completos',
+    hide_values: 'Ocultar los valores',
+    revert: 'Revertir',
+    revert_confirm: '¿Restaurar los valores que este cambio reemplazó?',
+    cancel: 'Cancelar',
+    reverted: 'El cambio se revirtió',
+    filter_entity: 'Qué',
+    filter_origin: 'Origen',
+    filter_search: 'Comienzo de la palabra…',
+    filter_active: 'Solo lo que sigue visible',
+    empty: 'No hay ediciones registradas.',
+    forget_title: 'Quitar un nombre del historial',
+    forget_hint:
+      'Un lector que figura como autor de una corrección puede pedir que se quite su nombre. Las ediciones se conservan; el nombre se elimina del historial y de los informes de todos los conjuntos de datos de esta instancia. Las copias ya exportadas quedan fuera de alcance.',
+    forget_placeholder: 'El nombre, exactamente como se muestra',
+    forget_btn: 'Quitar el nombre',
+    forget_confirm: '¿Quitar «{name}» del historial de todos los conjuntos de datos?',
+    forgotten: 'El nombre se quitó de {count} filas',
+    forgotten_none: 'Ninguna fila nombra a «{name}»',
   },
   managing: {
     add_word: 'Añadir palabra',
@@ -251,6 +312,8 @@ export default {
     terms_attribution: 'Quien muestre los datos debe mostrar esta línea:',
     terms_share_alike:
       'Una licencia de compartir igual: todo lo que se haga con los datos —un producto, una exportación, una entrada corregida— debe seguir bajo la misma licencia.',
+    terms_full_text:
+      'Los avisos de la fuente, completos: acompañan a los datos en el sitio web y en cada exportación',
     warnings_title: 'Antes de empezar',
     warn_not_mixed:
       'Los conjuntos de datos nunca se mezclan: nada de este pasa a otro, ni nada de otro a este.',
@@ -298,11 +361,18 @@ export default {
     en_saving_11: 'Guardando traducciones de significados...',
     en_saving_12: 'Guardando traducciones breves...',
     en_saving_13: 'Convirtiendo la fuente...',
+    en_saving_14: 'Guardando el historial de ediciones...',
     en_downloading_file: 'Descargando archivo...',
     elapsed_time: 'Tiempo transcurrido',
     retry_importing: 'Reintentar',
     retry_exporting: 'Reintentar',
     export_again: 'Exportar de nuevo',
+    export_edited_version_invalid:
+      'Letras, dígitos, puntos, guiones, guiones bajos y signos más, 64 caracteres como máximo, empezando por una letra o un dígito.',
+    export_edited_version_hint:
+      'Una entrada editada en esta instancia lleva la versión custom_version. Indique la versión que debe escribirse en la exportación en su lugar, o deje el campo vacío para exportarla tal cual. El diccionario no se modifica.',
+    export_edited_version_placeholder: 'custom_version',
+    export_edited_version: 'Versión de las entradas editadas aquí',
     data_license: 'Cada exportación se publica bajo la licencia',
     data_attribution: 'Atribución:',
     up_to_date: 'Ya tienes la última versión del diccionario',
@@ -329,6 +399,7 @@ export default {
     file_grammar_patterns: 'Patrones gramaticales',
     file_phrases: 'Frases',
     file_meanings: 'Significados',
+    file_changes: 'Historial de ediciones',
     file_meaning_translations_lang: 'Traducciones de significados: {language}',
     file_short_translations_lang: 'Traducciones breves: {language}',
     file_manifest: 'Manifiesto',
@@ -348,6 +419,8 @@ export default {
       'Importar en otro conjunto de datos no afecta al activo: la API lo sigue sirviendo hasta que active el nuevo.',
   },
   bulk_request: {
+    license_note:
+      'Las filas son datos de «{dataset}», bajo {license}. Lo que un modelo haga con ellas se deriva de esos datos y queda bajo las mismas condiciones, y nada generado por un modelo se añade a este conjunto de datos.',
     title: 'Petición masiva',
     intro:
       'Recorre en el navegador las filas seleccionadas de una tabla del diccionario (palabras, significados, traducciones de significados o traducciones breves), envía una petición por fila a la URL de abajo y reúne las respuestas mapeadas en un archivo jsonl. No se escribe nada en el diccionario y la clave de API nunca sale de esta página.',
@@ -469,6 +542,11 @@ export default {
   },
 
   en_managing_words: {
+    editing_license: 'Está editando los datos de «{dataset}», con licencia',
+    editing_license_effect:
+      'Lo que cambie se publica bajo la misma licencia, y a los lectores se les indica que la entrada fue modificada por el propietario de este sitio.',
+    editing_no_generated:
+      'Este conjunto de datos contiene lo que escribieron personas: no se le añade texto generado por un modelo.',
     word: 'Palabra',
     edit_word_link: '¿Editar la palabra?',
     part_of_speech: 'Categoría gramatical',
@@ -661,6 +739,9 @@ export default {
       'Los sinónimos de cada significado del lema en una lista plana: cada elemento es un lema enlazado (legible mediante la consulta de lema) con el meaning_id, word_id y part_of_speech a los que pertenece. Un lema sin sinónimos responde con una lista vacía.',
     desc_word_antonyms:
       'Los antónimos de cada significado del lema en una lista plana: cada elemento es un lema enlazado con el meaning_id, word_id y part_of_speech a los que pertenece. Un lema sin antónimos responde con una lista vacía.',
+    endpoint_word_history: 'Historial de un lema',
+    desc_word_history:
+      'Lo que se cambió o añadió en la instancia en las entradas del lema: las ediciones que siguen visibles en lo que se sirve, de la más reciente a la más antigua, con los valores anteriores y posteriores de cada campo. Esas entradas llevan modified: true. Un lema servido tal como está en su fuente responde con una lista vacía.',
     endpoint_word_by_id: 'Entrada por id',
     endpoint_words: 'Lista filtrada',
     endpoint_random: 'Entrada aleatoria',

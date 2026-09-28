@@ -12,6 +12,7 @@ import type {
   WordLevelE,
 } from '../../dictionaries';
 import type { ErrorResT } from '../../errors';
+import type { ChangeActionE, ChangeDiffT, ChangeEntityE, ChangeOriginE, ChangeRecordT } from '../../changes';
 
 /**
  * Contract of the public read-only API, `/api/v1` (issues #271, #272). The
@@ -138,6 +139,20 @@ export type PublicSearchWordV1T = {
   // Trigram similarity (0–1) to the search term, present only on the items
   // of a fuzzy search answer (issue #278): the "did you mean" signal
   similarity?: number;
+  // where the entry comes from (issue #527): the source of the dataset the
+  // instance serves — `vocab-bloom-hub` for the project's own, `wiktionary`,
+  // `wordnet`, … for one converted from a public source. The terms of that
+  // source are in GET /api/v1/meta. Every answer that carries an entry, a
+  // part of one or an edit of one names it. Always sent since 1.1; optional
+  // in the contract so a client built on it still reads an instance of 1.0
+  source?: string;
+  // whether the entry was changed or added on this instance (issue #531): it
+  // is not, or not only, what its source says. The licenses of the datasets
+  // ask that a reader is told, so every answer that carries an entry carries
+  // the mark; what was changed is the history of the headword
+  // (/words/{word}/history). Always sent since 1.1; optional in the contract
+  // so a client built on it still reads an instance of 1.0
+  modified?: boolean;
 };
 
 // One dictionary entry with everything attached: forms, meanings (with their
@@ -149,21 +164,24 @@ export type PublicWordV1T = PublicSearchWordV1T & {
   meanings: PublicWordV1MeaningT[];
   short_translations: PublicWordV1ShortTranslationT[];
   phrasal_variants?: string[];
-  // where the entry comes from (issue #527): the source of the dataset the
-  // instance serves — `vocab-bloom-hub` for the project's own, `wiktionary`,
-  // `wordnet`, … for one converted from a public source. The terms of that
-  // source are in GET /api/v1/meta. Always sent since 1.1; optional in the
-  // contract so a client built on it still reads an instance of 1.0
-  source?: string;
 };
 export type PublicWordV1ResT = PublicItemResT<PublicWordV1T>;
 
 // Every headword lookup answers for one spelling; `count` is the number of
-// entries (parts of speech) found for it
+// entries (parts of speech) found for it. The match does not depend on the
+// case of the letters, unless the dictionary holds spellings that differ by
+// it — "Test" and "test" in a dataset of a public source: they are words of
+// their own, a request that spells one of them exactly is answered with that
+// one and `word` keeps its case. `variants` lists the other spellings, each
+// readable through /words/{word}; a request that spells none of them exactly
+// ("TEST") is answered with the entries of all, `word` in lower case and
+// every spelling in `variants`. Empty where the dictionary holds one
+// spelling. Optional in the contract: a server of 1.0 does not send it
 export type PublicHeadwordV1MetaT = {
   word: string;
   /** @asType integer */
   count: number;
+  variants?: string[];
 };
 export type PublicHeadwordV1ResT = PublicListResT<PublicWordV1T, PublicHeadwordV1MetaT>;
 
@@ -173,6 +191,14 @@ export type PublicEntryRefV1T = {
   /** @asType integer */
   word_id: number;
   part_of_speech: EnPartOfSpeechE;
+  // where that entry comes from, as `source` of the entry itself says (issue
+  // #527): a part of an entry is attributed like the whole. Optional in the
+  // contract
+  source?: string;
+  // whether that entry was changed or added on this instance (issue #531),
+  // as `modified` of the entry itself says: a part of an entry is served
+  // with the same indication as the whole. Optional in the contract
+  modified?: boolean;
 };
 
 export type PublicMeaningV1T = PublicWordV1MeaningT & PublicEntryRefV1T;
@@ -197,6 +223,43 @@ export type PublicWordLinkV1T = PublicEntryRefV1T & {
   word: string;
 };
 export type PublicHeadwordLinksV1ResT = PublicListResT<PublicWordLinkV1T, PublicHeadwordV1MetaT>;
+
+// The history of a headword (issue #531): what was changed or added on the
+// instance and still shows in what is served, the latest first — the
+// indication of modifications the licenses of the datasets ask for. An
+// edit an update of the dataset replaced, or one that was taken back, is
+// not listed. Records are named by what they say, not by ids: `record` is
+// null for the entry itself, otherwise the form, the meaning or the
+// translation the edit is about. `diff` holds the values before and after,
+// per field. The editorial state of the instance is left out of it.
+// `author` names the reader whose correction was applied, when they asked
+// to be named
+export type PublicChangeV1T = {
+  created_at: string;
+  // the spelling of the entry the edit belongs to, as `word` of the entry
+  // says it: with `part_of_speech` it names the entry among the ones a
+  // headword read answers
+  word: string;
+  part_of_speech: string | null;
+  entity: ChangeEntityE;
+  action: ChangeActionE;
+  record: ChangeRecordT | null;
+  diff: ChangeDiffT;
+  origin: ChangeOriginE;
+  author: string | null;
+  // the source of the dataset the edit was made in: what the changed entry
+  // is attributed to, next to the owner of the instance. Optional in the
+  // contract like `source` of a word
+  source?: string;
+};
+// `count` is the number of changes listed; `word` and `variants` as a headword read answers them
+export type PublicHeadwordHistoryV1MetaT = {
+  word: string;
+  /** @asType integer */
+  count: number;
+  variants?: string[];
+};
+export type PublicHeadwordHistoryV1ResT = PublicListResT<PublicChangeV1T, PublicHeadwordHistoryV1MetaT>;
 
 export type PublicHeadwordTranslationsV1T = {
   short_translations: PublicShortTranslationV1T[];
@@ -280,6 +343,16 @@ export type PublicMetaV1T = {
   dataset?: string;
   source?: string;
   attribution_url?: string | null;
+  // The notices the source of the dataset asks to be kept with its data, in
+  // full (issue #531): the WordNet license and the one of CMUdict want their
+  // text on every copy. Empty when the license is named by its link alone.
+  // Optional in the contract like the fields above
+  license_text?: string;
+  // How many headwords of the served dataset have entries that were changed
+  // or added on this instance (issue #531): 0 says that the data is what its
+  // source published. Refreshed with the counts. Optional in the contract
+  /** @asType integer */
+  modified_entries?: number;
   counts: PublicDatasetCountsV1T;
   available_languages: PublicAvailableLanguagesV1T;
 };

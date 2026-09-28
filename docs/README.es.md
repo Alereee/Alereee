@@ -73,7 +73,8 @@ panel de administración para editarlos y SDK para construir encima.
 
 **El panel de administración** — ocho idiomas de interfaz
 
-- editar palabras, acepciones, traducciones y enlaces; cada cambio en un registro de auditoría
+- editar palabras, acepciones, traducciones y enlaces; cada cambio queda en un historial con los
+  valores anteriores y posteriores, visible para los lectores y reversible con un clic
 - moderar las correcciones que los lectores envían desde las páginas de palabras
 - lanzar peticiones masivas a un modelo de lenguaje sobre un corte filtrado del diccionario
 - importar y exportar el diccionario entero como dataset, en línea o desde un archivo

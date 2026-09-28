@@ -69,6 +69,11 @@ export class SuggestionsService {
     if (kind === SuggestionKindE.report && !body.message) {
       throw new BadRequestException(ErrorCodes.suggestion_invalid);
     }
+    // a name is personal data that will be published: taken with the word of the sender only
+    const author = body.author_name?.trim() || null;
+    if (author && body.author_consent !== true) {
+      throw new BadRequestException(ErrorCodes.suggestion_invalid);
+    }
 
     // the same case-insensitive match the public word reads use; the stored
     // headword is the canonical spelling of the entry
@@ -108,6 +113,7 @@ export class SuggestionsService {
         status: SuggestionStatusE.new,
         kind,
         edits,
+        author_name: author,
       }),
     );
     this.logger.log(`Suggestion #${saved.id} (${kind}) filed for "${entry.word}"`);
@@ -310,6 +316,7 @@ export class SuggestionsService {
       status: row.status,
       kind: row.kind,
       edits: row.edits,
+      author_name: row.author_name ?? null,
     };
   }
 

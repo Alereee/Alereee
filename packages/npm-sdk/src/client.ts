@@ -6,6 +6,7 @@ import type {
   DetailedSearchResponse,
   FormsResponse,
   HeadwordResponse,
+  HistoryResponse,
   LinksResponse,
   ListWordsQuery,
   MeaningsResponse,
@@ -235,6 +236,15 @@ export class VocabBloomClient {
     options?: RequestOptions,
   ): Promise<TranslationsResponse> {
     return this.get(`/words/${encodeURIComponent(headword)}/translations`, query, options);
+  }
+
+  /**
+   * What was changed or added on the instance in the entries of a headword:
+   * the edits that still show in what is served, the latest first. Empty for
+   * a headword served as its source has it
+   */
+  history(headword: string, options?: RequestOptions): Promise<HistoryResponse> {
+    return this.get(`/words/${encodeURIComponent(headword)}/history`, undefined, options);
   }
 
   /** Inflected forms of every entry of a headword */

@@ -13,6 +13,7 @@ import { AddOrEditStateT } from './types';
 import { EnApi } from '@/core/api/EnApi';
 import styles from './styles.module.scss';
 import { UpdateTypeE } from '@/app/[locale]/(main-admin-content)/managing/_components/WordCard/constants';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 const { TextArea } = AntdInput;
 const { Text } = Typography;
@@ -118,6 +119,7 @@ export const AddOrEditShortTranslationModal: React.FC<AddOrEditShortTranslationM
       onCancel={onClose}
       title={data?.id === 0 ? t('add_short_translation') : t('edit_short_translation')}
     >
+      <EditLicenseNote />
       {data && (
         <div className={styles.shortTranslation}>
           <TranslationLanguageSelect

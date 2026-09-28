@@ -19,7 +19,130 @@ const getWord = async (request: APIRequestContext, id: number) => {
 const wordCardSection = (page: Page, title: string) =>
   page.getByText(title, { exact: true }).locator('xpath=ancestor::div[2]');
 
+// An entry as a dataset of a public source has it: what the source does not
+// say — a level, a register, a pronunciation — is empty
+const SOURCE_ENTRY =
+  JSON.stringify({
+    word: 'ambler',
+    part_of_speech: 'noun',
+    area_variant: '',
+    generated_by_model: '',
+    generated: false,
+    verb___phrasal_object_pattern: '',
+    verb___transitivity: '',
+    language_register: '',
+    categories: [],
+    verb___is_phrasal: false,
+    verb___is_irregular: false,
+    noun___is_proper: false,
+    word_level: '',
+    description: 'one who ambles',
+    transcription: '',
+    is_obsolete: false,
+    version: '1.0.0',
+    is_abbreviation: false,
+    noun___uncountable: false,
+    noun___irregular_plural: false,
+    noun___always_plural: false,
+    base_phrasal: '',
+    phrasal_variants: [],
+    forms: [{ word: 'amblers', form_of_word: 'plural_form', area_variant: 'common', transcription: '' }],
+    short_translations: [{ language: 'ru', description: 'иноходец', variants_of_words: [] }],
+    meanings: [
+      {
+        title: 'a walker',
+        definition: 'One who walks at a slow pace.',
+        sort_order: 1,
+        is_obsolete: false,
+        examples: [],
+        area_variant: '',
+        meaning_level: '',
+        language_register: '',
+        categories: [],
+        synonyms: [],
+        antonyms: [],
+        translations: [
+          { language: 'ru', title: 'иноходец', definition: 'тот, кто идёт не спеша', variants_of_words: [] },
+        ],
+      },
+    ],
+  }) + '\n';
+
 test.describe('UI-driven word edit and delete', () => {
+  // issue #531: what was changed in an entry, and the way back
+  test('the card shows the history of the word and takes an edit back', async ({ page, request }) => {
+    const id = await seedWord(request, 'ramble');
+    const edited = await request.patch(`${API_URL}/en/common-info/${id}`, {
+      data: { description: 'to walk without a goal' },
+    });
+    expect(edited.ok()).toBe(true);
+
+    await page.goto(`/en/managing/edit-word/${id}`);
+    const card = page.locator('section').first();
+    await expect(card.getByText('to walk without a goal', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'History of edits' }).click();
+    const history = page.getByTestId('changes-history');
+    // taking it back leaves a row of its own, a change as well
+    const edit = history.getByRole('row').filter({ hasText: 'changed' }).filter({ hasNotText: 'taken back' });
+    await expect(edit).toContainText('to ramble fast');
+    await expect(edit).toContainText('to walk without a goal');
+    await expect(history.getByRole('row').filter({ hasText: 'added' })).toHaveCount(1);
+
+    await edit.getByRole('button', { name: 'Take back' }).click();
+    await page.getByRole('tooltip').getByRole('button', { name: 'Take back' }).click();
+    await expect(page.getByText('The change was taken back')).toBeVisible();
+
+    // the card says what the word said before the edit
+    await expect(card.getByText('to ramble fast', { exact: true })).toBeVisible();
+    expect((await getWord(request, id)).description).toBe('to ramble fast');
+
+    // the history keeps both: the edit, and that it was taken back
+    await expect(edit).toContainText('no longer shows since');
+    await expect(edit.getByRole('button', { name: 'Take back' })).toHaveCount(0);
+    await expect(history.getByRole('row').filter({ hasText: 'taken back' })).toHaveCount(1);
+  });
+
+  // issue #531: a dialog is opened to look as often as to edit. Saved as it
+  // was opened it changes nothing — no value of a form takes the place of a
+  // field the source left empty, no row of the history, no mark on the entry
+  test('a dialog saved as it was opened leaves the entry as its source has it', async ({ page, request }) => {
+    const imported = await request.post(`${API_URL}/en/dictionary/import/upload`, {
+      multipart: {
+        words: { name: 'words.jsonl', mimeType: 'application/x-ndjson', buffer: Buffer.from(SOURCE_ENTRY) },
+      },
+    });
+    expect(imported.ok()).toBe(true);
+    const check = await request.get(`${API_URL}/en/check-word/ambler?partOfSpeech=noun`);
+    const { id } = (await check.json()) as { id: number };
+    const before = await getWord(request, id);
+    expect(before).toEqual(
+      expect.objectContaining({ language_register: null, word_level: null, user_modified: false }),
+    );
+
+    await page.goto(`/en/managing/edit-word/${id}`);
+    const save = async () => {
+      const dialog = page.getByRole('dialog').filter({ visible: true });
+      await dialog.getByRole('button', { name: 'OK' }).click();
+      await expect(dialog).toBeHidden();
+    };
+    await page.getByRole('button', { name: 'Edit Common Data' }).click();
+    await save();
+    await wordCardSection(page, 'Short Translations').getByRole('button', { name: 'edit' }).click();
+    await save();
+    await wordCardSection(page, 'Word Meanings').getByRole('button', { name: 'edit' }).first().click();
+    await save();
+    await wordCardSection(page, 'Word Meanings').getByRole('button', { name: 'edit' }).nth(1).click();
+    await save();
+    await page.getByText('Plural form:').locator('..').getByRole('button', { name: 'edit' }).click();
+    await save();
+
+    expect(await getWord(request, id)).toEqual(before);
+    const history = await request.get(`${API_URL}/en/changes?headword=ambler`);
+    expect(((await history.json()) as { total: number }).total).toBe(0);
+    await expect(page.getByText('Modified by you')).toHaveCount(0);
+  });
+
   test('edits a short translation through the card modal and persists it', async ({ page, request }) => {
     const id = await seedWord(request, 'perish');
 

@@ -3,6 +3,7 @@ import { useTranslations } from 'next-intl';
 import { Modal, Typography } from 'antd';
 import { EnMeaningT } from 'server/types';
 import styles from './styles.module.scss';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 const { Text } = Typography;
 type DeleteMeaningModalP = {
@@ -36,6 +37,7 @@ export const DeleteMeaningModal: React.FC<DeleteMeaningModalP> = ({ isOpen, onCl
       onCancel={onClose}
       className={styles.deleteModal}
     >
+      <EditLicenseNote />
       <Text strong>
         {meaning.sort_order} - {meaning.title}
       </Text>

@@ -1,0 +1,11 @@
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.intro {
+  margin: 0;
+  max-width: 860px;
+  color: var(--ant-color-text-secondary, #666);
+}

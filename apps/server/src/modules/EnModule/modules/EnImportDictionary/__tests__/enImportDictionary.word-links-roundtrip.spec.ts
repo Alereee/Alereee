@@ -17,6 +17,7 @@ jest.mock('node:fs/promises', () => {
 });
 
 import { EnEntry } from '../../../entities/en_entry.entity';
+import { DICTIONARY_ENTITIES } from '../../../entities/dictionary-entities';
 import { EnWord } from '../../../entities/en_word.entity';
 import { EnMeaning } from '../../../entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../../../entities/en_meaning_translation.entity';
@@ -44,7 +45,7 @@ const makeDataSource = () =>
   new DataSource({
     type: 'better-sqlite3',
     database: ':memory:',
-    entities: [EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation],
+    entities: DICTIONARY_ENTITIES,
     synchronize: true,
     prepareDatabase: (db) => {
       db.pragma('foreign_keys = ON');

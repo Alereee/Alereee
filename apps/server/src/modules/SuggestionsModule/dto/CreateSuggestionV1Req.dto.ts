@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -19,6 +20,7 @@ import {
 import { SuggestionKindE, SuggestionTargetE } from '../../../../types';
 import {
   MAX_SUGGESTION_EDITS,
+  SUGGESTION_AUTHOR_MAX_LENGTH,
   SUGGESTION_MESSAGE_MAX_LENGTH,
   SUGGESTION_MESSAGE_MIN_LENGTH,
 } from '../constants';
@@ -90,4 +92,23 @@ export class CreateSuggestionV1ReqDTO {
   @ValidateNested({ each: true })
   @Type(() => SuggestionEditV1DTO)
   edits?: SuggestionEditV1DTO[] | undefined;
+
+  @ApiPropertyOptional({
+    description:
+      'The name the sender wants to be credited by (issue #531). Kept only together with ' +
+      '`author_consent: true`: once the correction is applied the name is shown next to it and ' +
+      'travels with the copies of the data',
+    maxLength: SUGGESTION_AUTHOR_MAX_LENGTH,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(SUGGESTION_AUTHOR_MAX_LENGTH)
+  author_name?: string | undefined;
+
+  @ApiPropertyOptional({
+    description: 'The sender agrees that `author_name` is shown and exported; required when a name is given',
+  })
+  @IsOptional()
+  @IsBoolean()
+  author_consent?: boolean | undefined;
 }

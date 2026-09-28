@@ -5,10 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from '@jest/glo
 import { DataSource } from 'typeorm';
 
 import { EnEntry } from '../entities/en_entry.entity';
+import { DICTIONARY_ENTITIES } from '../entities/dictionary-entities';
 import { EnWord } from '../entities/en_word.entity';
-import { EnMeaning } from '../entities/en_meaning.entity';
-import { EnMeaningTranslation } from '../entities/en_meaning_translation.entity';
-import { EnShortTranslation } from '../entities/en_short_translation.entity';
 import { EnService } from '../en.service';
 import { EnShortTranslationService } from '../modules/EnShortTranslation/enShortTranslation.service';
 import { EnMeaningService } from '../modules/EnMeaning/enMeaning.service';
@@ -22,7 +20,7 @@ describe('EnService.deleteWord (issue #164)', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation],
+      entities: DICTIONARY_ENTITIES,
       synchronize: true,
     });
     await ds.initialize();

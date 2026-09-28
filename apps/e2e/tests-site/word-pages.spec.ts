@@ -38,9 +38,11 @@ test.describe('word pages', () => {
     // what the license asks of whoever takes the data further: the mark and the history are named
     const use = page.getByTestId('terms-of-use');
     await expect(use.getByRole('heading', { name: 'If you use this data' })).toBeVisible();
-    await expect(use.getByRole('listitem')).toHaveCount(4);
+    await expect(use.getByRole('listitem')).toHaveCount(5);
     await expect(use).toContainText('carries modified: true');
     await expect(use).toContainText('GET /api/v1/words/{word}/history');
+    // the terms are the ones of the served dataset; the read of every dataset states its own (issue #528)
+    await expect(use).toContainText('GET /api/v1/words/{word}/datasets reads a word from every dataset');
     // CC BY 4.0 is not share-alike and has no notice to keep in full
     await expect(use).not.toContainText('share-alike');
     await expect(use.getByRole('link', { name: 'The terms in detail' })).toHaveAttribute(

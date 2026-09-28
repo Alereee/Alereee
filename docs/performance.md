@@ -99,7 +99,9 @@ Not changed, by design:
   offset: 20 – 45 ms, admin-only, not part of the public contract.
 - **Statistics** are counts over whole tables by nature (50 ms, cached by the UI).
 - **`Last-Modified`** (`ORDER BY updateAt DESC LIMIT 1` on five tables) is a sort without an
-  index, run at most once a minute behind a cache.
+  index, run at most once a minute behind a cache. The reads of a headword from every dataset
+  run it in every dataset the instance holds, behind a cache of their own, and only while they
+  are asked for.
 
 ## The benchmark
 

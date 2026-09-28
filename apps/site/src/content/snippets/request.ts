@@ -31,3 +31,17 @@ export const buildSnippetRequest = (
     slug: endpoint.slug,
   };
 };
+
+/**
+ * The sample values of the path of a request, in the order of the path:
+ * `/api/v1/words/run/datasets/default/history` names `run` and `default`.
+ * For the snippets written by hand, which pass them as arguments
+ */
+export const pathArguments = (request: SnippetRequestT, template: string): string[] => {
+  const values = request.path.split('/');
+
+  return template
+    .split('/')
+    .map((segment, index) => (segment.startsWith('{') ? decodeURIComponent(values[index] ?? '') : null))
+    .filter((value): value is string => value !== null);
+};

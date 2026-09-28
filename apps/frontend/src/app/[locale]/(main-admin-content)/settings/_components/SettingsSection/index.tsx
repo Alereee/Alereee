@@ -10,9 +10,10 @@ import styles from './styles.module.scss';
 type RowT = { field: string; value: string };
 
 // `version` is virtual (the app version from the config; the server refuses
-// its mutations), `en_dataset_version` is the import bookkeeping (issue #328)
+// its mutations), `en_dataset_version` is the import bookkeeping (issue #328),
+// `dataset_removed_at` dates the reads of every dataset (issue #528)
 const READ_ONLY_FIELDS = ['version'];
-const SYSTEM_FIELDS = ['version', 'en_dataset_version'];
+const SYSTEM_FIELDS = ['version', 'en_dataset_version', 'dataset_removed_at'];
 
 /** The settings table with its full CRUD (issue #347) */
 export const SettingsSection: React.FC = () => {

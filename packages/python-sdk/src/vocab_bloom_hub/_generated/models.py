@@ -309,6 +309,12 @@ class PublicHeadwordHistoryV1MetaT(BaseModel):
     variants: list[str] | None = None
 
 
+class PublicWordDatasetsV1MetaT(BaseModel):
+    word: str
+    datasets: int
+    found: int
+
+
 class PublicHeadwordTranslationsV1T(BaseModel):
     short_translations: list[PublicShortTranslationV1T]
     meaning_translations: list[PublicMeaningTranslationV1T]
@@ -531,6 +537,28 @@ class PublicWordV1ResT(BaseModel):
 class PublicHeadwordV1ResT(BaseModel):
     data: list[PublicWordV1T]
     meta: PublicHeadwordV1MetaT
+
+
+class PublicWordDatasetV1T(BaseModel):
+    word: str
+    variants: list[str]
+    count: int
+    entries: list[PublicWordV1T]
+    dataset: str
+    active: bool
+    source: str
+    dataset_version: str | None = Field(...)
+    license: str
+    license_url: str
+    attribution: str
+    attribution_url: str | None = Field(...)
+    notice: str
+    license_text: str
+
+
+class PublicWordDatasetsV1ResT(BaseModel):
+    data: list[PublicWordDatasetV1T]
+    meta: PublicWordDatasetsV1MetaT
 
 
 class PublicWordsBatchItemV1T(BaseModel):

@@ -245,6 +245,8 @@ export default {
   datasets: {
     intro:
       'Los conjuntos de datos de diccionario que esta instancia puede contener. Cada uno tiene sus propias entradas y la licencia de su fuente; solo uno está activo: el que sirven la API y el sitio web. Los conjuntos de datos nunca se mezclan.',
+    public_note:
+      'Un conjunto de datos instalado es público, esté activo o no: {method} responde con un lema de cada conjunto de datos de la instancia, cada uno bajo su propia licencia, junto con el historial de sus ediciones. Instale un conjunto de datos cuando sus datos puedan leerse.',
     not_supported:
       'Esta instancia funciona con SQLite, que no tiene esquemas: solo contiene el conjunto de datos predeterminado. Instalar, activar y eliminar conjuntos de datos requiere una base de datos Postgres.',
     status_active: 'activo',
@@ -742,6 +744,12 @@ export default {
     endpoint_word_history: 'Historial de un lema',
     desc_word_history:
       'Lo que se cambió o añadió en la instancia en las entradas del lema: las ediciones que siguen visibles en lo que se sirve, de la más reciente a la más antigua, con los valores anteriores y posteriores de cada campo. Esas entradas llevan modified: true. Un lema servido tal como está en su fuente responde con una lista vacía.',
+    endpoint_word_datasets: 'Lema en todos los conjuntos de datos',
+    desc_word_datasets:
+      'El lema tal como lo tiene cada conjunto de datos de la instancia, un grupo por conjunto y nunca mezclados: las condiciones del conjunto (license, attribution, license_text) y sus entradas. La grafía se resuelve dentro de cada conjunto, por lo que cada grupo tiene sus propios word y variants; un conjunto sin el lema responde con entries vacío, y se responde 404 cuando ningún conjunto lo contiene. Las entradas tomadas de varios grupos quedan sujetas a las condiciones de cada uno.',
+    endpoint_word_dataset_history: 'Historial de un lema en un conjunto de datos',
+    desc_word_dataset_history:
+      'Lo que se cambió o añadió en la instancia en las entradas del lema dentro del conjunto de datos indicado: la respuesta del historial de un lema, leída de ese conjunto. 404 para un conjunto que la instancia no tiene.',
     endpoint_word_by_id: 'Entrada por id',
     endpoint_words: 'Lista filtrada',
     endpoint_random: 'Entrada aleatoria',
@@ -775,6 +783,8 @@ export default {
     param_desc_word_id:
       'Id de una entrada del lema, cuando el reporte se refiere a una categoría gramatical concreta',
     param_desc_word: 'Grafía del lema, sin distinguir mayúsculas; se permiten espacios para las frases',
+    param_desc_dataset:
+      'Nombre de un conjunto de datos de la instancia, tal como lo indica dataset en un grupo: default, wiktionary, wordnet, wordnet_princeton',
     param_desc_words:
       'Grafías de lemas, de 1 a 50, separadas por comas; cada una se compara como en la consulta de lema',
     param_desc_id: 'Id numérico de la entrada',

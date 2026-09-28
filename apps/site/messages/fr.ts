@@ -155,6 +155,8 @@ export default {
       'La licence impose le partage dans les mêmes conditions : ce qui est construit sur les données reste sous la même licence.',
     use_notice:
       'Conservez les avis de la source, reproduits ci-dessous en entier, avec chaque copie des données.',
+    use_other_datasets:
+      'Les conditions ci-dessus sont celles du jeu de données que sert ce site. {method} lit un mot dans chaque jeu de données de l’instance, un groupe par jeu : les articles d’un groupe relèvent des conditions que ce groupe indique.',
     use_more: 'Les conditions en détail',
     own_license: 'Pourquoi cette licence, et ce qu’elle permet',
     full_text: 'Les avis de la source, en entier',

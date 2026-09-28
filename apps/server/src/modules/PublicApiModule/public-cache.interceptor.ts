@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { mergeMap } from 'rxjs/operators';
 import { DictionaryLastModifiedService } from './dictionary-last-modified.service';
+import { DatasetsLastModifiedService } from './datasets-last-modified.service';
 import { getPublicApiCacheMaxAge } from '../../core/utils/public-api';
 import { publicCacheControl, weakEtagOf } from '../../core/utils/http-cache';
 
@@ -17,9 +18,9 @@ import { publicCacheControl, weakEtagOf } from '../../core/utils/http-cache';
  * the `GET` it stored. POST requests (the batch lookup, a suggestion) are
  * left alone: HTTP caches do not store them.
  */
-@Injectable()
-export class PublicCacheInterceptor implements NestInterceptor {
-  constructor(private readonly lastModifiedService: DictionaryLastModifiedService) {}
+abstract class CacheHeadersInterceptor implements NestInterceptor {
+  /** When what the route answers from last changed */
+  protected abstract lastModified(): Promise<Date | null>;
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
@@ -30,7 +31,7 @@ export class PublicCacheInterceptor implements NestInterceptor {
     }
     return next.handle().pipe(
       mergeMap(async (body: unknown) => {
-        const lastModified = await this.lastModifiedService.getLastModified();
+        const lastModified = await this.lastModified();
         res.setHeader('Cache-Control', publicCacheControl(getPublicApiCacheMaxAge()));
         // the same string Express is about to send (res.json → JSON.stringify)
         res.setHeader('ETag', weakEtagOf(JSON.stringify(body)));
@@ -40,5 +41,32 @@ export class PublicCacheInterceptor implements NestInterceptor {
         return body;
       }),
     );
+  }
+}
+
+@Injectable()
+export class PublicCacheInterceptor extends CacheHeadersInterceptor {
+  constructor(private readonly lastModifiedService: DictionaryLastModifiedService) {
+    super();
+  }
+
+  protected lastModified(): Promise<Date | null> {
+    return this.lastModifiedService.getLastModified();
+  }
+}
+
+/**
+ * The same headers for the reads that answer from every dataset of the
+ * instance (issue #528): their `Last-Modified` is the newest change of any
+ * dataset, not of the served one
+ */
+@Injectable()
+export class PublicDatasetsCacheInterceptor extends CacheHeadersInterceptor {
+  constructor(private readonly lastModifiedService: DatasetsLastModifiedService) {
+    super();
+  }
+
+  protected lastModified(): Promise<Date | null> {
+    return this.lastModifiedService.getLastModified();
   }
 }

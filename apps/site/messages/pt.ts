@@ -153,6 +153,8 @@ export default {
     use_share_alike:
       'A licença exige compartilhamento pela mesma licença: o que é construído sobre os dados permanece sob a mesma licença.',
     use_notice: 'Mantenha os avisos da fonte, reproduzidos abaixo na íntegra, em cada cópia dos dados.',
+    use_other_datasets:
+      'As condições acima são as do conjunto de dados que este site serve. {method} lê uma palavra de cada conjunto de dados da instância, um grupo por conjunto: os verbetes de um grupo ficam sob as condições que esse grupo indica.',
     use_more: 'As condições em detalhe',
     own_license: 'Por que esta licença e o que ela permite',
     full_text: 'Os avisos da fonte, na íntegra',

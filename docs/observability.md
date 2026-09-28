@@ -229,7 +229,10 @@ dictionary lacks what they look for.
 
 A sustained `waiting` count on `vbh_db_pool_connections` means requests queue for a database
 connection: raise `DB_POOL_SIZE` (and mind the connection limit of a managed Postgres — see
-[environment.md](./environment.md)).
+[environment.md](./environment.md)). The gauge is about the pool of the application, the one the
+active dataset is served through; the small pools of the datasets that are read next to it
+([datasets.md](./datasets.md#reading-every-dataset-at-once)) and of a running import are not
+counted in it.
 
 ## Useful queries
 

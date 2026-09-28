@@ -110,7 +110,9 @@ not ([`offline-import.md`](./offline-import.md)).
 ## What a switch changes
 
 - **Every read and every edit** goes to the tables of the new active dataset: the public API,
-  the admin UI, the search, the export, the suggestions of the readers.
+  the admin UI, the search, the export, the suggestions of the readers. The one exception is
+  the read of a headword from every dataset ([below](#reading-every-dataset-at-once)), which
+  answers from all of them whichever is active.
 - **`GET /api/v1/meta`** reports the dataset (`dataset`, `source`, `dataset_version`) and its
   terms (`license`, `license_url`, `attribution`, `attribution_url`, `notice`, and `license_text`
   — the notices of the source in full, where its license asks for them); every word of the public API names its `source`, and so does every part of a word served on its own and every edit of the history. The word pages of the website print the license and the
@@ -131,6 +133,39 @@ not ([`offline-import.md`](./offline-import.md)).
   entry belongs to and comes back when that dataset is active again.
 - **The automatic first-start import** (`DICTIONARY_AUTO_IMPORT`) fills `default` only, and only
   while `default` is the active dataset.
+
+## Reading every dataset at once
+
+The public API serves the active dataset. One read answers from all of them:
+`GET /api/v1/words/{word}/datasets` gives the headword as every dataset of the instance has it,
+**a group per dataset** with the terms of that dataset, and
+`GET /api/v1/words/{word}/datasets/{dataset}/history` gives what was changed in one of them
+([`api.md`](./api.md#a-headword-in-every-dataset)). Nothing is activated for it and nothing is
+merged: an entry stays in the group of its dataset, under the license of its source.
+
+- **A connection per dataset.** A dataset that is not the active one is read through a small
+  pool of its own (four connections at most, closed when idle like the ones of the application's
+  pool), opened by the first such read and kept until the dataset is deleted or becomes the
+  active one. With `N` datasets an instance may hold `DB_POOL_SIZE + 4 × (N − 1)` connections
+  for its reads; count them against the connection limit of a managed Postgres.
+- **No statement names two schemas**: each group is a read of one dataset, the ones the active
+  dataset is answered with.
+- **The search, the list and the word pages of the website stay on the active dataset.** So do
+  the reports of the readers: a report is filed in the active dataset, and the ids of an entry
+  of another group mean nothing there.
+- **An installed dataset is public.** Before this read existed a dataset was seen by nobody
+  until it was activated; now its entries, the history of its edits and the names credited in
+  it are read from the moment it is installed — half imported, if the import is still running.
+  The datasets page of the admin says so. A dataset that must not be read yet is one that is
+  not installed yet.
+- **A connection that is not on its schema is refused.** A connection pooler that drops the
+  `search_path` startup option would leave the connection of a dataset on `public`, and the
+  default dataset would be answered under the terms of another. The server checks
+  `current_schema()` when it opens the connection: the read fails with `500` and the log names
+  the dataset ([`database.md`](./database.md#datasets-a-schema-each)).
+- **`Last-Modified` costs a lookup per dataset**: the newest change of five tables in every
+  schema, a sort without an index, at most once a minute and only while these routes are read
+  ([`performance.md`](./performance.md)).
 
 ## Editing a dataset: the history of edits
 
@@ -279,7 +314,7 @@ backed up and what a connection pooler has to pass through:
 
 ## Not there yet
 
-- Reading a headword from every dataset in one request, each answer with its own terms
-  ([#528](https://github.com/Fristail27/vocab-bloom-hub/issues/528)); a search across datasets.
+- A search across datasets: the headword read answers from every dataset
+  ([above](#reading-every-dataset-at-once)), the search from the active one.
 - Datasets of other headword languages: the registry records the language of a dataset, the
   tables are the English ones.

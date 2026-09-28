@@ -156,6 +156,22 @@ describe('VocabBloomClient against the running server (issue #275)', () => {
     });
     expect(history.data[0].diff?.word_level).toEqual({ before: null, after: 'A1' });
 
+    // every dataset of the instance (issue #528): the fixture holds the default one
+    const datasets = await client.wordDatasets('ran');
+    expect(datasets.meta).toEqual({ word: 'ran', datasets: 1, found: 1 });
+    expect(datasets.data[0]).toMatchObject({
+      dataset: 'default',
+      active: true,
+      source: 'vocab-bloom-hub',
+      license: 'CC-BY-4.0',
+      word: 'ran',
+      variants: [],
+      count: 1,
+    });
+    expect(datasets.data[0].entries).toEqual(headword.data);
+    expect(await client.datasetHistory('ran', 'default')).toEqual(history);
+    await expect(client.datasetHistory('ran', 'wiktionary')).rejects.toMatchObject({ status: 404 });
+
     const forms = await client.forms('run');
     expect(forms.data).toEqual([
       // a part of an entry carries the mark of the entry (issue #531)

@@ -161,6 +161,10 @@ In the database a dataset is a **schema** — a namespace of tables inside the o
   few tens of milliseconds, nobody is answered with an error.
 - **An import into another dataset** uses a pool of its own, four connections at most, for as
   long as it runs: count them in when `DB_POOL_SIZE` is close to the connection limit.
+- **A dataset that is not the active one is read through a pool of its own** too, four
+  connections at most: opened by the first public read of every dataset
+  ([`datasets.md`](./datasets.md#reading-every-dataset-at-once)), kept, its idle connections
+  closed after `DB_POOL_IDLE_TIMEOUT`, and gone when the dataset is deleted or activated.
 - **A dataset is deleted with `DROP SCHEMA … CASCADE`**: instant, whatever its size, and the
   space is returned at once.
 - **`pg_dump` of the database takes every schema**: a backup holds all the datasets and the
@@ -176,7 +180,9 @@ In the database a dataset is a **schema** — a namespace of tables inside the o
 > (`options=-c search_path=…`). A pooler between the server and Postgres has to pass it
 > through: one that drops it (PgBouncer with `options` in `ignore_startup_parameters`) would
 > leave the server on `public`, serving the wrong dataset. The server checks `current_schema()`
-> at start and after every switch and refuses to go on from the wrong schema. Connect the
+> at start and after every switch and refuses to go on from the wrong schema; it checks the
+> connection of a dataset that is read next to the active one the same way, and that read
+> fails. Connect the
 > server to Postgres directly, or make sure the pooler hands the option on. With the `default`
 > dataset active no option is sent and any pooler works as before.
 

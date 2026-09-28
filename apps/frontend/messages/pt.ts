@@ -245,6 +245,8 @@ export default {
   datasets: {
     intro:
       'Os conjuntos de dados de dicionário que esta instância pode conter. Cada um tem suas próprias entradas e a licença de sua fonte; apenas um está ativo — o que a API e o site servem. Os conjuntos de dados nunca são misturados.',
+    public_note:
+      'Um conjunto de dados instalado é público, ativo ou não: {method} responde com um verbete de cada conjunto de dados da instância, cada um sob sua própria licença, junto com o histórico de suas edições. Instale um conjunto de dados quando seus dados puderem ser lidos.',
     not_supported:
       'Esta instância usa SQLite, que não tem esquemas: contém apenas o conjunto de dados padrão. Instalar, ativar e excluir conjuntos de dados exige um banco de dados Postgres.',
     status_active: 'ativo',
@@ -739,6 +741,12 @@ export default {
     endpoint_word_history: 'Histórico de um verbete',
     desc_word_history:
       'O que foi alterado ou adicionado na instância nas entradas do verbete: as edições que ainda aparecem no que é servido, da mais recente para a mais antiga, com os valores antes e depois de cada campo. Essas entradas trazem modified: true. Um verbete servido como está na fonte responde com uma lista vazia.',
+    endpoint_word_datasets: 'Verbete em todos os conjuntos de dados',
+    desc_word_datasets:
+      'O verbete como cada conjunto de dados da instância o tem, um grupo por conjunto e nunca misturados: as condições do conjunto (license, attribution, license_text) e suas entradas. A grafia é resolvida dentro de cada conjunto, por isso cada grupo tem seus próprios word e variants; um conjunto sem o verbete responde com entries vazio, e a resposta é 404 quando nenhum conjunto o contém. As entradas tiradas de vários grupos ficam sujeitas às condições de cada um.',
+    endpoint_word_dataset_history: 'Histórico de um verbete em um conjunto de dados',
+    desc_word_dataset_history:
+      'O que foi alterado ou adicionado na instância nas entradas do verbete dentro do conjunto de dados indicado: a resposta do histórico de um verbete, lida desse conjunto. 404 para um conjunto que a instância não contém.',
     endpoint_word_by_id: 'Verbete por id',
     endpoint_words: 'Lista filtrada',
     endpoint_random: 'Verbete aleatório',
@@ -772,6 +780,8 @@ export default {
     param_desc_word_id:
       'Id de um verbete da palavra, quando o relato diz respeito a uma classe gramatical específica',
     param_desc_word: 'Grafia da palavra, sem diferenciar maiúsculas; espaços são permitidos para frases',
+    param_desc_dataset:
+      'Nome de um conjunto de dados da instância, como dataset de um grupo o indica: default, wiktionary, wordnet, wordnet_princeton',
     param_desc_words:
       'Grafias de palavras, de 1 a 50, separadas por vírgula; cada uma comparada como na consulta de verbete',
     param_desc_id: 'Id numérico do verbete',

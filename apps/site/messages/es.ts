@@ -154,6 +154,8 @@ export default {
       'La licencia exige compartir igual: lo que se construye sobre los datos permanece bajo la misma licencia.',
     use_notice:
       'Conserve los avisos de la fuente, reproducidos abajo íntegramente, con cada copia de los datos.',
+    use_other_datasets:
+      'Las condiciones anteriores son las del conjunto de datos que sirve este sitio. {method} lee una palabra de cada conjunto de datos de la instancia, un grupo por conjunto: las entradas de un grupo quedan bajo las condiciones que indica ese grupo.',
     use_more: 'Las condiciones en detalle',
     own_license: 'Por qué esta licencia y qué permite',
     full_text: 'Los avisos de la fuente, completos',

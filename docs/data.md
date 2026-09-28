@@ -84,7 +84,9 @@ is shown next to the correction and travels with the copies of the dictionary da
 published name cannot be taken back from the copies others have made. A report without a name
 is as welcome. The name is stored with the report and, once the owner applies the correction,
 in the history of the entry: shown on the word page, served by
-`GET /api/v1/words/{word}/history`, written into the history file of an export.
+`GET /api/v1/words/{word}/history` — and by
+`GET /api/v1/words/{word}/datasets/{dataset}/history` for every dataset the instance holds,
+active or not — written into the history file of an export.
 
 On request the owner removes a name with _Take a name out of the history_ (Admin → _History_,
 `POST /api/en/changes/forget-author`): it leaves the history and the reports of every dataset
@@ -125,7 +127,8 @@ The owner of an instance may edit any entry, and apply the corrections readers s
 licenses of the datasets ask that such changes are indicated, so an instance keeps **a history
 of edits** with every dataset: what was changed, with the values before and after. An entry
 that was changed or added says so — `modified` on a word of the public API, a line on the word
-page — and its history is public (`GET /api/v1/words/{word}/history`). The history travels with
+page — and its history is public (`GET /api/v1/words/{word}/history`; for a dataset that is not
+the served one, `GET /api/v1/words/{word}/datasets/{dataset}/history`). The history travels with
 an export and is read by an import, so a copy of the data keeps the indication. How it works,
 how a change is taken back:
 [`datasets.md`](./datasets.md#editing-a-dataset-the-history-of-edits).

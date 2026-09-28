@@ -148,6 +148,8 @@ export default {
     use_same_license: '被修改的词条与其余数据适用同一许可协议。',
     use_share_alike: '该许可协议要求相同方式共享：基于这些数据构建的内容仍适用同一许可协议。',
     use_notice: '请在数据的每一份副本中保留来源的声明，全文见下。',
+    use_other_datasets:
+      '以上条款适用于本站提供的数据集。{method} 从实例的每个数据集中读取一个词，每个数据集一组：各组的词条适用该组所列的条款。',
     use_more: '条款详情',
     own_license: '为何采用这一许可，以及它允许什么',
     full_text: '来源的声明全文',

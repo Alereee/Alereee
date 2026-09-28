@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 import httpx
 from typing_extensions import Unpack
@@ -158,6 +159,17 @@ class AsyncVocabBloomClient:
 
     async def history(self, headword: str, *, options: RequestOptions | None = None) -> m.HistoryResponse:
         return await self._get(headword_path(headword, "/history"), None, m.HistoryResponse, options)
+
+    async def word_datasets(
+        self, headword: str, *, options: RequestOptions | None = None
+    ) -> m.WordDatasetsResponse:
+        return await self._get(headword_path(headword, "/datasets"), None, m.WordDatasetsResponse, options)
+
+    async def dataset_history(
+        self, headword: str, dataset: str, *, options: RequestOptions | None = None
+    ) -> m.HistoryResponse:
+        path = headword_path(headword, f"/datasets/{quote(dataset, safe='')}/history")
+        return await self._get(path, None, m.HistoryResponse, options)
 
     async def words(
         self, *, options: RequestOptions | None = None, **filters: Unpack[ListOptions]

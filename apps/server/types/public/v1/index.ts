@@ -261,6 +261,54 @@ export type PublicHeadwordHistoryV1MetaT = {
 };
 export type PublicHeadwordHistoryV1ResT = PublicListResT<PublicChangeV1T, PublicHeadwordHistoryV1MetaT>;
 
+// ------------------------------------------- every dataset at once (#528)
+
+// The terms of one dataset of the instance, the ones `/meta` gives for the
+// dataset that is served: what a consumer of its entries has to show and to
+// keep. `license_text` holds the notices a source asks to be kept in full;
+// empty when the license is named by its link alone
+export type PublicDatasetTermsV1T = {
+  // the name of the dataset on this instance (`default`, `wiktionary`, …)
+  dataset: string;
+  // whether it is the dataset the other routes of the API serve
+  active: boolean;
+  source: string;
+  dataset_version: string | null;
+  license: string;
+  license_url: string;
+  attribution: string;
+  attribution_url: string | null;
+  notice: string;
+  license_text: string;
+};
+
+// What one dataset says about a headword. The spelling is matched inside
+// the dataset, by the rule of a headword read: `word` is the headword the
+// entries belong to there and `variants` the other spellings that dataset
+// holds, which differ by case only. A dataset without the headword answers
+// an empty `entries`, and its `word` is the asked spelling in lower case. `source` and `modified` of an entry are the ones of
+// this dataset; what was changed in it is read from
+// /words/{word}/datasets/{dataset}/history
+export type PublicWordDatasetV1T = PublicDatasetTermsV1T & {
+  word: string;
+  variants: string[];
+  /** @asType integer */
+  count: number;
+  entries: PublicWordV1T[];
+};
+// `word` is the spelling that was asked, `datasets` the number of datasets
+// of the instance and `found` how many of them hold the headword
+export type PublicWordDatasetsV1MetaT = {
+  word: string;
+  /** @asType integer */
+  datasets: number;
+  /** @asType integer */
+  found: number;
+};
+// The groups are never merged: each is bound by the terms it carries, and
+// a consumer that takes entries from several is bound by each of them
+export type PublicWordDatasetsV1ResT = PublicListResT<PublicWordDatasetV1T, PublicWordDatasetsV1MetaT>;
+
 export type PublicHeadwordTranslationsV1T = {
   short_translations: PublicShortTranslationV1T[];
   meaning_translations: PublicMeaningTranslationV1T[];

@@ -50,24 +50,26 @@ public, max-age=<PUBLIC_API_CACHE_MAX_AGE>, stale-while-revalidate=<the same>`; 
 Every successful answer is an envelope: the payload under `data`, paging and counts under
 `meta`. The response types are in `apps/server/types/public/v1/index.ts`.
 
-| Method | Path                                | Query / body                                                                                           | Response                                                                                                            |
-| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/api/v1/meta`                      | —                                                                                                      | `{ data: { api_version, app_version, dataset, source, dataset_version, license, …, counts, available_languages } }` |
-| `GET`  | `/api/v1/openapi.json`              | —                                                                                                      | the OpenAPI 3 document of this contract (no envelope; see [OpenAPI document](#openapi-document))                    |
-| `GET`  | `/api/v1/search`                    | `search`, `type?`, `limit?`                                                                            | `{ data: PublicSearchWordV1T[], meta: { count, fuzzy, short_term } }`                                               |
-| `GET`  | `/api/v1/search/detailed`           | `search`, `type?`, `limit?`, `page?`, `with_meanings?`, `with_translations?`, `translation_languages?` | `{ data: PublicWordV1T[], meta: { page, limit, has_more, fuzzy, short_term } }`                                     |
-| `GET`  | `/api/v1/words/{word}`              | —                                                                                                      | `{ data: PublicWordV1T[], meta: { word, count } }`                                                                  |
-| `GET`  | `/api/v1/words/{word}/meanings`     | —                                                                                                      | `{ data: PublicMeaningV1T[], meta: { word, count } }`                                                               |
-| `GET`  | `/api/v1/words/{word}/translations` | `language?`                                                                                            | `{ data: { short_translations, meaning_translations }, meta }`                                                      |
-| `GET`  | `/api/v1/words/{word}/forms`        | —                                                                                                      | `{ data: PublicWordFormV1T[], meta: { word, count } }`                                                              |
-| `GET`  | `/api/v1/words/{word}/synonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
-| `GET`  | `/api/v1/words/{word}/antonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
-| `GET`  | `/api/v1/words/{word}/history`      | —                                                                                                      | `{ data: PublicChangeV1T[], meta: { word, count } }`                                                                |
-| `GET`  | `/api/v1/words/id/{id}`             | —                                                                                                      | `{ data: PublicWordV1T }`                                                                                           |
-| `GET`  | `/api/v1/words`                     | filters, `cursor?`, `limit?`, `with_meanings?`, `with_translations?`                                   | `{ data: PublicWordV1T[], meta: { limit, has_more, next_cursor } }`                                                 |
-| `GET`  | `/api/v1/random`                    | filters                                                                                                | `{ data: PublicWordV1T }`                                                                                           |
-| `POST` | `/api/v1/words/batch`               | `{ words: string[] }` (1–50)                                                                           | `{ data: { word, count, entries: PublicWordV1T[] }[], meta: { count, not_found } }`                                 |
-| `POST` | `/api/v1/suggestions`               | `{ headword, word_id?, message?, kind?, edits?, author_name?, author_consent? }`                       | `201 { data: { id, status } }`                                                                                      |
+| Method | Path                                              | Query / body                                                                                           | Response                                                                                                            |
+| ------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/v1/meta`                                    | —                                                                                                      | `{ data: { api_version, app_version, dataset, source, dataset_version, license, …, counts, available_languages } }` |
+| `GET`  | `/api/v1/openapi.json`                            | —                                                                                                      | the OpenAPI 3 document of this contract (no envelope; see [OpenAPI document](#openapi-document))                    |
+| `GET`  | `/api/v1/search`                                  | `search`, `type?`, `limit?`                                                                            | `{ data: PublicSearchWordV1T[], meta: { count, fuzzy, short_term } }`                                               |
+| `GET`  | `/api/v1/search/detailed`                         | `search`, `type?`, `limit?`, `page?`, `with_meanings?`, `with_translations?`, `translation_languages?` | `{ data: PublicWordV1T[], meta: { page, limit, has_more, fuzzy, short_term } }`                                     |
+| `GET`  | `/api/v1/words/{word}`                            | —                                                                                                      | `{ data: PublicWordV1T[], meta: { word, count } }`                                                                  |
+| `GET`  | `/api/v1/words/{word}/meanings`                   | —                                                                                                      | `{ data: PublicMeaningV1T[], meta: { word, count } }`                                                               |
+| `GET`  | `/api/v1/words/{word}/translations`               | `language?`                                                                                            | `{ data: { short_translations, meaning_translations }, meta }`                                                      |
+| `GET`  | `/api/v1/words/{word}/forms`                      | —                                                                                                      | `{ data: PublicWordFormV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/synonyms`                   | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/antonyms`                   | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/history`                    | —                                                                                                      | `{ data: PublicChangeV1T[], meta: { word, count } }`                                                                |
+| `GET`  | `/api/v1/words/{word}/datasets`                   | —                                                                                                      | `{ data: PublicWordDatasetV1T[], meta: { word, datasets, found } }`                                                 |
+| `GET`  | `/api/v1/words/{word}/datasets/{dataset}/history` | —                                                                                                      | `{ data: PublicChangeV1T[], meta: { word, count } }`                                                                |
+| `GET`  | `/api/v1/words/id/{id}`                           | —                                                                                                      | `{ data: PublicWordV1T }`                                                                                           |
+| `GET`  | `/api/v1/words`                                   | filters, `cursor?`, `limit?`, `with_meanings?`, `with_translations?`                                   | `{ data: PublicWordV1T[], meta: { limit, has_more, next_cursor } }`                                                 |
+| `GET`  | `/api/v1/random`                                  | filters                                                                                                | `{ data: PublicWordV1T }`                                                                                           |
+| `POST` | `/api/v1/words/batch`                             | `{ words: string[] }` (1–50)                                                                           | `{ data: { word, count, entries: PublicWordV1T[] }[], meta: { count, not_found } }`                                 |
+| `POST` | `/api/v1/suggestions`                             | `{ headword, word_id?, message?, kind?, edits?, author_name?, author_consent? }`                       | `201 { data: { id, status } }`                                                                                      |
 
 The same endpoints can be tried on the website's playground and the admin's _Documentation_
 pages ([api-tools.md](./api-tools.md)); the machine-readable contract is the
@@ -216,13 +218,16 @@ stays on the admin API (`GET /api/en/{id}`), where the admin UI reads it.
 Every word names its `source`: where the data of the entry comes from — `vocab-bloom-hub` for
 the project's own dataset, `wiktionary`, `wordnet`, `princeton-wordnet`. An instance serves one dataset at a time
 ([`datasets.md`](./datasets.md)), so every word of an answer has the same source; the terms
-that go with it are in `GET /api/v1/meta`. The field was added after 1.0 and is optional
+that go with it are in `GET /api/v1/meta`. The one read that answers from several datasets,
+[`/words/{word}/datasets`](#a-headword-in-every-dataset), groups the entries by dataset and
+states the terms of each group. The field was added after 1.0 and is optional
 in the contract: a server of 1.0 does not send it.
 
 `source` is on **every answer that carries an entry, a part of one or an edit of one**: the
 headword, id, batch, list and random reads, both searches, the items of `/meanings`, `/forms`,
-`/translations`, `/synonyms` and `/antonyms`, and the edits of `/history`. An item taken out of
-its answer still says what it is attributed to.
+`/translations`, `/synonyms` and `/antonyms`, the edits of `/history`, and the entries of every
+group of `/words/{word}/datasets`. An item taken out of its answer still says what it is
+attributed to.
 
 Every word says whether it was **`modified`**: changed or added on the instance, so that it is
 not, or not only, what its source says. The licenses of the datasets ask that a reader is told;
@@ -283,19 +288,106 @@ instance (`generated`, `generated_by_model`) is left out. At most 200 edits are 
 latest. How the history is kept and undone:
 [`datasets.md`](./datasets.md#editing-a-dataset-the-history-of-edits).
 
+#### A headword in every dataset
+
+An instance may hold several datasets and serves one of them. `GET /api/v1/words/{word}/datasets`
+reads the headword from **every dataset the instance holds**, for a consumer that compares what
+the sources say — the entry of the project's dataset next to the one of Wiktionary or WordNet —
+without the owner switching anything. The answer is one group per dataset, in the order the
+datasets were installed, and the groups are **never merged**:
+
+```json
+{
+  "data": [
+    {
+      "dataset": "default",
+      "active": false,
+      "source": "vocab-bloom-hub",
+      "dataset_version": "1.0.0",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": "…",
+      "attribution_url": "…",
+      "notice": "…",
+      "license_text": "",
+      "word": "polish",
+      "variants": [],
+      "count": 2,
+      "entries": [{ "id": 17, "word": "polish", "source": "vocab-bloom-hub", "modified": false, "…": "…" }]
+    },
+    {
+      "dataset": "wiktionary",
+      "active": true,
+      "source": "wiktionary",
+      "dataset_version": null,
+      "license": "CC-BY-SA-4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "attribution": "…",
+      "attribution_url": "https://en.wiktionary.org",
+      "notice": "",
+      "license_text": "",
+      "word": "polish",
+      "variants": ["Polish"],
+      "count": 3,
+      "entries": [{ "id": 90412, "word": "polish", "source": "wiktionary", "modified": true, "…": "…" }]
+    }
+  ],
+  "meta": { "word": "polish", "datasets": 2, "found": 2 }
+}
+```
+
+| Field                                                                                                             | What it says                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset`                                                                                                         | the name of the dataset on the instance: `default`, `wiktionary`, `wordnet`, `wordnet_princeton`                                                                                                                                  |
+| `active`                                                                                                          | whether it is the dataset the other routes of the API serve                                                                                                                                                                       |
+| `source`, `dataset_version`, `license`, `license_url`, `attribution`, `attribution_url`, `notice`, `license_text` | the terms of that dataset, the ones [`/meta`](#meta) states for the served one                                                                                                                                                    |
+| `word`, `variants`                                                                                                | the headword the entries belong to in that dataset and its other spellings there ([by the rule of a headword read](#spellings-that-differ-by-case)); the asked spelling in lower case and `[]` for a dataset without the headword |
+| `count`, `entries`                                                                                                | what `GET /words/{word}` would answer under `data` if that dataset were the served one; `0` and `[]` for a dataset without the headword                                                                                           |
+| `meta.word`                                                                                                       | the spelling that was asked                                                                                                                                                                                                       |
+| `meta.datasets`, `meta.found`                                                                                     | how many datasets the instance holds, and how many of them hold the headword                                                                                                                                                      |
+
+- **The spelling is matched inside each dataset.** `polish` names one word in a dataset that
+  writes its headwords in lower case and one of two in a dataset that holds `Polish` as well, so
+  every group has a `word` and `variants` of its own.
+- **An entry says what its own dataset says of it**: `source` is the source of the group, and
+  `modified` tells whether the entry was changed on the instance in that dataset. What was
+  changed is read from `GET /api/v1/words/{word}/datasets/{dataset}/history` — the answer of
+  [the history of a headword](#the-history-of-a-headword), read from the dataset that is named;
+  `404 dataset_not_found` for a dataset the instance does not hold.
+- **Ids are per dataset**: the `id` of an entry means something in its group only. `/words/id/{id}`
+  reads the served dataset.
+- **The terms are per group.** An entry is used under the terms of the group it was taken from,
+  and a consumer that takes entries from several groups is bound by the terms of each: a
+  share-alike license of one group does not reach the entries of another, and does not leave its
+  own.
+- **`404 word_doesnt_found`** when no dataset holds the headword. A dataset without it answers an
+  empty group: that the source has no such word is information.
+- **One request** against the rate limit, whatever the number of datasets. The search stays on
+  the served dataset.
+- **Every dataset the instance holds is read**, the ones that were never activated too: a
+  dataset is public from the moment it is installed, with the history of its edits and the names
+  of the readers credited in it.
+- **A report is about the served dataset.** `POST /api/v1/suggestions` files it in the dataset
+  the instance serves: the `word_id` and the `target_id` of an entry of another group name
+  nothing there, or another entry. Report what the headword read of the served dataset
+  answered.
+
+An instance with one dataset — every instance on SQLite — answers one group.
+
 #### What a consumer does with it
 
 The mark and the history exist because the licenses of the data ask that a change is indicated,
 and the obligation passes to whoever shows the data further:
 
-| You read                                 | You do                                                                                             |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `attribution`, `license_url` of `/meta`  | show the attribution line and link to the license wherever you show the data                       |
-| `modified: true` on a word or a part     | say next to the entry that it was changed: it is not, or not only, what its source published       |
-| `/words/{word}/history`                  | optional: show or link what was changed, and credit the `author` of a correction when one is named |
-| `license` of `/meta` ending in `-SA-4.0` | keep what you build on the data, changed entries included, under the same license                  |
-| a non-empty `license_text` of `/meta`    | keep the text with every copy of the data: show it, or link to a page that does                    |
-| `modified_entries` of `/meta` above `0`  | know that the instance serves data that differs from its source                                    |
+| You read                                 | You do                                                                                                                  |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `attribution`, `license_url` of `/meta`  | show the attribution line and link to the license wherever you show the data                                            |
+| `modified: true` on a word or a part     | say next to the entry that it was changed: it is not, or not only, what its source published                            |
+| `/words/{word}/history`                  | optional: show or link what was changed, and credit the `author` of a correction when one is named                      |
+| a group of `/words/{word}/datasets`      | do all of the above per group, with the terms the group carries: entries of two groups are shown under two attributions |
+| `license` of `/meta` ending in `-SA-4.0` | keep what you build on the data, changed entries included, under the same license                                       |
+| a non-empty `license_text` of `/meta`    | keep the text with every copy of the data: show it, or link to a page that does                                         |
+| `modified_entries` of `/meta` above `0`  | know that the instance serves data that differs from its source                                                         |
 
 Read them from the API rather than hard-coding them: the owner may activate another dataset, edit
 an entry or take a change back at any time. The terms in full:
@@ -414,7 +506,7 @@ CDNs and reverse proxies. Every successful `GET` answer carries:
 | Header          | Value                                                                                                                                                                                                                                                                |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ETag`          | weak, a hash of the JSON body: `W/"…"`. Changes exactly when the answer changes                                                                                                                                                                                      |
-| `Last-Modified` | the newest change anywhere in the dictionary (entries, words, meanings, translations), refreshed once a minute                                                                                                                                                       |
+| `Last-Modified` | the newest change anywhere in the dictionary (entries, words, meanings, translations), refreshed once a minute; for the reads of every dataset, the newest change of any dataset the instance holds and of their set (one installed, activated or deleted)           |
 | `Cache-Control` | `public, max-age=<PUBLIC_API_CACHE_MAX_AGE>, stale-while-revalidate=<the same>` (default `3600`): a shared cache keeps the answer for an hour and may serve it stale for another while it revalidates in the background; `public, no-cache` when the variable is `0` |
 
 `HEAD` answers with the same three headers as the `GET` of that URL, so a cache that checks

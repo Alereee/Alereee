@@ -9,7 +9,13 @@ import { DATA_LICENSE } from '../../../core/constants/data_license';
 import { findCatalogEntry, noticesText } from '../../../core/constants/dataset_catalog';
 import { DEFAULT_DATASET_NAME, OWN_DATASET_SOURCE } from '../../../core/constants/datasets';
 import { SOURCE_LANGUAGES } from '../../../core/constants/languages';
-import { AvailableTranslationLanguagesE, PublicDatasetCountsV1T, PublicMetaV1T } from '../../../types';
+import {
+  AvailableTranslationLanguagesE,
+  PublicDatasetCountsV1T,
+  PublicDatasetTermsV1T,
+  PublicMetaV1T,
+} from '../../../types';
+import { Dataset } from '../DatasetsModule/entities/dataset.entity';
 
 // The counters are a dozen COUNT(*) queries over the whole dictionary; the
 // public prefix may be polled by every consumer, so they are refreshed at
@@ -62,6 +68,27 @@ export class PublicMetaService {
   private noticesOf(dataset: string): string {
     const entry = findCatalogEntry(dataset);
     return entry ? noticesText(entry) : '';
+  }
+
+  /**
+   * The terms of a dataset of the instance as the public API states them
+   * (issue #528). The version of the served dataset is the one `/meta`
+   * answers, which an admin may have corrected in the settings
+   */
+  async termsOf(dataset: Dataset): Promise<PublicDatasetTermsV1T> {
+    const active = dataset.name === (this.datasets?.getActive()?.name ?? DEFAULT_DATASET_NAME);
+    return {
+      dataset: dataset.name,
+      active,
+      source: dataset.source,
+      dataset_version: active ? await this.getDatasetVersion() : dataset.version,
+      license: dataset.license,
+      license_url: dataset.license_url,
+      attribution: dataset.attribution,
+      attribution_url: dataset.attribution_url,
+      notice: dataset.notice ?? '',
+      license_text: this.noticesOf(dataset.name),
+    };
   }
 
   async getMeta(): Promise<PublicMetaV1T> {

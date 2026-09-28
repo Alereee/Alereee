@@ -32,7 +32,7 @@ import { PublicCacheInterceptor } from './public-cache.interceptor';
 import { PUBLIC_API_PREFIX, PUBLIC_API_THROTTLE } from '../../core/utils/public-api';
 import { HEADWORD_MAX_LENGTH, HeadwordParamPipe } from './utils/headword-param.pipe';
 
-const HEADWORD_PARAM = {
+export const HEADWORD_PARAM = {
   name: 'word',
   description:
     'Headword spelling, case-insensitive (spaces URL-encoded for phrases). An inflected form resolves to its base entry',
@@ -71,13 +71,6 @@ export class PublicWordsController {
   @Post('batch')
   async batch(@Body() body: WordsBatchV1ReqDTO): Promise<PublicWordsBatchV1ResT> {
     return this.publicWordsService.getByHeadwords(body.words);
-  }
-
-  @ApiOperation({ summary: 'One dictionary entry by its numeric id' })
-  @ApiParam({ name: 'id', type: Number })
-  @Get('id/:id')
-  async byId(@Param('id', ParseIntPipe) id: number): Promise<PublicWordV1ResT> {
-    return { data: await this.publicWordsService.getById(id) };
   }
 
   @ApiOperation({ summary: 'All entries of a headword: parts of speech, forms, meanings, translations, links' })
@@ -143,5 +136,14 @@ export class PublicWordsController {
   @Get(':word/forms')
   async forms(@Param('word', HeadwordParamPipe) word: string): Promise<PublicHeadwordFormsV1ResT> {
     return this.publicWordsService.getFormsByHeadword(word);
+  }
+
+  // declared after the reads of a headword: `id` is a headword too, and
+  // /words/id/meanings is about it — an id is a number, a part of a headword is not
+  @ApiOperation({ summary: 'One dictionary entry by its numeric id' })
+  @ApiParam({ name: 'id', type: Number })
+  @Get('id/:id')
+  async byId(@Param('id', ParseIntPipe) id: number): Promise<PublicWordV1ResT> {
+    return { data: await this.publicWordsService.getById(id) };
   }
 }

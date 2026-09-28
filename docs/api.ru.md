@@ -50,24 +50,26 @@ public, max-age=<PUBLIC_API_CACHE_MAX_AGE>, stale-while-revalidate=<то же>`;
 Каждый успешный ответ — конверт: полезная нагрузка под `data`, пагинация и счётчики под
 `meta`. Типы ответов — в `apps/server/types/public/v1/index.ts`.
 
-| Метод  | Путь                                | Query / тело                                                                                           | Ответ                                                                                                               |
-| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/api/v1/meta`                      | —                                                                                                      | `{ data: { api_version, app_version, dataset, source, dataset_version, license, …, counts, available_languages } }` |
-| `GET`  | `/api/v1/openapi.json`              | —                                                                                                      | OpenAPI 3-документ этого контракта (без конверта; см. [OpenAPI-документ](#openapi-документ))                        |
-| `GET`  | `/api/v1/search`                    | `search`, `type?`, `limit?`                                                                            | `{ data: PublicSearchWordV1T[], meta: { count, fuzzy, short_term } }`                                               |
-| `GET`  | `/api/v1/search/detailed`           | `search`, `type?`, `limit?`, `page?`, `with_meanings?`, `with_translations?`, `translation_languages?` | `{ data: PublicWordV1T[], meta: { page, limit, has_more, fuzzy, short_term } }`                                     |
-| `GET`  | `/api/v1/words/{word}`              | —                                                                                                      | `{ data: PublicWordV1T[], meta: { word, count } }`                                                                  |
-| `GET`  | `/api/v1/words/{word}/meanings`     | —                                                                                                      | `{ data: PublicMeaningV1T[], meta: { word, count } }`                                                               |
-| `GET`  | `/api/v1/words/{word}/translations` | `language?`                                                                                            | `{ data: { short_translations, meaning_translations }, meta }`                                                      |
-| `GET`  | `/api/v1/words/{word}/forms`        | —                                                                                                      | `{ data: PublicWordFormV1T[], meta: { word, count } }`                                                              |
-| `GET`  | `/api/v1/words/{word}/synonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
-| `GET`  | `/api/v1/words/{word}/antonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
-| `GET`  | `/api/v1/words/{word}/history`      | —                                                                                                      | `{ data: PublicChangeV1T[], meta: { word, count } }`                                                                |
-| `GET`  | `/api/v1/words/id/{id}`             | —                                                                                                      | `{ data: PublicWordV1T }`                                                                                           |
-| `GET`  | `/api/v1/words`                     | фильтры, `cursor?`, `limit?`, `with_meanings?`, `with_translations?`                                   | `{ data: PublicWordV1T[], meta: { limit, has_more, next_cursor } }`                                                 |
-| `GET`  | `/api/v1/random`                    | фильтры                                                                                                | `{ data: PublicWordV1T }`                                                                                           |
-| `POST` | `/api/v1/words/batch`               | `{ words: string[] }` (1–50)                                                                           | `{ data: { word, count, entries: PublicWordV1T[] }[], meta: { count, not_found } }`                                 |
-| `POST` | `/api/v1/suggestions`               | `{ headword, word_id?, message?, kind?, edits?, author_name?, author_consent? }`                       | `201 { data: { id, status } }`                                                                                      |
+| Метод  | Путь                                              | Query / тело                                                                                           | Ответ                                                                                                               |
+| ------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/v1/meta`                                    | —                                                                                                      | `{ data: { api_version, app_version, dataset, source, dataset_version, license, …, counts, available_languages } }` |
+| `GET`  | `/api/v1/openapi.json`                            | —                                                                                                      | OpenAPI 3-документ этого контракта (без конверта; см. [OpenAPI-документ](#openapi-документ))                        |
+| `GET`  | `/api/v1/search`                                  | `search`, `type?`, `limit?`                                                                            | `{ data: PublicSearchWordV1T[], meta: { count, fuzzy, short_term } }`                                               |
+| `GET`  | `/api/v1/search/detailed`                         | `search`, `type?`, `limit?`, `page?`, `with_meanings?`, `with_translations?`, `translation_languages?` | `{ data: PublicWordV1T[], meta: { page, limit, has_more, fuzzy, short_term } }`                                     |
+| `GET`  | `/api/v1/words/{word}`                            | —                                                                                                      | `{ data: PublicWordV1T[], meta: { word, count } }`                                                                  |
+| `GET`  | `/api/v1/words/{word}/meanings`                   | —                                                                                                      | `{ data: PublicMeaningV1T[], meta: { word, count } }`                                                               |
+| `GET`  | `/api/v1/words/{word}/translations`               | `language?`                                                                                            | `{ data: { short_translations, meaning_translations }, meta }`                                                      |
+| `GET`  | `/api/v1/words/{word}/forms`                      | —                                                                                                      | `{ data: PublicWordFormV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/synonyms`                   | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/antonyms`                   | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/history`                    | —                                                                                                      | `{ data: PublicChangeV1T[], meta: { word, count } }`                                                                |
+| `GET`  | `/api/v1/words/{word}/datasets`                   | —                                                                                                      | `{ data: PublicWordDatasetV1T[], meta: { word, datasets, found } }`                                                 |
+| `GET`  | `/api/v1/words/{word}/datasets/{dataset}/history` | —                                                                                                      | `{ data: PublicChangeV1T[], meta: { word, count } }`                                                                |
+| `GET`  | `/api/v1/words/id/{id}`                           | —                                                                                                      | `{ data: PublicWordV1T }`                                                                                           |
+| `GET`  | `/api/v1/words`                                   | фильтры, `cursor?`, `limit?`, `with_meanings?`, `with_translations?`                                   | `{ data: PublicWordV1T[], meta: { limit, has_more, next_cursor } }`                                                 |
+| `GET`  | `/api/v1/random`                                  | фильтры                                                                                                | `{ data: PublicWordV1T }`                                                                                           |
+| `POST` | `/api/v1/words/batch`                             | `{ words: string[] }` (1–50)                                                                           | `{ data: { word, count, entries: PublicWordV1T[] }[], meta: { count, not_found } }`                                 |
+| `POST` | `/api/v1/suggestions`                             | `{ headword, word_id?, message?, kind?, edits?, author_name?, author_consent? }`                       | `201 { data: { id, status } }`                                                                                      |
 
 Те же эндпоинты можно попробовать в плейграунде сайта и на страницах _Documentation_ в админке
 ([api-tools.md](./api-tools.md)); машиночитаемый контракт — [OpenAPI-документ](#openapi-документ).
@@ -214,13 +216,16 @@ curl 'http://localhost:3010/api/v1/random?part_of_speech=verb&word_level=A2'
 Каждое слово называет свой `source` — откуда взяты данные записи: `vocab-bloom-hub` для
 собственного датасета проекта, `wiktionary`, `wordnet`, `princeton-wordnet`. Экземпляр отдаёт один датасет за раз ([`datasets.md`](./datasets.md)), поэтому
 у всех слов ответа источник один; условия использования, которые к нему относятся, — в
-`GET /api/v1/meta`. Поле появилось после 1.0 и в контракте необязательно: сервер 1.0 его не
+`GET /api/v1/meta`. Единственное чтение, которое отвечает из нескольких датасетов,
+[`/words/{word}/datasets`](#слово-во-всех-датасетах), группирует записи по датасетам и называет
+условия каждой группы. Поле появилось после 1.0 и в контракте необязательно: сервер 1.0 его не
 присылает.
 
 `source` есть **в каждом ответе, который несёт запись, её часть или правку записи**: в чтении
 по слову, по id, пакетном, в списке и случайной записи, в обоих поисках, в элементах
-`/meanings`, `/forms`, `/translations`, `/synonyms` и `/antonyms` и в правках `/history`.
-Элемент, взятый отдельно от ответа, по-прежнему говорит, чему он атрибутирован.
+`/meanings`, `/forms`, `/translations`, `/synonyms` и `/antonyms`, в правках `/history` и в
+записях каждой группы `/words/{word}/datasets`. Элемент, взятый отдельно от ответа, по-прежнему
+говорит, чему он атрибутирован.
 
 Каждое слово сообщает, было ли оно **изменено** (`modified`): изменено или добавлено на этом
 экземпляре, то есть это не то, или не только то, что говорит источник. Лицензии датасетов
@@ -281,19 +286,105 @@ curl 'http://localhost:3010/api/v1/random?part_of_speech=verb&word_level=A2'
 попадает. Отдаётся не больше 200 правок, самые новые. Как история ведётся и как откатывается
 правка: [`datasets.md`](./datasets.md#editing-a-dataset-the-history-of-edits).
 
+#### Слово во всех датасетах
+
+Экземпляр может держать несколько датасетов, а отдаёт один. `GET /api/v1/words/{word}/datasets`
+читает слово из **каждого датасета экземпляра**: для потребителя, который сравнивает, что
+говорят источники (запись датасета проекта рядом с записью Wiktionary или WordNet), и владельцу
+ничего не нужно переключать. Ответ состоит из групп, по одной на датасет, в порядке установки
+датасетов, и группы **никогда не объединяются**:
+
+```json
+{
+  "data": [
+    {
+      "dataset": "default",
+      "active": false,
+      "source": "vocab-bloom-hub",
+      "dataset_version": "1.0.0",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": "…",
+      "attribution_url": "…",
+      "notice": "…",
+      "license_text": "",
+      "word": "polish",
+      "variants": [],
+      "count": 2,
+      "entries": [{ "id": 17, "word": "polish", "source": "vocab-bloom-hub", "modified": false, "…": "…" }]
+    },
+    {
+      "dataset": "wiktionary",
+      "active": true,
+      "source": "wiktionary",
+      "dataset_version": null,
+      "license": "CC-BY-SA-4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "attribution": "…",
+      "attribution_url": "https://en.wiktionary.org",
+      "notice": "",
+      "license_text": "",
+      "word": "polish",
+      "variants": ["Polish"],
+      "count": 3,
+      "entries": [{ "id": 90412, "word": "polish", "source": "wiktionary", "modified": true, "…": "…" }]
+    }
+  ],
+  "meta": { "word": "polish", "datasets": 2, "found": 2 }
+}
+```
+
+| Поле                                                                                                              | Что оно говорит                                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset`                                                                                                         | имя датасета на экземпляре: `default`, `wiktionary`, `wordnet`, `wordnet_princeton`                                                                                                                                        |
+| `active`                                                                                                          | тот ли это датасет, который отдают остальные маршруты API                                                                                                                                                                  |
+| `source`, `dataset_version`, `license`, `license_url`, `attribution`, `attribution_url`, `notice`, `license_text` | условия этого датасета, те же, что [`/meta`](#meta) называет для отдаваемого                                                                                                                                               |
+| `word`, `variants`                                                                                                | слово, которому принадлежат записи в этом датасете, и другие его написания там ([по правилу чтения слова](#написания-которые-различаются-регистром)); запрошенное написание строчными и `[]` для датасета без такого слова |
+| `count`, `entries`                                                                                                | то, что `GET /words/{word}` ответил бы в `data`, будь этот датасет отдаваемым; `0` и `[]` для датасета без такого слова                                                                                                    |
+| `meta.word`                                                                                                       | написание, которое было запрошено                                                                                                                                                                                          |
+| `meta.datasets`, `meta.found`                                                                                     | сколько датасетов держит экземпляр и в скольких из них слово есть                                                                                                                                                          |
+
+- **Написание сопоставляется внутри каждого датасета.** `polish` называет одно слово в
+  датасете, который пишет слова строчными, и одно из двух в датасете, где есть ещё и `Polish`,
+  поэтому у каждой группы свои `word` и `variants`.
+- **Запись говорит то, что о ней говорит её датасет**: `source` называет источник группы,
+  а `modified` сообщает, изменена ли запись на экземпляре в этом датасете. Что именно изменено,
+  отдаёт `GET /api/v1/words/{word}/datasets/{dataset}/history`: ответ
+  [истории слова](#история-слова), прочитанный из названного датасета; `404 dataset_not_found`
+  для датасета, которого на экземпляре нет.
+- **Id свои у каждого датасета**: `id` записи имеет смысл только в её группе. `/words/id/{id}`
+  читает отдаваемый датасет.
+- **Условия свои у каждой группы.** Запись используется на условиях группы, из которой взята,
+  и потребитель, взявший записи из нескольких групп, связан условиями каждой: лицензия
+  share-alike одной группы не распространяется на записи другой и не покидает свои.
+- **`404 word_doesnt_found`**, когда слова нет ни в одном датасете. Датасет без такого слова
+  отвечает пустой группой: то, что в источнике слова нет, тоже сведение.
+- **Один запрос** в счёт лимита, сколько бы ни было датасетов. Поиск остаётся на отдаваемом
+  датасете.
+- **Читается каждый датасет экземпляра**, в том числе ни разу не активированный: датасет
+  публичен с момента установки, вместе с историей его правок и именами читателей, указанных
+  в ней.
+- **Сообщение об ошибке относится к отдаваемому датасету.** `POST /api/v1/suggestions` кладёт
+  его в датасет, который отдаёт экземпляр: `word_id` и `target_id` записи из другой группы там
+  ничего не называют или называют другую запись. Сообщайте о том, что ответило чтение слова
+  из отдаваемого датасета.
+
+Экземпляр с одним датасетом, то есть любой экземпляр на SQLite, отвечает одной группой.
+
 #### Что с этим делает потребитель
 
 Отметка и история существуют потому, что лицензии данных требуют сообщать об изменениях, и эта
 обязанность переходит к тому, кто показывает данные дальше:
 
-| Вы читаете                                  | Вы делаете                                                                                         |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `attribution`, `license_url` из `/meta`     | показываете строку атрибуции и ссылку на лицензию везде, где показываете данные                    |
-| `modified: true` у слова или его части      | сообщаете рядом с записью, что она изменена: это не то, или не только то, что опубликовал источник |
-| `/words/{word}/history`                     | по желанию: показываете, что изменено, и указываете автора исправления (`author`), если он назван  |
-| `license` из `/meta` с окончанием `-SA-4.0` | сохраняете под той же лицензией то, что построено на данных, включая изменённые записи             |
-| непустой `license_text` из `/meta`          | держите этот текст при каждой копии данных: показываете его или ссылку на страницу с ним           |
-| `modified_entries` из `/meta` больше `0`    | знаете, что экземпляр отдаёт данные, отличающиеся от источника                                     |
+| Вы читаете                                  | Вы делаете                                                                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `attribution`, `license_url` из `/meta`     | показываете строку атрибуции и ссылку на лицензию везде, где показываете данные                                          |
+| `modified: true` у слова или его части      | сообщаете рядом с записью, что она изменена: это не то, или не только то, что опубликовал источник                       |
+| `/words/{word}/history`                     | по желанию: показываете, что изменено, и указываете автора исправления (`author`), если он назван                        |
+| группу из `/words/{word}/datasets`          | делаете всё перечисленное для каждой группы, на условиях этой группы: записи двух групп показываются с двумя атрибуциями |
+| `license` из `/meta` с окончанием `-SA-4.0` | сохраняете под той же лицензией то, что построено на данных, включая изменённые записи                                   |
+| непустой `license_text` из `/meta`          | держите этот текст при каждой копии данных: показываете его или ссылку на страницу с ним                                 |
+| `modified_entries` из `/meta` больше `0`    | знаете, что экземпляр отдаёт данные, отличающиеся от источника                                                           |
 
 Читайте эти значения из API, а не зашивайте в код: владелец в любой момент может активировать
 другой датасет, изменить запись или откатить правку. Условия полностью:
@@ -410,7 +501,7 @@ rung, runner, …; префикс фразы сохраняет пробелы);
 | Заголовок       | Значение                                                                                                                                                                                                                                          |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ETag`          | слабый, хэш JSON-тела: `W/"…"`. Меняется ровно тогда, когда меняется ответ                                                                                                                                                                        |
-| `Last-Modified` | самое свежее изменение где угодно в словаре (записи, слова, значения, переводы), обновляется раз в минуту                                                                                                                                         |
+| `Last-Modified` | самое свежее изменение где угодно в словаре (записи, слова, значения, переводы), обновляется раз в минуту; для чтений из всех датасетов: самое свежее изменение любого датасета экземпляра и их набора (установка, активация, удаление)           |
 | `Cache-Control` | `public, max-age=<PUBLIC_API_CACHE_MAX_AGE>, stale-while-revalidate=<то же>` (по умолчанию `3600`): общий кэш держит ответ час и ещё час может отдавать его устаревшим, пока перепроверяет в фоне; `public, no-cache`, когда переменная равна `0` |
 
 `HEAD` отвечает теми же тремя заголовками, что и `GET` этого адреса, поэтому кэш, проверяющий

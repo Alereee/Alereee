@@ -289,6 +289,146 @@
         ]
       }
     },
+    "/api/v1/words/{word}/datasets": {
+      "get": {
+        "description": "One group per dataset, never merged: the terms of the dataset (`license`, `attribution`, `license_text`, …) and the entries `GET /words/{word}` would answer if that dataset were the served one. The spelling is matched inside each dataset, so a group has its own `word` and `variants`; a dataset without the headword answers an empty `entries`, and the request fails with 404 when no dataset holds it. Entries taken from several groups are bound by the terms of each. One request against the rate limit.",
+        "operationId": "PublicWordDatasetsController_byHeadword",
+        "parameters": [
+          {
+            "name": "word",
+            "required": true,
+            "in": "path",
+            "description": "Headword spelling, case-insensitive (spaces URL-encoded for phrases). An inflected form resolves to its base entry",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWordDatasetsV1ResT"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nothing matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          }
+        },
+        "summary": "A headword as every dataset of the instance has it, grouped by dataset",
+        "tags": [
+          "Public API v1"
+        ]
+      }
+    },
+    "/api/v1/words/{word}/datasets/{dataset}/history": {
+      "get": {
+        "description": "The answer of `GET /words/{word}/history` for a dataset named by its `dataset`: the edits behind `modified: true` of the entries of that group. 404 for a dataset the instance does not hold.",
+        "operationId": "PublicWordDatasetsController_history",
+        "parameters": [
+          {
+            "name": "word",
+            "required": true,
+            "in": "path",
+            "description": "Headword spelling, case-insensitive (spaces URL-encoded for phrases). An inflected form resolves to its base entry",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset",
+            "required": true,
+            "in": "path",
+            "description": "The name of a dataset of the instance, as `dataset` of a group of `GET /words/{word}/datasets` says it",
+            "schema": {
+              "type": "string",
+              "pattern": "^(default|[a-z][a-z0-9_]{1,39})$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicHeadwordHistoryV1ResT"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nothing matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          }
+        },
+        "summary": "What was changed or added on the instance in the entries of a headword, in one dataset",
+        "tags": [
+          "Public API v1"
+        ]
+      }
+    },
     "/api/v1/words": {
       "get": {
         "description": "Every enum filter accepts a repeated key; values of one filter are OR-ed, filters are AND-ed. `search` keeps the headwords starting with the prefix (an autocomplete or an A–Z browser: cacheable, unlike the search). Pass `meta.next_cursor` back as `cursor` to read the next page.",
@@ -577,67 +717,6 @@
           }
         },
         "summary": "Up to 50 headwords in one request",
-        "tags": [
-          "Public API v1"
-        ]
-      }
-    },
-    "/api/v1/words/id/{id}": {
-      "get": {
-        "operationId": "PublicWordsController_byId",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicWordV1ResT"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiErrorT"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Nothing matches",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiErrorT"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiErrorT"
-                }
-              }
-            }
-          }
-        },
-        "summary": "One dictionary entry by its numeric id",
         "tags": [
           "Public API v1"
         ]
@@ -1110,6 +1189,67 @@
           }
         },
         "summary": "The inflected forms of a headword across its entries",
+        "tags": [
+          "Public API v1"
+        ]
+      }
+    },
+    "/api/v1/words/id/{id}": {
+      "get": {
+        "operationId": "PublicWordsController_byId",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWordV1ResT"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nothing matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          }
+        },
+        "summary": "One dictionary entry by its numeric id",
         "tags": [
           "Public API v1"
         ]
@@ -2767,6 +2907,114 @@
           },
           "meta": {
             "$ref": "#/components/schemas/PublicHeadwordHistoryV1MetaT"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "PublicWordDatasetV1T": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "count": {
+            "type": "integer"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicWordV1T"
+            }
+          },
+          "dataset": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "dataset_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "license": {
+            "type": "string"
+          },
+          "license_url": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          },
+          "attribution_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "notice": {
+            "type": "string"
+          },
+          "license_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "active",
+          "attribution",
+          "attribution_url",
+          "count",
+          "dataset",
+          "dataset_version",
+          "entries",
+          "license",
+          "license_text",
+          "license_url",
+          "notice",
+          "source",
+          "variants",
+          "word"
+        ]
+      },
+      "PublicWordDatasetsV1MetaT": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string"
+          },
+          "datasets": {
+            "type": "integer"
+          },
+          "found": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "word",
+          "datasets",
+          "found"
+        ]
+      },
+      "PublicWordDatasetsV1ResT": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicWordDatasetV1T"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicWordDatasetsV1MetaT"
           }
         },
         "required": [

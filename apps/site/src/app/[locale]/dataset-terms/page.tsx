@@ -18,6 +18,8 @@ export const dynamic = 'force-dynamic';
 
 // the read of the public API that says what was changed in the entries of a headword
 const HISTORY_METHOD = 'GET /api/v1/words/{word}/history';
+// the one read that answers from every dataset of the instance (issue #528)
+const DATASETS_METHOD = 'GET /api/v1/words/{word}/datasets';
 const TERMS_IN_DETAIL = '/docs/data-license#using-data-that-was-changed-on-an-instance';
 
 export const generateMetadata = async ({ params }: LocaleParamsP): Promise<Metadata> => {
@@ -95,6 +97,7 @@ export default async function DatasetTermsPage({ params }: LocaleParamsP) {
           <li>{t('use_same_license')}</li>
           {isShareAlike && <li>{t('use_share_alike')}</li>}
           {terms.license_text && <li>{t('use_notice')}</li>}
+          <li>{t('use_other_datasets', { method: DATASETS_METHOD })}</li>
         </ul>
         <p>
           <Link href={TERMS_IN_DETAIL}>{t('use_more')}</Link>

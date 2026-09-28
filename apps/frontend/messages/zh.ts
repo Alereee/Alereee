@@ -235,6 +235,8 @@ export default {
   datasets: {
     intro:
       '此实例可以容纳的词典数据集。每个数据集有自己的词条，并沿用其来源的许可；同一时间只启用一个——API 和网站提供的就是它。数据集从不混合。',
+    public_note:
+      '已安装的数据集无论是否启用都是公开的：{method} 会返回实例中每个数据集里的词目，各自适用其许可，并附带其修改历史。请在数据可以被读取时再安装数据集。',
     not_supported:
       '此实例运行在没有模式的 SQLite 上：只有默认数据集。安装、启用和删除数据集需要 Postgres 数据库。',
     status_active: '已启用',
@@ -708,6 +710,12 @@ export default {
     endpoint_word_history: '词目的修改历史',
     desc_word_history:
       '该实例对词目各词条所做的修改或新增：仍体现在所提供数据中的编辑，按时间从新到旧排列，并给出每个字段修改前后的值。这些词条带有 modified: true。与来源一致的词目返回空列表。',
+    endpoint_word_datasets: '词目在所有数据集中的内容',
+    desc_word_datasets:
+      '该实例每个数据集中的词目，每个数据集一组，从不合并：数据集的条款（license、attribution、license_text）及其词条。拼写在每个数据集内部匹配，因此每组有自己的 word 和 variants；没有该词目的数据集返回空的 entries，所有数据集都没有时返回 404。取自多个分组的词条须分别遵守各组的条款。',
+    endpoint_word_dataset_history: '词目在某个数据集中的修改历史',
+    desc_word_dataset_history:
+      '该实例在指定数据集中对词目各词条所做的修改或新增：即词目修改历史的响应，读取自该数据集。实例没有该数据集时返回 404。',
     endpoint_word_by_id: '按 id 获取词条',
     endpoint_words: '筛选列表',
     endpoint_random: '随机词条',
@@ -737,6 +745,8 @@ export default {
     param_desc_message: '哪里有错，最好也说明正确的应该是什么',
     param_desc_word_id: '词目下某一个词条的 id，当报告涉及特定词性时使用',
     param_desc_word: '词目拼写，不区分大小写；短语可包含空格',
+    param_desc_dataset:
+      '实例中数据集的名称，与分组的 dataset 字段一致：default、wiktionary、wordnet、wordnet_princeton',
     param_desc_words: '词目拼写，1 到 50 个，以逗号分隔；每个都按词目查询的方式匹配',
     param_desc_id: '词条的数字 id',
     param_desc_cursor: '上一页的 meta.next_cursor；第一页省略',

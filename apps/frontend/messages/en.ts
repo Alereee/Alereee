@@ -242,6 +242,8 @@ export default {
   datasets: {
     intro:
       'The dictionary datasets this instance can hold. Each one keeps its own entries and comes under the license of its source; exactly one is active — the one the API and the website serve. Datasets are never mixed.',
+    public_note:
+      'An installed dataset is public, active or not: {method} answers a headword from every dataset the instance holds, each under its own license, and the history of its edits with it. Install a dataset when its data may be read.',
     not_supported:
       'This instance runs on SQLite, which has no schemas: it holds the default dataset only. Installing, activating and deleting datasets needs a Postgres database.',
     status_active: 'active',
@@ -730,6 +732,12 @@ export default {
     endpoint_word_history: 'History of a headword',
     desc_word_history:
       'What was changed or added on the instance in the entries of the headword: the edits that still show in what is served, the latest first, with the values before and after per field. Such entries carry modified: true. A headword served as its source has it answers an empty list.',
+    endpoint_word_datasets: 'Headword in every dataset',
+    desc_word_datasets:
+      'The headword as every dataset of the instance has it, one group per dataset and never merged: the terms of the dataset (license, attribution, license_text) and its entries. The spelling is matched inside each dataset, so a group has its own word and variants; a dataset without the headword answers empty entries, and 404 is answered when no dataset holds it. Entries taken from several groups are bound by the terms of each.',
+    endpoint_word_dataset_history: 'History of a headword in a dataset',
+    desc_word_dataset_history:
+      'What was changed or added on the instance in the entries of the headword in the dataset that is named: the answer of the history of a headword, read from that dataset. 404 for a dataset the instance does not hold.',
     endpoint_word_by_id: 'Entry by id',
     endpoint_words: 'Filtered list',
     endpoint_random: 'Random entry',
@@ -762,6 +770,8 @@ export default {
     param_desc_message: 'What is wrong and, ideally, what would be right',
     param_desc_word_id: 'Id of one entry of the headword, when the report concerns a specific part of speech',
     param_desc_word: 'Headword spelling, case-insensitive; spaces are allowed for phrases',
+    param_desc_dataset:
+      'Name of a dataset of the instance, as dataset of a group says it: default, wiktionary, wordnet, wordnet_princeton',
     param_desc_words: 'Headword spellings, 1 to 50, comma-separated; each matched like the headword lookup',
     param_desc_id: 'Numeric id of the entry',
     param_desc_cursor: 'meta.next_cursor of the previous page; omit for the first page',

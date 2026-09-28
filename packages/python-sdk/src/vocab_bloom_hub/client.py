@@ -6,6 +6,7 @@ import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 import httpx
 from typing_extensions import Unpack
@@ -201,6 +202,27 @@ class VocabBloomClient:
         before and after. Empty for a headword served as its source has it.
         """
         return self._get(headword_path(headword, "/history"), None, m.HistoryResponse, options)
+
+    def word_datasets(
+        self, headword: str, *, options: RequestOptions | None = None
+    ) -> m.WordDatasetsResponse:
+        """A headword as every dataset of the instance has it, a group per dataset.
+
+        Each group carries the terms of its dataset and the entries of the headword there.
+        The other reads answer from the dataset the instance serves; entries taken from
+        several groups are bound by the terms of each.
+        """
+        return self._get(headword_path(headword, "/datasets"), None, m.WordDatasetsResponse, options)
+
+    def dataset_history(
+        self, headword: str, dataset: str, *, options: RequestOptions | None = None
+    ) -> m.HistoryResponse:
+        """What was changed on the instance in the entries of a headword, in one dataset.
+
+        The dataset is named as ``dataset`` of a group of ``word_datasets()`` says it.
+        """
+        path = headword_path(headword, f"/datasets/{quote(dataset, safe='')}/history")
+        return self._get(path, None, m.HistoryResponse, options)
 
     # --------------------------------------------------------------- list
 

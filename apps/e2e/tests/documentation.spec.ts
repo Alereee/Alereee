@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { seedWord } from '../helpers/seed';
+import { pickOption } from '../helpers/select';
 
 test.describe('documentation', () => {
   test('index page lists every documented public endpoint', async ({ page }) => {
@@ -46,6 +47,30 @@ test.describe('documentation', () => {
 
     await expect(page.getByRole('cell', { name: 'flicker', exact: true })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'has_more' })).toBeVisible();
+  });
+
+  // issue #528: a headword as every dataset has it; the dataset of the history is one of the catalog
+  test('reads a headword from every dataset and its history in one of them', async ({ page, request }) => {
+    await seedWord(request, 'dapple');
+
+    await page.goto('/en/documentation/word-datasets');
+    await expect(page.getByText('/api/v1/words/{word}/datasets', { exact: true })).toBeVisible();
+    await page.getByRole('textbox').first().fill('dapple');
+    await page.getByRole('button', { name: 'Send request' }).click();
+    await expect(page.getByText('"dataset": "default"')).toBeVisible();
+    await expect(page.getByText('"word": "dapple"').first()).toBeVisible();
+
+    await page.goto('/en/documentation/word-dataset-history');
+    const params = page.getByRole('table').first();
+    await expect(params.getByText('dataset', { exact: true })).toBeVisible();
+    await expect(params.getByText(/Name of a dataset of the instance/)).toBeVisible();
+    await page.getByRole('textbox').first().fill('dapple');
+    // the last select of the page: the ones of the header come first
+    await page.getByRole('combobox').last().click();
+    await pickOption(page, 'default');
+    await page.getByRole('button', { name: 'Send request' }).click();
+    await expect(page.getByText('"action": "create"').first()).toBeVisible();
+    await expect(page.getByText('"source": "vocab-bloom-hub"').first()).toBeVisible();
   });
 
   test('the suggestions endpoint page files a real report from the playground (issue #349)', async ({

@@ -19,6 +19,8 @@ export type HeadwordTranslations = Schemas['PublicHeadwordTranslationsV1T'];
 export type WordLink = Schemas['PublicWordLinkV1T'];
 /** One edit made on the instance, with the values before and after */
 export type Change = Schemas['PublicChangeV1T'];
+/** What one dataset of the instance says about a headword, under the terms of that dataset */
+export type WordDataset = Schemas['PublicWordDatasetV1T'];
 export type WordsBatchItem = Schemas['PublicWordsBatchItemV1T'];
 export type Meta = Schemas['PublicMetaV1T'];
 export type DatasetCounts = Schemas['PublicDatasetCountsV1T'];
@@ -60,6 +62,7 @@ export type TranslationsResponse = Schemas['PublicHeadwordTranslationsV1ResT'];
 export type FormsResponse = Schemas['PublicHeadwordFormsV1ResT'];
 export type LinksResponse = Schemas['PublicHeadwordLinksV1ResT'];
 export type HistoryResponse = Schemas['PublicHeadwordHistoryV1ResT'];
+export type WordDatasetsResponse = Schemas['PublicWordDatasetsV1ResT'];
 export type WordsResponse = Schemas['PublicWordsV1ResT'];
 export type WordsBatchResponse = Schemas['PublicWordsBatchV1ResT'];
 export type MetaResponse = Schemas['PublicMetaV1ResT'];

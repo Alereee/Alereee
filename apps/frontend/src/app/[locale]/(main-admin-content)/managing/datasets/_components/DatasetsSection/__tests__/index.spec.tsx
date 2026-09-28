@@ -222,6 +222,52 @@ describe('DatasetsSection', () => {
     expect(within(screen.getByRole('dialog')).getByText(/^install_title /)).toBeInTheDocument();
   });
 
+  // a click outside the dialog closes it, like its cross and Escape; an installation that runs is not left that way
+  describe('a click outside the instruction', () => {
+    const clickOutside = () => {
+      const outside = document.querySelector('.ant-modal-wrap') as HTMLElement;
+      fireEvent.mouseDown(outside);
+      fireEvent.mouseUp(outside);
+      fireEvent.click(outside);
+    };
+
+    it('closes the dialog', async () => {
+      renderSection(listOf());
+      fireEvent.click(cardOf('wiktionary').getByRole('button', { name: 'how_to_install' }));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      clickOutside();
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('does not close it while the installation runs', async () => {
+      let finish: (result: unknown) => void = () => undefined;
+      (EnApi.installDataset as jest.Mock).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      renderSection(listOf());
+      fireEvent.click(cardOf('wordnet').getByRole('button', { name: 'how_to_install' }));
+      attach('file', 'english-wordnet-2025.zip');
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'start' }));
+      await waitFor(() => expect(EnApi.installDataset).toHaveBeenCalled());
+
+      clickOutside();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      // once it is over the dialog closes like before
+      finish({ success: true });
+      await waitFor(() =>
+        expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'close' })).toBeEnabled(),
+      );
+      clickOutside();
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+  });
+
   it('says what the server refused, and lets the admin try again', async () => {
     mockInstall([], { error: true, message: 'dataset_source_invalid', statusCode: 400 });
     renderSection(listOf());

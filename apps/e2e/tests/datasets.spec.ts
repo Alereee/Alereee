@@ -83,6 +83,12 @@ test.describe('datasets', () => {
     await dialog.getByRole('button', { name: 'Close' }).last().click();
     await expect(dialog).toBeHidden();
 
+    // a click outside the dialog closes it too
+    await page.getByTestId('dataset-wiktionary').getByRole('button', { name: 'How to install' }).click();
+    await expect(dialog).toBeVisible();
+    await page.mouse.click(5, 5);
+    await expect(dialog).toBeHidden();
+
     // WordNet takes a second, optional file under a license of its own
     await page.getByTestId('dataset-wordnet').getByRole('button', { name: 'How to install' }).click();
     await expect(page.getByRole('dialog')).toContainText('english-wordnet-2025.zip');

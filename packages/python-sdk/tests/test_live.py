@@ -81,6 +81,23 @@ def test_headword_reads_and_by_id(client: VocabBloomClient) -> None:
     assert change.diff is not None
     assert (change.diff["transcription"].before, change.diff["transcription"].after) == (None, "/rʌn/")
 
+    # every dataset of the instance (issue #528): the fixture holds the default one
+    datasets = client.word_datasets("ran")
+    assert (datasets.meta.word, datasets.meta.datasets, datasets.meta.found) == ("ran", 1, 1)
+    group = datasets.data[0]
+    assert (group.dataset, group.active, group.source, group.license) == (
+        "default",
+        True,
+        "vocab-bloom-hub",
+        "CC-BY-4.0",
+    )
+    assert (group.word, group.variants, group.count) == ("ran", [], 1)
+    assert [entry.id for entry in group.entries] == [run_id]
+    assert client.dataset_history("ran", "default") == history
+    with pytest.raises(NotFoundError) as absent:
+        client.dataset_history("ran", "wiktionary")
+    assert absent.value.code == "dataset_not_found"
+
     forms = client.forms("run")
     assert [(f.word, f.form_of_word.value, f.word_id) for f in forms.data] == [("ran", "past_simple", run_id)]
     # a part of an entry carries the mark of the entry, and so does a search item (issue #531)

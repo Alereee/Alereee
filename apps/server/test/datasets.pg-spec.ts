@@ -9,7 +9,13 @@ import { DatasetsService } from '../src/modules/DatasetsModule/datasets.service'
 import { prepareDatabase, runDatasetMigrations } from '../src/db/datasets';
 import { createJwt } from '../core/utils/auth';
 import { hashLoginString } from '../core/utils/crypto';
-import { DatasetsListT, EnAreaVariantsE, EnPartOfSpeechE, EnWordFormsE } from '../types';
+import {
+  DatasetsListT,
+  EnAreaVariantsE,
+  EnPartOfSpeechE,
+  EnWordFormsE,
+  PublicWordDatasetsV1ResT,
+} from '../types';
 
 /**
  * Datasets as Postgres schemas (issue #527): what installing, activating
@@ -92,7 +98,11 @@ describe('datasets in schemas (Postgres, issue #527)', () => {
     return rows.map((row) => Object.values(row).join(' ')).sort();
   };
 
+  const rateLimit = process.env.PUBLIC_API_RATE_LIMIT;
+
   beforeAll(async () => {
+    // the suite reads the public API more often in a minute than a client may
+    process.env.PUBLIC_API_RATE_LIMIT = '100000/60';
     const username = process.env.ADMIN_USERNAME as string;
     const password = process.env.ADMIN_PASSWORD as string;
     const hashByEnv = await hashLoginString(username, password);
@@ -122,6 +132,8 @@ describe('datasets in schemas (Postgres, issue #527)', () => {
   let owned = false;
 
   afterAll(async () => {
+    if (rateLimit === undefined) delete process.env.PUBLIC_API_RATE_LIMIT;
+    else process.env.PUBLIC_API_RATE_LIMIT = rateLimit;
     if (!owned) return;
     // whatever failed above, the instance goes back to what it served and the test datasets go
     await request(server()).post('/api/en/datasets/default/activate').set(auth);
@@ -394,6 +406,131 @@ describe('datasets in schemas (Postgres, issue #527)', () => {
     }
   });
 
+  it('reads a headword from every dataset at once: a group per dataset, under its own terms (issue #528)', async () => {
+    const BOTH = `${HEADWORD}both`;
+    const PROPER = `${BOTH[0].toUpperCase()}${BOTH.slice(1)}`;
+    const ONE = `${HEADWORD}one`;
+    const write = async (schema: string, word: string, description: string) => {
+      await dataSource.query(`INSERT INTO "${schema}"."en_entries" ("word") VALUES ($1)`, [word]);
+      await dataSource.query(
+        `INSERT INTO "${schema}"."en_words" ("word", "part_of_speech", "form_of_word", "description", "generated")
+         VALUES ($1, 'noun', 'base_form', $2, false)`,
+        [word, description],
+      );
+    };
+    const read = async (word: string) =>
+      (await request(server()).get(`/api/v1/words/${word}/datasets`).expect(200))
+        .body as PublicWordDatasetsV1ResT;
+    const readers = () => (app.get(DatasetsService) as unknown as { readers: Map<string, unknown> }).readers;
+
+    // one spelling in the default dataset; two that differ by case in the other, as a public source has them
+    await write('public', BOTH, 'what the project says');
+    await write(SCHEMA, BOTH, 'what the source says');
+    await write(SCHEMA, PROPER, 'a name');
+    await write(SCHEMA, ONE, 'a word of one dataset');
+    await dataSource.query(
+      `INSERT INTO "${SCHEMA}"."en_changes" ("headword", "part_of_speech", "entity", "action", "diff", "origin")
+       VALUES ($1, 'noun', 'word', 'update', '{"description":{"before":"said before","after":"what the source says"}}', 'admin')`,
+      [BOTH],
+    );
+
+    try {
+      const { data, meta } = await read(BOTH);
+      expect(meta).toEqual({ word: BOTH, datasets: 2, found: 2 });
+      expect(data.map((group) => [group.dataset, group.active, group.source, group.license])).toEqual([
+        ['default', true, 'vocab-bloom-hub', 'CC-BY-4.0'],
+        [NAME, false, 'princeton-wordnet', 'WordNet'],
+      ]);
+      // the notice a source asks to be kept in full travels with its group, and with no other
+      expect(data[0].license_text).toBe('');
+      expect(data[1].license_text).toContain('Princeton University');
+      expect(data[1].attribution).toContain('WordNet');
+
+      // the spelling is matched inside each dataset
+      expect(data.map((group) => [group.word, group.variants, group.count])).toEqual([
+        [BOTH, [], 1],
+        [BOTH, [PROPER], 1],
+      ]);
+      // an entry says what its own dataset says of it: the source, and whether it was changed there
+      expect(data.map((group) => group.entries.map((e) => [e.description, e.source, e.modified]))).toEqual([
+        [['what the project says', 'vocab-bloom-hub', false]],
+        [['what the source says', 'princeton-wordnet', true]],
+      ]);
+
+      const proper = await read(PROPER);
+      expect(proper.meta).toEqual({ word: PROPER, datasets: 2, found: 2 });
+      expect(proper.data.map((group) => [group.word, group.entries.map((e) => e.description)])).toEqual([
+        [BOTH, ['what the project says']],
+        [PROPER, ['a name']],
+      ]);
+
+      // a dataset without the headword says so with an empty group
+      const one = await read(ONE);
+      expect(one.meta).toEqual({ word: ONE, datasets: 2, found: 1 });
+      expect(one.data.map((group) => [group.dataset, group.word, group.count, group.entries.length])).toEqual([
+        ['default', ONE, 0, 0],
+        [NAME, ONE, 1, 1],
+      ]);
+      await request(server()).get(`/api/v1/words/${HEADWORD}nowhere/datasets`).expect(404);
+      // the routes of the served dataset did not learn of the other one
+      await request(server()).get(`/api/v1/words/${ONE}`).expect(404);
+
+      // the history behind `modified` is read from the dataset it was written in
+      const changed = await request(server()).get(`/api/v1/words/${BOTH}/datasets/${NAME}/history`).expect(200);
+      expect(changed.body.meta).toEqual({ word: BOTH, count: 1, variants: [PROPER] });
+      expect(changed.body.data).toEqual([
+        expect.objectContaining({
+          word: BOTH,
+          source: 'princeton-wordnet',
+          diff: { description: { before: 'said before', after: 'what the source says' } },
+        }),
+      ]);
+      const clean = await request(server()).get(`/api/v1/words/${BOTH}/datasets/default/history`).expect(200);
+      expect(clean.body.data).toEqual([]);
+      await request(server()).get(`/api/v1/words/${ONE}/datasets/default/history`).expect(404);
+      await request(server()).get(`/api/v1/words/${BOTH}/datasets/${IMPORTED}/history`).expect(404);
+
+      // one connection per dataset that is not served, kept between the requests
+      expect([...readers().keys()]).toEqual([NAME]);
+      const kept = readers().get(NAME);
+      // …and on the schema of its dataset, every connection of its pool
+      const opened = (await kept) as DataSource;
+      const schemas = await Promise.all(
+        Array.from({ length: 6 }, () => opened.query('SELECT current_schema() AS s')),
+      );
+      expect(new Set(schemas.map(([row]: Array<{ s: string }>) => row.s))).toEqual(new Set([SCHEMA]));
+      await Promise.all(Array.from({ length: 12 }, () => read(BOTH)));
+      expect(readers().get(NAME)).toBe(kept);
+
+      // after a switch the groups are the same, the served one is another
+      const before = await request(server()).get(`/api/v1/words/${BOTH}/datasets`).expect(200);
+      await request(server()).post(`/api/en/datasets/${NAME}/activate`).set(auth).expect(200);
+      const after = await request(server()).get(`/api/v1/words/${BOTH}/datasets`).expect(200);
+      const switched = after.body as PublicWordDatasetsV1ResT;
+      expect(switched.data.map((group) => [group.dataset, group.active])).toEqual([
+        ['default', false],
+        [NAME, true],
+      ]);
+      expect(switched.data.map((group) => group.entries)).toEqual(data.map((group) => group.entries));
+      expect([...readers().keys()]).toEqual(['default']);
+      expect(after.headers.etag).not.toBe(before.headers.etag);
+      expect(Date.parse(after.headers['last-modified'] as string)).toBeGreaterThanOrEqual(
+        Date.parse(before.headers['last-modified'] as string),
+      );
+    } finally {
+      await request(server()).post('/api/en/datasets/default/activate').set(auth).expect(200);
+      await dataSource.query(`DELETE FROM "${SCHEMA}"."en_changes" WHERE "headword" LIKE $1`, [`${HEADWORD}%`]);
+      for (const schema of ['public', SCHEMA]) {
+        await dataSource.query(`DELETE FROM "${schema}"."en_words" WHERE lower("word") LIKE $1`, [
+          `${HEADWORD}%`,
+        ]);
+        await dataSource.query(`DELETE FROM "${schema}"."en_entries" WHERE lower("word") LIKE $1`, [
+          `${HEADWORD}%`,
+        ]);
+      }
+    }
+  });
+
   it('switches under load: no request meets the closed connection', async () => {
     const reads = Array.from({ length: 40 }, () => request(server()).get('/api/v1/meta'));
     const switches = (async () => {
@@ -563,10 +700,37 @@ describe('datasets in schemas (Postgres, issue #527)', () => {
     expect(isActive.body.message).toBe('dataset_is_active');
     await request(server()).post('/api/en/datasets/default/activate').set(auth).expect(200);
 
-    await request(server()).delete(`/api/en/datasets/${NAME}`).set(auth).expect(200);
-    expect(
-      await dataSource.query(`SELECT count(*)::int AS n FROM pg_namespace WHERE nspname = $1`, [SCHEMA]),
-    ).toEqual([{ n: 0 }]);
+    // a read of every dataset opened a connection on the one that is about to go (issue #528)
+    const STAYS = `${HEADWORD}stays`;
+    await dataSource.query(`INSERT INTO "public"."en_entries" ("word") VALUES ($1)`, [STAYS]);
+    await dataSource.query(
+      `INSERT INTO "public"."en_words" ("word", "part_of_speech", "form_of_word", "generated")
+       VALUES ($1, 'noun', 'base_form', false)`,
+      [STAYS],
+    );
+    const service = app.get(DatasetsService) as unknown as { readers: Map<string, unknown> };
+    try {
+      const both = await request(server()).get(`/api/v1/words/${STAYS}/datasets`).expect(200);
+      expect(both.body.meta).toEqual({ word: STAYS, datasets: 2, found: 1 });
+      expect([...service.readers.keys()]).toEqual([NAME]);
+
+      await request(server()).delete(`/api/en/datasets/${NAME}`).set(auth).expect(200);
+      expect(
+        await dataSource.query(`SELECT count(*)::int AS n FROM pg_namespace WHERE nspname = $1`, [SCHEMA]),
+      ).toEqual([{ n: 0 }]);
+      // the connection went with the dataset
+      expect(service.readers.size).toBe(0);
+      // what is read from every dataset changed, although no row of the remaining one did
+      const one = await request(server()).get(`/api/v1/words/${STAYS}/datasets`).expect(200);
+      expect(one.body.meta).toEqual({ word: STAYS, datasets: 1, found: 1 });
+      expect(one.headers.etag).not.toBe(both.headers.etag);
+      expect(Date.parse(one.headers['last-modified'] as string)).toBeGreaterThanOrEqual(
+        Date.parse(both.headers['last-modified'] as string),
+      );
+    } finally {
+      await dataSource.query(`DELETE FROM "public"."en_words" WHERE "word" = $1`, [STAYS]);
+      await dataSource.query(`DELETE FROM "public"."en_entries" WHERE "word" = $1`, [STAYS]);
+    }
     // the catalog still offers it
     expect((await list()).datasets.find((dataset) => dataset.name === NAME)).toEqual(
       expect.objectContaining({ installed: false, version: null, created_at: null }),

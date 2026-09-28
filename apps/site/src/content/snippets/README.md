@@ -32,7 +32,8 @@ The two SDK tabs (`languages/sdk-node.ts`, `languages/sdk-python.ts`) cannot be 
 method names are not in the OpenAPI document. They hold a map from the endpoint's slug — its
 anchor on the reference page and its `?endpoint=` in the playground, `get-words-word`,
 `post-words-batch` — to the snippet. An endpoint without an entry shows no SDK tab; adding one is
-adding an entry. The method names are in `packages/npm-sdk/README.md` and
+adding an entry. The sample values of the path come from `pathArguments(request, template)` of
+`request.ts`, so the snippet passes what the generated ones put into the URL. The method names are in `packages/npm-sdk/README.md` and
 `packages/python-sdk/README.md`.
 
 ## Where the rest lives

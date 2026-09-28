@@ -155,7 +155,7 @@ const EDITORIAL_FIELDS = new Set(['generated', 'generated_by_model', 'version'])
  * One edit as a reader is shown it (issue #531): no ids — they differ
  * between instances — and nothing of the editorial state
  */
-export const toPublicChange = (row: EnChange): PublicChangeV1T => ({
+export const toPublicChange = (row: EnChange, source?: string): PublicChangeV1T => ({
   created_at: new Date(row.created_at).toISOString(),
   word: row.headword,
   part_of_speech: row.part_of_speech,
@@ -165,5 +165,6 @@ export const toPublicChange = (row: EnChange): PublicChangeV1T => ({
   diff: Object.fromEntries(Object.entries(row.diff).filter(([field]) => !EDITORIAL_FIELDS.has(field))),
   origin: row.origin,
   author: row.author,
-  source: getActiveDatasetSource(),
+  // the dataset the edit was read from; the active one when none is named
+  source: source ?? getActiveDatasetSource(),
 });

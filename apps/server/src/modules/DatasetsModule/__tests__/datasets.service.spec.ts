@@ -144,6 +144,49 @@ describe('DatasetsService on SQLite', () => {
     expect(heard).toEqual(['2.0.0']);
   });
 
+  it('reads the active dataset through the connection of the application, and has no other to read', async () => {
+    const [active] = await service.installed();
+    await expect(service.reader(active)).resolves.toBe(dataSource);
+
+    const other = Object.assign(new Dataset(), active, { name: 'wiktionary', schema: 'ds_wiktionary' });
+    await expect(service.reader(other)).rejects.toThrow(ErrorCodes.datasets_not_supported);
+    // nothing was opened, nothing is closed
+    await expect(service.onModuleDestroy()).resolves.toBeUndefined();
+  });
+
+  it('knows when its datasets last changed as a set: installed, activated or deleted', async () => {
+    const [registered] = await service.installed();
+    const installedAt = new Date(registered.createdAt).getTime();
+    expect((await service.changedAt())?.getTime()).toBe(installedAt);
+
+    const activatedAt = new Date(installedAt + 60_000);
+    await dataSource.getRepository(Dataset).update({ id: registered.id }, { activated_at: activatedAt });
+    expect(await service.changedAt()).toEqual(activatedAt);
+
+    // a deleted dataset leaves no row: the settings keep when it went
+    const removedAt = new Date(installedAt + 120_000);
+    await dataSource
+      .getRepository(Settings)
+      .save({ field: 'dataset_removed_at', value: removedAt.toISOString() });
+    expect(await service.changedAt()).toEqual(removedAt);
+
+    // a value that is no instant is not one
+    await dataSource.getRepository(Settings).save({ field: 'dataset_removed_at', value: 'yesterday' });
+    expect(await service.changedAt()).toEqual(activatedAt);
+  });
+
+  it('tells the listeners of the registry when an import filled a dataset', async () => {
+    let told = 0;
+    service.onRegistryChanged(() => {
+      told += 1;
+    });
+    service.onRegistryChanged(() => {
+      throw new Error('a listener that fails does not stop the others');
+    });
+    await service.recordImport('default', { version: '2.0.0' });
+    expect(told).toBe(1);
+  });
+
   it('answers 404 for a dataset that is not installed', async () => {
     await expect(service.find('nope')).rejects.toThrow(ErrorCodes.dataset_not_found);
     await expect(service.find('wiktionary')).rejects.toThrow(ErrorCodes.dataset_not_found);

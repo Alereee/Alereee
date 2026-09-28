@@ -156,6 +156,8 @@ export default {
       'Die Lizenz verlangt Weitergabe unter gleichen Bedingungen: Was auf den Daten aufbaut, bleibt unter derselben Lizenz.',
     use_notice:
       'Bewahren Sie die Hinweise der Quelle, die unten vollständig stehen, bei jeder Kopie der Daten auf.',
+    use_other_datasets:
+      'Die Bedingungen oben gelten für den Datensatz, den diese Website ausliefert. {method} liest ein Wort aus jedem Datensatz der Instanz, eine Gruppe je Datensatz: Für die Einträge einer Gruppe gelten die Bedingungen, die diese Gruppe nennt.',
     use_more: 'Die Bedingungen im Einzelnen',
     own_license: 'Warum diese Lizenz, und was sie erlaubt',
     full_text: 'Die Hinweise der Quelle im vollen Wortlaut',

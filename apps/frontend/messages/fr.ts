@@ -246,6 +246,8 @@ export default {
   datasets: {
     intro:
       'Les jeux de données de dictionnaire que cette instance peut contenir. Chacun a ses propres entrées et la licence de sa source ; un seul est actif — celui que servent l’API et le site. Les jeux de données ne sont jamais mélangés.',
+    public_note:
+      'Un jeu de données installé est public, qu’il soit actif ou non : {method} répond par une entrée de chaque jeu de données de l’instance, chacun sous sa propre licence, avec l’historique de ses modifications. Installez un jeu de données lorsque ses données peuvent être lues.',
     not_supported:
       'Cette instance fonctionne avec SQLite, qui n’a pas de schémas : elle ne contient que le jeu de données par défaut. Installer, activer et supprimer des jeux de données nécessite une base Postgres.',
     status_active: 'actif',
@@ -745,6 +747,12 @@ export default {
     endpoint_word_history: 'Historique d’une entrée',
     desc_word_history:
       'Ce qui a été modifié ou ajouté sur l’instance dans les articles de l’entrée : les modifications encore visibles dans ce qui est servi, de la plus récente à la plus ancienne, avec les valeurs avant et après pour chaque champ. Ces articles portent modified: true. Une entrée servie telle que dans sa source répond par une liste vide.',
+    endpoint_word_datasets: 'Entrée dans tous les jeux de données',
+    desc_word_datasets:
+      'L’entrée telle que chaque jeu de données de l’instance la contient, un groupe par jeu et jamais fusionnés : les conditions du jeu (license, attribution, license_text) et ses articles. La graphie est résolue à l’intérieur de chaque jeu, chaque groupe a donc ses propres word et variants ; un jeu sans cette entrée répond par un entries vide, et la réponse est 404 lorsqu’aucun jeu ne la contient. Les articles pris dans plusieurs groupes sont soumis aux conditions de chacun.',
+    endpoint_word_dataset_history: 'Historique d’une entrée dans un jeu de données',
+    desc_word_dataset_history:
+      'Ce qui a été modifié ou ajouté sur l’instance dans les articles de l’entrée au sein du jeu de données nommé : la réponse de l’historique d’une entrée, lue dans ce jeu. 404 pour un jeu que l’instance ne contient pas.',
     endpoint_word_by_id: 'Entrée par id',
     endpoint_words: 'Liste filtrée',
     endpoint_random: 'Entrée aléatoire',
@@ -780,6 +788,8 @@ export default {
       "Id d'une entrée du mot-vedette, quand le signalement concerne une catégorie grammaticale précise",
     param_desc_word:
       'Graphie du mot-vedette, sans tenir compte de la casse ; les espaces sont permis pour les expressions',
+    param_desc_dataset:
+      'Nom d’un jeu de données de l’instance, tel que dataset d’un groupe l’indique : default, wiktionary, wordnet, wordnet_princeton',
     param_desc_words:
       "Graphies de mots-vedettes, de 1 à 50, séparées par des virgules ; chacune comparée comme dans la consultation d'entrée",
     param_desc_id: "Id numérique de l'entrée",

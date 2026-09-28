@@ -59,27 +59,29 @@ async with AsyncVocabBloomClient("https://dict.example.com") as client:
 
 ## API
 
-| Method                                      | Endpoint                                | Answer                                                                                                         |
-| ------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `search(search, *, type, limit)`            | `GET /search`                           | `SearchResponse`                                                                                               |
-| `search_detailed(search, *, ...)`           | `GET /search/detailed`                  | `DetailedSearchResponse`                                                                                       |
-| `word(headword)`                            | `GET /words/{word}`                     | `HeadwordResponse`                                                                                             |
-| `words_batch(words)`                        | `POST /words/batch`                     | `WordsBatchResponse` — up to 50 headwords, one rate-limit unit; misses under `meta.not_found`                  |
-| `word_by_id(id)`                            | `GET /words/id/{id}`                    | `WordResponse`                                                                                                 |
-| `meanings(headword)`                        | `GET /words/{word}/meanings`            | `MeaningsResponse`                                                                                             |
-| `translations(headword, *, language)`       | `GET /words/{word}/translations`        | `TranslationsResponse`                                                                                         |
-| `forms(headword)`                           | `GET /words/{word}/forms`               | `FormsResponse`                                                                                                |
-| `synonyms(headword)`                        | `GET /words/{word}/synonyms`            | `LinksResponse` — the linked headwords per meaning                                                             |
-| `antonyms(headword)`                        | `GET /words/{word}/antonyms`            | `LinksResponse`                                                                                                |
-| `history(headword)`                         | `GET /words/{word}/history`             | `HistoryResponse` — what was changed on the instance, with the values before and after                         |
-| `words(**filters, cursor, limit, with_...)` | `GET /words`                            | `WordsResponse` (one page)                                                                                     |
-| `iter_words(**filters, ...)`                | `GET /words`, following the cursor      | `Iterator[Word]`                                                                                               |
-| `iter_search_detailed(search, *, ...)`      | `GET /search/detailed`, page after page | `Iterator[Word]` — stops at the server's page cap (`DETAILED_SEARCH_MAX_PAGE`, 20)                             |
-| `random(**filters)`                         | `GET /random`                           | `WordResponse`                                                                                                 |
-| `meta()`                                    | `GET /meta`                             | `MetaResponse`                                                                                                 |
-| `openapi()`                                 | `GET /openapi.json`                     | `dict` — the OpenAPI document                                                                                  |
-| `suggest(headword, ...)`                    | `POST /suggestions`                     | `SuggestionCreatedResponse` — files a reader report (or an edit proposal) into the instance's moderation queue |
-| `words_dataframe(**filters, ...)`           | `GET /words`, every page                | `pandas.DataFrame` (sync and async clients)                                                                    |
+| Method                                      | Endpoint                                       | Answer                                                                                                         |
+| ------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `search(search, *, type, limit)`            | `GET /search`                                  | `SearchResponse`                                                                                               |
+| `search_detailed(search, *, ...)`           | `GET /search/detailed`                         | `DetailedSearchResponse`                                                                                       |
+| `word(headword)`                            | `GET /words/{word}`                            | `HeadwordResponse`                                                                                             |
+| `words_batch(words)`                        | `POST /words/batch`                            | `WordsBatchResponse` — up to 50 headwords, one rate-limit unit; misses under `meta.not_found`                  |
+| `word_by_id(id)`                            | `GET /words/id/{id}`                           | `WordResponse`                                                                                                 |
+| `meanings(headword)`                        | `GET /words/{word}/meanings`                   | `MeaningsResponse`                                                                                             |
+| `translations(headword, *, language)`       | `GET /words/{word}/translations`               | `TranslationsResponse`                                                                                         |
+| `forms(headword)`                           | `GET /words/{word}/forms`                      | `FormsResponse`                                                                                                |
+| `synonyms(headword)`                        | `GET /words/{word}/synonyms`                   | `LinksResponse` — the linked headwords per meaning                                                             |
+| `antonyms(headword)`                        | `GET /words/{word}/antonyms`                   | `LinksResponse`                                                                                                |
+| `history(headword)`                         | `GET /words/{word}/history`                    | `HistoryResponse` — what was changed on the instance, with the values before and after                         |
+| `word_datasets(headword)`                   | `GET /words/{word}/datasets`                   | `WordDatasetsResponse` — the headword in every dataset of the instance, a group per dataset with its terms     |
+| `dataset_history(headword, dataset)`        | `GET /words/{word}/datasets/{dataset}/history` | `HistoryResponse` — the edits of the headword in one dataset                                                   |
+| `words(**filters, cursor, limit, with_...)` | `GET /words`                                   | `WordsResponse` (one page)                                                                                     |
+| `iter_words(**filters, ...)`                | `GET /words`, following the cursor             | `Iterator[Word]`                                                                                               |
+| `iter_search_detailed(search, *, ...)`      | `GET /search/detailed`, page after page        | `Iterator[Word]` — stops at the server's page cap (`DETAILED_SEARCH_MAX_PAGE`, 20)                             |
+| `random(**filters)`                         | `GET /random`                                  | `WordResponse`                                                                                                 |
+| `meta()`                                    | `GET /meta`                                    | `MetaResponse`                                                                                                 |
+| `openapi()`                                 | `GET /openapi.json`                            | `dict` — the OpenAPI document                                                                                  |
+| `suggest(headword, ...)`                    | `POST /suggestions`                            | `SuggestionCreatedResponse` — files a reader report (or an edit proposal) into the instance's moderation queue |
+| `words_dataframe(**filters, ...)`           | `GET /words`, every page                       | `pandas.DataFrame` (sync and async clients)                                                                    |
 
 Every response is the `{ data, meta }` envelope the API answers with, as a pydantic model. Filters (`part_of_speech`, `word_level`, `language_register`, `category`, `area_variant`, `form_of_word`) take lists of strings or of the exported enums (`PartOfSpeech`, `WordLevel`, ...); values of one filter are OR-ed, different filters are AND-ed. The contract itself — tiers, filters, cursor pagination, caching — is documented in the server's [`docs/api.md`](https://github.com/Fristail27/vocab-bloom-hub/blob/main/docs/api.md).
 
@@ -152,5 +154,7 @@ MIT for the client. The dictionary data comes under the license of the dataset t
 serves — CC BY 4.0 for the project's own, the license of the source for another: read `license`,
 `attribution` and `license_text` from `meta()` and show them with the data. An entry the owner of
 the instance changed carries `modified: true`, and `client.history(headword)` says what was changed: say next
-to such an entry that it was changed. What the licenses ask for:
+to such an entry that it was changed. `word_datasets(headword)` answers from every dataset of the
+instance: each group carries the terms of its own dataset, and entries taken from several groups
+are bound by each of them. What the licenses ask for:
 [DATA_LICENSE.md](https://github.com/Fristail27/vocab-bloom-hub/blob/main/DATA_LICENSE.md#using-data-that-was-changed-on-an-instance).

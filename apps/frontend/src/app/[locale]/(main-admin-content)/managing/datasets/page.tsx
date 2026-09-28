@@ -27,6 +27,10 @@ export default async function DatasetsPage({ params }: CommonPageP) {
       <Title level={2}>{manageT('datasets')}</Title>
       <Breadcrumb items={breadCrumbs} />
       <p className={styles.intro}>{datasetsT('intro')}</p>
+      {/* an installed dataset is public before it is activated (issue #528) */}
+      <p className={styles.intro} data-testid="datasets-public-note">
+        {datasetsT('public_note', { method: 'GET /api/v1/words/{word}/datasets' })}
+      </p>
       <DatasetsSection initial={'error' in list ? undefined : list} />
     </div>
   );

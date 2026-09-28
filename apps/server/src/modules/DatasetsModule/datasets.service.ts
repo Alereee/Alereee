@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleDestroy,
   OnModuleInit,
   Optional,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { checkIsPostgres } from '../../../configuration';
 import {
   ACTIVE_DATASET_SETTINGS_FIELD,
+  DATASET_REMOVED_AT_SETTINGS_FIELD,
   DEFAULT_DATASET_NAME,
   DEFAULT_DATASET_SCHEMA,
   datasetSchemaOf,
@@ -26,6 +28,7 @@ import {
 import { ErrorCodes } from '../../../core/constants/error_codes';
 import { AuditActionE, AuditEntityTypeE, DatasetProvenanceT, DatasetT, DatasetsListT } from '../../../types';
 import { setActiveDataset } from '../../core/utils/active-dataset';
+import { getDbPoolConfig } from '../../core/utils/db-pool';
 import { createDatasetSchema, dropDatasetSchema, searchPathExtra } from '../../db/datasets';
 import { DB_ENTITIES } from '../../db/typeorm-options';
 import { AuditService } from '../AuditModule/audit.service';
@@ -57,12 +60,18 @@ export const OWN_DATASET_PROVENANCE: DatasetProvenanceT = registryTerms(
 );
 
 type ActiveListenerT = (dataset: Dataset) => void;
+type RegistryListenerT = () => void;
 
 /** A way into a dataset's tables: the application's own connection for the active one, one of its own otherwise */
 export type DatasetConnectionT = { dataset: Dataset; manager: EntityManager; close: () => Promise<void> };
 
 // an import is one writer: a few connections are plenty
 const SIDE_CONNECTION_POOL = 4;
+
+// the public reads of a dataset that is not the served one (issue #528) are
+// rare next to the reads of the served one: a small pool, whose idle
+// connections are closed like the ones of the application's pool
+export const READ_CONNECTION_POOL = 4;
 
 /**
  * The datasets of the instance and the active one (issue #527). What an
@@ -74,7 +83,7 @@ const SIDE_CONNECTION_POOL = 4;
  * default dataset and nothing to switch.
  */
 @Injectable()
-export class DatasetsService implements OnModuleInit {
+export class DatasetsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DatasetsService.name);
 
   /** Whether the driver has schemas: creating, activating and deleting datasets */
@@ -101,6 +110,10 @@ export class DatasetsService implements OnModuleInit {
     setActiveDataset(dataset);
   }
   private readonly listeners: ActiveListenerT[] = [];
+  private readonly registryListeners: RegistryListenerT[] = [];
+
+  // the connections the datasets that are not served are read through, by the name of the dataset
+  private readonly readers = new Map<string, Promise<DataSource>>();
 
   constructor(
     @InjectRepository(Dataset) private readonly datasetsRep: Repository<Dataset>,
@@ -155,14 +168,18 @@ export class DatasetsService implements OnModuleInit {
     }
   }
 
-  /** The connection must be on the active dataset: a pooler that drops startup options leaves it on `public` */
-  private async assertOnSchema(schema: string): Promise<void> {
-    const [{ current }] = (await this.dataSource.query('SELECT current_schema() AS "current"')) as Array<{
+  /**
+   * A connection must be on the schema of its dataset: a pooler that drops
+   * startup options leaves it on `public`, and the data of one dataset
+   * would be served under the terms of another
+   */
+  private async assertOnSchema(schema: string, dataSource: DataSource = this.dataSource): Promise<void> {
+    const [{ current }] = (await dataSource.query('SELECT current_schema() AS "current"')) as Array<{
       current: string;
     }>;
     if (current !== schema) {
       throw new Error(
-        `The database connection is on schema "${current}", the active dataset lives in "${schema}": ` +
+        `The database connection is on schema "${current}", the dataset lives in "${schema}": ` +
           'the search_path startup option did not reach Postgres (a connection pooler in between?)',
       );
     }
@@ -183,6 +200,27 @@ export class DatasetsService implements OnModuleInit {
         );
       }
     }
+  }
+
+  /** Called when the datasets of the instance changed: one installed, filled by an import, activated or deleted */
+  onRegistryChanged(listener: RegistryListenerT): void {
+    this.registryListeners.push(listener);
+  }
+
+  private notifyRegistry(): void {
+    for (const listener of this.registryListeners) {
+      try {
+        listener();
+      } catch (error) {
+        this.logger.warn(
+          `A dataset listener failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await Promise.all([...this.readers.keys()].map((name) => this.closeReader(name)));
   }
 
   getActive(): Dataset {
@@ -247,6 +285,25 @@ export class DatasetsService implements OnModuleInit {
     return this.datasetsRep.find({ order: { id: 'ASC' } });
   }
 
+  /**
+   * When the datasets of the instance last changed as a set: one was
+   * installed, activated or deleted. Null on an instance where none of it
+   * ever happened.
+   */
+  async changedAt(): Promise<Date | null> {
+    const [installed, removed] = await Promise.all([
+      this.installed(),
+      this.settingsRep.findOne({ where: { field: DATASET_REMOVED_AT_SETTINGS_FIELD } }),
+    ]);
+    const instants = installed.flatMap((dataset) => [dataset.createdAt, dataset.activated_at]);
+    if (removed) instants.push(new Date(removed.value));
+    return instants.reduce<Date | null>((newest, instant) => {
+      const date = instant ? new Date(instant) : null;
+      if (!date || Number.isNaN(date.getTime())) return newest;
+      return !newest || date > newest ? date : newest;
+    }, null);
+  }
+
   async find(name: string): Promise<Dataset> {
     const dataset = await this.datasetsRep.findOne({ where: { name } });
     if (!dataset) throw new NotFoundException(ErrorCodes.dataset_not_found);
@@ -298,6 +355,7 @@ export class DatasetsService implements OnModuleInit {
         }),
       );
       this.logger.log(`Dataset "${dataset.name}" created in schema "${schema}"`);
+      this.notifyRegistry();
       await this.auditService?.record({
         action: AuditActionE.create,
         entityType: AuditEntityTypeE.dataset,
@@ -322,6 +380,7 @@ export class DatasetsService implements OnModuleInit {
       this.active = saved;
       this.notify();
     }
+    this.notifyRegistry();
   }
 
   /**
@@ -363,6 +422,70 @@ export class DatasetsService implements OnModuleInit {
         if (side.isInitialized) await side.destroy();
       },
     };
+  }
+
+  /**
+   * The connection a dataset is read through (issue #528): the
+   * application's own for the active one, otherwise a connection on that
+   * dataset's schema that is opened by the first read and kept — a public
+   * request cannot pay for a pool of its own, as an import does with
+   * `connect()`. Closed when the dataset is deleted or becomes the active
+   * one, and when the server stops.
+   */
+  async reader(dataset: Dataset): Promise<DataSource> {
+    if (dataset.name === this.active.name) return this.dataSource;
+    this.requireSupported();
+    const kept = this.readers.get(dataset.name);
+    if (kept) return kept;
+    const opened = this.openReader(dataset);
+    this.readers.set(dataset.name, opened);
+    // a connection that could not be opened is tried again by the next read
+    opened.catch(() => {
+      if (this.readers.get(dataset.name) === opened) this.readers.delete(dataset.name);
+    });
+    return opened;
+  }
+
+  private async openReader(dataset: Dataset): Promise<DataSource> {
+    const reader = new DataSource({
+      type: 'postgres',
+      url: process.env.DATABASE_URL as string,
+      entities: DB_ENTITIES,
+      synchronize: false,
+      migrationsRun: false,
+      extra: {
+        max: READ_CONNECTION_POOL,
+        idleTimeoutMillis: getDbPoolConfig().idleTimeoutSeconds * 1000,
+        ...searchPathExtra(dataset.schema),
+      },
+    });
+    await reader.initialize();
+    try {
+      await this.assertOnSchema(dataset.schema, reader);
+    } catch (error) {
+      await reader.destroy();
+      this.logger.error(
+        `Dataset "${dataset.name}" cannot be read: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+    return reader;
+  }
+
+  private async closeReader(name: string): Promise<void> {
+    const kept = this.readers.get(name);
+    if (!kept) return;
+    this.readers.delete(name);
+    try {
+      const reader = await kept;
+      if (reader.isInitialized) await reader.destroy();
+    } catch (error) {
+      this.logger.warn(
+        `The read connection of dataset "${name}" was not closed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   /** Re-opens the application's connection on a schema; the DataSource object and its repositories stay */
@@ -415,6 +538,9 @@ export class DatasetsService implements OnModuleInit {
         }
         this.notify();
       });
+      // the dataset is read through the application's connection from now on
+      await this.closeReader(dataset.name);
+      this.notifyRegistry();
       if (abandoned) {
         this.logger.warn(
           `${abandoned} request(s) were still running when the dataset was switched and may have failed`,
@@ -440,6 +566,13 @@ export class DatasetsService implements OnModuleInit {
       if (dataset.name === this.active.name) throw new ConflictException(ErrorCodes.dataset_is_active);
       await dropDatasetSchema(dataset.schema);
       await this.datasetsRep.delete({ id: dataset.id });
+      // no read finds the dataset in the registry any more: its connection is not opened again
+      await this.closeReader(dataset.name);
+      await this.settingsRep.save({
+        field: DATASET_REMOVED_AT_SETTINGS_FIELD,
+        value: new Date().toISOString(),
+      });
+      this.notifyRegistry();
       this.logger.log(`Dataset "${dataset.name}" deleted with its schema "${dataset.schema}"`);
       await this.auditService?.record({
         action: AuditActionE.delete,

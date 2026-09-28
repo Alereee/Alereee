@@ -22,6 +22,10 @@ test.describe('datasets', () => {
     await page.goto('/en/managing/datasets');
 
     await expect(page.getByTestId('datasets-unsupported')).toContainText('needs a Postgres database');
+    // an installed dataset is read by the public API before it is activated (issue #528)
+    await expect(page.getByTestId('datasets-public-note')).toContainText(
+      'An installed dataset is public, active or not: GET /api/v1/words/{word}/datasets',
+    );
 
     const own = page.getByTestId('dataset-default');
     await expect(own).toContainText('Vocab Bloom Hub English dataset');

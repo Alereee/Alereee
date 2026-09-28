@@ -8,6 +8,7 @@ import {
   LanguageRegisterE,
   WordLevelE,
 } from 'server/types';
+import { DATASET_CATALOG } from 'server/core/constants/dataset_catalog';
 
 // Endpoints open to any consumer of the dictionary; the auth routes are admin
 // panel plumbing and stay out of the public documentation
@@ -22,6 +23,8 @@ export enum ApiEndpointKeyE {
   word_synonyms = 'word_synonyms',
   word_antonyms = 'word_antonyms',
   word_history = 'word_history',
+  word_datasets = 'word_datasets',
+  word_dataset_history = 'word_dataset_history',
   word_by_id = 'word_by_id',
   words = 'words',
   random = 'random',
@@ -93,6 +96,16 @@ const HEADWORD_PARAM: ApiParamDocT = {
   control: ParamControlE.text,
   required: true,
   inPath: true,
+};
+
+// the datasets an instance can hold are a closed catalog
+const DATASET_PARAM: ApiParamDocT = {
+  name: 'dataset',
+  type: 'string',
+  control: ParamControlE.enum,
+  required: true,
+  inPath: true,
+  options: DATASET_CATALOG.map((entry) => entry.name),
 };
 
 const multiEnum = (name: string, type: string, values: Record<string, string>): ApiParamDocT => ({
@@ -284,6 +297,24 @@ export const DOCUMENTED_ENDPOINTS: ApiEndpointDocT[] = [
     clientPath: '/v1/words/{word}/history',
     responseType: 'PublicHeadwordHistoryV1ResT',
     params: [HEADWORD_PARAM],
+  },
+  {
+    key: ApiEndpointKeyE.word_datasets,
+    slug: 'word-datasets',
+    method: 'GET',
+    path: '/api/v1/words/{word}/datasets',
+    clientPath: '/v1/words/{word}/datasets',
+    responseType: 'PublicWordDatasetsV1ResT',
+    params: [HEADWORD_PARAM],
+  },
+  {
+    key: ApiEndpointKeyE.word_dataset_history,
+    slug: 'word-dataset-history',
+    method: 'GET',
+    path: '/api/v1/words/{word}/datasets/{dataset}/history',
+    clientPath: '/v1/words/{word}/datasets/{dataset}/history',
+    responseType: 'PublicHeadwordHistoryV1ResT',
+    params: [HEADWORD_PARAM, DATASET_PARAM],
   },
   {
     key: ApiEndpointKeyE.word_by_id,

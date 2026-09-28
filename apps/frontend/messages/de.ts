@@ -246,6 +246,8 @@ export default {
   datasets: {
     intro:
       'Die Wörterbuch-Datensätze, die diese Instanz halten kann. Jeder hat seine eigenen Einträge und steht unter der Lizenz seiner Quelle; genau einer ist aktiv – ihn liefern die API und die Website aus. Datensätze werden nie gemischt.',
+    public_note:
+      'Ein installierter Datensatz ist öffentlich, ob aktiv oder nicht: {method} liefert ein Stichwort aus jedem Datensatz der Instanz, jeweils unter dessen eigener Lizenz, samt dem Verlauf seiner Änderungen. Installieren Sie einen Datensatz, wenn seine Daten gelesen werden dürfen.',
     not_supported:
       'Diese Instanz läuft auf SQLite, das keine Schemas kennt: Sie enthält nur den Standarddatensatz. Zum Installieren, Aktivieren und Löschen von Datensätzen ist eine Postgres-Datenbank nötig.',
     status_active: 'aktiv',
@@ -742,6 +744,12 @@ export default {
     endpoint_word_history: 'Änderungsverlauf eines Stichworts',
     desc_word_history:
       'Was auf der Instanz in den Einträgen des Stichworts geändert oder hinzugefügt wurde: die Änderungen, die im Ausgelieferten noch sichtbar sind, die neuesten zuerst, mit den Werten davor und danach je Feld. Solche Einträge tragen modified: true. Ein Stichwort, das wie in seiner Quelle ausgeliefert wird, antwortet mit einer leeren Liste.',
+    endpoint_word_datasets: 'Stichwort in allen Datensätzen',
+    desc_word_datasets:
+      'Das Stichwort, wie es jeder Datensatz der Instanz führt, eine Gruppe je Datensatz und nie vermischt: die Bedingungen des Datensatzes (license, attribution, license_text) und seine Einträge. Die Schreibweise wird innerhalb jedes Datensatzes aufgelöst, daher hat jede Gruppe ihr eigenes word und variants; ein Datensatz ohne das Stichwort antwortet mit leerem entries, und 404 kommt, wenn kein Datensatz es führt. Für Einträge aus mehreren Gruppen gelten die Bedingungen jeder einzelnen.',
+    endpoint_word_dataset_history: 'Änderungsverlauf eines Stichworts in einem Datensatz',
+    desc_word_dataset_history:
+      'Was auf der Instanz in den Einträgen des Stichworts im genannten Datensatz geändert oder hinzugefügt wurde: die Antwort des Änderungsverlaufs eines Stichworts, aus diesem Datensatz gelesen. 404 für einen Datensatz, den die Instanz nicht hält.',
     endpoint_word_by_id: 'Eintrag nach ID',
     endpoint_words: 'Gefilterte Liste',
     endpoint_random: 'Zufälliger Eintrag',
@@ -776,6 +784,8 @@ export default {
     param_desc_word_id: 'ID eines Eintrags des Stichworts, wenn die Meldung eine bestimmte Wortart betrifft',
     param_desc_word:
       'Schreibweise des Stichworts, ohne Groß-/Kleinschreibung; Leerzeichen sind für Phrasen erlaubt',
+    param_desc_dataset:
+      'Name eines Datensatzes der Instanz, wie ihn dataset einer Gruppe nennt: default, wiktionary, wordnet, wordnet_princeton',
     param_desc_words:
       'Schreibweisen von Stichwörtern, 1 bis 50, kommagetrennt; jede wie beim Nachschlagen abgeglichen',
     param_desc_id: 'Numerische ID des Eintrags',

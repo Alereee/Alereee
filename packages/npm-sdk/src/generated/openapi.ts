@@ -64,6 +64,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/words/{word}/datasets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * A headword as every dataset of the instance has it, grouped by dataset
+     * @description One group per dataset, never merged: the terms of the dataset (`license`, `attribution`, `license_text`, …) and the entries `GET /words/{word}` would answer if that dataset were the served one. The spelling is matched inside each dataset, so a group has its own `word` and `variants`; a dataset without the headword answers an empty `entries`, and the request fails with 404 when no dataset holds it. Entries taken from several groups are bound by the terms of each. One request against the rate limit.
+     */
+    get: operations['PublicWordDatasetsController_byHeadword'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/words/{word}/datasets/{dataset}/history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * What was changed or added on the instance in the entries of a headword, in one dataset
+     * @description The answer of `GET /words/{word}/history` for a dataset named by its `dataset`: the edits behind `modified: true` of the entries of that group. 404 for a dataset the instance does not hold.
+     */
+    get: operations['PublicWordDatasetsController_history'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/words': {
     parameters: {
       query?: never;
@@ -98,23 +138,6 @@ export interface paths {
      * @description Every spelling is matched like `GET /words/{word}`; the answer keeps the request order, collapses duplicates, and lists the spellings without an entry under `meta.not_found` instead of failing. One request against the rate limit, whatever the size of the batch.
      */
     post: operations['PublicWordsController_batch'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/words/id/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** One dictionary entry by its numeric id */
-    get: operations['PublicWordsController_byId'];
-    put?: never;
-    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -241,6 +264,23 @@ export interface paths {
     };
     /** The inflected forms of a headword across its entries */
     get: operations['PublicWordsController_forms'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/words/id/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** One dictionary entry by its numeric id */
+    get: operations['PublicWordsController_byId'];
     put?: never;
     post?: never;
     delete?: never;
@@ -663,6 +703,31 @@ export interface components {
       data: components['schemas']['PublicChangeV1T'][];
       meta: components['schemas']['PublicHeadwordHistoryV1MetaT'];
     };
+    PublicWordDatasetV1T: {
+      word: string;
+      variants: string[];
+      count: number;
+      entries: components['schemas']['PublicWordV1T'][];
+      dataset: string;
+      active: boolean;
+      source: string;
+      dataset_version: string | null;
+      license: string;
+      license_url: string;
+      attribution: string;
+      attribution_url: string | null;
+      notice: string;
+      license_text: string;
+    };
+    PublicWordDatasetsV1MetaT: {
+      word: string;
+      datasets: number;
+      found: number;
+    };
+    PublicWordDatasetsV1ResT: {
+      data: components['schemas']['PublicWordDatasetV1T'][];
+      meta: components['schemas']['PublicWordDatasetsV1MetaT'];
+    };
     PublicHeadwordTranslationsV1T: {
       short_translations: components['schemas']['PublicShortTranslationV1T'][];
       meaning_translations: components['schemas']['PublicMeaningTranslationV1T'][];
@@ -902,6 +967,108 @@ export interface operations {
       };
     };
   };
+  PublicWordDatasetsController_byHeadword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Headword spelling, case-insensitive (spaces URL-encoded for phrases). An inflected form resolves to its base entry */
+        word: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicWordDatasetsV1ResT'];
+        };
+      };
+      /** @description Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+      /** @description Nothing matches */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+      /** @description Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+    };
+  };
+  PublicWordDatasetsController_history: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Headword spelling, case-insensitive (spaces URL-encoded for phrases). An inflected form resolves to its base entry */
+        word: string;
+        /** @description The name of a dataset of the instance, as `dataset` of a group of `GET /words/{word}/datasets` says it */
+        dataset: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicHeadwordHistoryV1ResT'];
+        };
+      };
+      /** @description Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+      /** @description Nothing matches */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+      /** @description Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+    };
+  };
   PublicWordsController_list: {
     parameters: {
       query?: {
@@ -1029,55 +1196,6 @@ export interface operations {
       };
       /** @description Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor */
       400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PublicApiErrorT'];
-        };
-      };
-      /** @description Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PublicApiErrorT'];
-        };
-      };
-    };
-  };
-  PublicWordsController_byId: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PublicWordV1ResT'];
-        };
-      };
-      /** @description Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PublicApiErrorT'];
-        };
-      };
-      /** @description Nothing matches */
-      404: {
         headers: {
           [name: string]: unknown;
         };
@@ -1418,6 +1536,55 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PublicHeadwordFormsV1ResT'];
+        };
+      };
+      /** @description Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+      /** @description Nothing matches */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+      /** @description Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+    };
+  };
+  PublicWordsController_byId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicWordV1ResT'];
         };
       };
       /** @description Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor */

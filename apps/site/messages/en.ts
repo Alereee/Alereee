@@ -152,6 +152,8 @@ export default {
     use_same_license: 'A changed entry comes under the same license as the rest of the data.',
     use_share_alike: 'The license is share-alike: what is built on the data stays under the same license.',
     use_notice: 'Keep the notices of the source, printed below in full, with every copy of the data.',
+    use_other_datasets:
+      'The terms above are the ones of the dataset this site serves. {method} reads a word from every dataset of the instance, a group per dataset: the entries of a group come under the terms that group states.',
     use_more: 'The terms in detail',
     own_license: 'Why this license, and what it allows',
     full_text: 'The notices of the source, in full',

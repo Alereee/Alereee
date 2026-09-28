@@ -46,4 +46,33 @@ test.describe('API reference', () => {
     await page.locator('a[href="#schema-PublicWordV1T"]').first().click();
     await expect(page.locator('[id="schema-PublicWordV1T"]')).toBeVisible();
   });
+
+  // issue #528: the reads of every dataset sit with the headword reads, their answer has a schema
+  test('lists the read of every dataset with the terms a group carries', async ({ page }) => {
+    await page.goto('/en/api#get-words-word-datasets');
+
+    const operation = page.locator('section#get-words-word-datasets');
+    await expect(operation).toBeVisible();
+    await expect(operation).toContainText('/api/v1/words/{word}/datasets');
+    await expect(operation.locator('pre[data-language="curl"]')).toContainText('/api/v1/words/run/datasets');
+
+    const history = page.locator('section#get-words-word-datasets-dataset-history');
+    await expect(history.locator('pre[data-language="curl"]')).toContainText(
+      '/api/v1/words/run/datasets/default/history',
+    );
+    await expect(page.locator('#schema-PublicWordDatasetV1T')).toContainText('license_text');
+
+    // both clients have a method for each of the two reads, and the reference shows it
+    await operation.getByRole('tablist').getByRole('tab', { name: 'Node.js SDK' }).click();
+    await expect(operation.locator('pre[data-language="sdk-node"]')).toContainText(
+      "client.wordDatasets('run')",
+    );
+    await expect(history.locator('pre[data-language="sdk-node"]')).toContainText(
+      "client.datasetHistory('run', 'default')",
+    );
+    await history.getByRole('tablist').getByRole('tab', { name: 'Python SDK' }).click();
+    await expect(history.locator('pre[data-language="sdk-python"]')).toContainText(
+      'client.dataset_history("run", "default")',
+    );
+  });
 });

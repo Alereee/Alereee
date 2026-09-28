@@ -46,26 +46,28 @@ for await (const word of client.iterateWords({ word_level: ['A1', 'A2'], with_me
 
 ## API
 
-| Method                           | Endpoint                                | Answer                                                                                                         |
-| -------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `search(request)`                | `GET /search`                           | `SearchResponse`                                                                                               |
-| `searchDetailed(request)`        | `GET /search/detailed`                  | `DetailedSearchResponse`                                                                                       |
-| `word(headword)`                 | `GET /words/{word}`                     | `HeadwordResponse`                                                                                             |
-| `wordsBatch(words)`              | `POST /words/batch`                     | `WordsBatchResponse` — up to 50 headwords, one rate-limit unit; misses under `meta.not_found`                  |
-| `wordById(id)`                   | `GET /words/id/{id}`                    | `WordResponse`                                                                                                 |
-| `meanings(headword)`             | `GET /words/{word}/meanings`            | `MeaningsResponse`                                                                                             |
-| `translations(headword, query?)` | `GET /words/{word}/translations`        | `TranslationsResponse`                                                                                         |
-| `forms(headword)`                | `GET /words/{word}/forms`               | `FormsResponse`                                                                                                |
-| `synonyms(headword)`             | `GET /words/{word}/synonyms`            | `LinksResponse` — the linked headwords per meaning                                                             |
-| `antonyms(headword)`             | `GET /words/{word}/antonyms`            | `LinksResponse`                                                                                                |
-| `history(headword)`              | `GET /words/{word}/history`             | `HistoryResponse` — what was changed on the instance, with the values before and after                         |
-| `words(query?)`                  | `GET /words`                            | `WordsResponse` (one page)                                                                                     |
-| `iterateWords(query?)`           | `GET /words`, following the cursor      | `AsyncGenerator<Word>`                                                                                         |
-| `iterateSearchDetailed(request)` | `GET /search/detailed`, page after page | `AsyncGenerator<Word>` — stops at the server's page cap (`DETAILED_SEARCH_MAX_PAGE`, 20)                       |
-| `random(filters?)`               | `GET /random`                           | `WordResponse`                                                                                                 |
-| `meta()`                         | `GET /meta`                             | `MetaResponse`                                                                                                 |
-| `openapi()`                      | `GET /openapi.json`                     | the OpenAPI 3 document                                                                                         |
-| `suggest(request)`               | `POST /suggestions`                     | `SuggestionCreatedResponse` — files a reader report (or an edit proposal) into the instance's moderation queue |
+| Method                              | Endpoint                                       | Answer                                                                                                         |
+| ----------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `search(request)`                   | `GET /search`                                  | `SearchResponse`                                                                                               |
+| `searchDetailed(request)`           | `GET /search/detailed`                         | `DetailedSearchResponse`                                                                                       |
+| `word(headword)`                    | `GET /words/{word}`                            | `HeadwordResponse`                                                                                             |
+| `wordsBatch(words)`                 | `POST /words/batch`                            | `WordsBatchResponse` — up to 50 headwords, one rate-limit unit; misses under `meta.not_found`                  |
+| `wordById(id)`                      | `GET /words/id/{id}`                           | `WordResponse`                                                                                                 |
+| `meanings(headword)`                | `GET /words/{word}/meanings`                   | `MeaningsResponse`                                                                                             |
+| `translations(headword, query?)`    | `GET /words/{word}/translations`               | `TranslationsResponse`                                                                                         |
+| `forms(headword)`                   | `GET /words/{word}/forms`                      | `FormsResponse`                                                                                                |
+| `synonyms(headword)`                | `GET /words/{word}/synonyms`                   | `LinksResponse` — the linked headwords per meaning                                                             |
+| `antonyms(headword)`                | `GET /words/{word}/antonyms`                   | `LinksResponse`                                                                                                |
+| `history(headword)`                 | `GET /words/{word}/history`                    | `HistoryResponse` — what was changed on the instance, with the values before and after                         |
+| `wordDatasets(headword)`            | `GET /words/{word}/datasets`                   | `WordDatasetsResponse` — the headword in every dataset of the instance, a group per dataset with its terms     |
+| `datasetHistory(headword, dataset)` | `GET /words/{word}/datasets/{dataset}/history` | `HistoryResponse` — the edits of the headword in one dataset                                                   |
+| `words(query?)`                     | `GET /words`                                   | `WordsResponse` (one page)                                                                                     |
+| `iterateWords(query?)`              | `GET /words`, following the cursor             | `AsyncGenerator<Word>`                                                                                         |
+| `iterateSearchDetailed(request)`    | `GET /search/detailed`, page after page        | `AsyncGenerator<Word>` — stops at the server's page cap (`DETAILED_SEARCH_MAX_PAGE`, 20)                       |
+| `random(filters?)`                  | `GET /random`                                  | `WordResponse`                                                                                                 |
+| `meta()`                            | `GET /meta`                                    | `MetaResponse`                                                                                                 |
+| `openapi()`                         | `GET /openapi.json`                            | the OpenAPI 3 document                                                                                         |
+| `suggest(request)`                  | `POST /suggestions`                            | `SuggestionCreatedResponse` — files a reader report (or an edit proposal) into the instance's moderation queue |
 
 Every method resolves to the `{ data, meta }` envelope the API answers with and takes an optional last argument `{ signal, headers, timeoutMs }`. The request and response types (`Word`, `Meaning`, `SearchRequest`, `ListWordsQuery`, …) are exported — the request types of the `GET` reads are their query strings, so a `SearchRequest` is `{ search, type?, limit? }` — and so are the raw generated `paths` / `components` / `operations` for anything not aliased. The contract itself — tiers, filters, cursor pagination, caching — is documented in the server's [`docs/api.md`](https://github.com/Fristail27/vocab-bloom-hub/blob/main/docs/api.md).
 
@@ -129,5 +131,7 @@ MIT for the client. The dictionary data comes under the license of the dataset t
 serves — CC BY 4.0 for the project's own, the license of the source for another: read `license`,
 `attribution` and `license_text` from `meta()` and show them with the data. An entry the owner of
 the instance changed carries `modified: true`, and `client.history(headword)` says what was changed: say next
-to such an entry that it was changed. What the licenses ask for:
+to such an entry that it was changed. `wordDatasets(headword)` answers from every dataset of the
+instance: each group carries the terms of its own dataset, and entries taken from several groups
+are bound by each of them. What the licenses ask for:
 [DATA_LICENSE.md](https://github.com/Fristail27/vocab-bloom-hub/blob/main/DATA_LICENSE.md#using-data-that-was-changed-on-an-instance).

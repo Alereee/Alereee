@@ -77,6 +77,13 @@ describe('every language', () => {
       'sdk-node',
       'sdk-python',
     ]);
+    // the reads of every dataset have one in both SDKs (issue #528)
+    for (const slug of ['get-words-word-datasets', 'get-words-word-datasets-dataset-history']) {
+      expect(snippetsOf(bySlug(slug)).map((snippet) => snippet.id)).toEqual(
+        expect.arrayContaining(['sdk-node', 'sdk-python']),
+      );
+    }
+    expect(render('sdk-node', 'get-words-word')).toBeNull();
     // the first tab is curl everywhere: a reader without a choice yet sees it
     for (const request of requests) expect(snippetsOf(request)[0].id).toBe('curl');
   });
@@ -134,6 +141,58 @@ describe('the exact text', () => {
   it('the SDK tabs of the first endpoint use the origin as base URL', () => {
     expect(render('sdk-node', 'get-meta')).toContain("new VocabBloomClient({ baseUrl: 'https://x.example' })");
     expect(render('sdk-python', 'get-meta')).toContain('VocabBloomClient("https://x.example")');
+  });
+});
+
+describe('the SDK snippets of the reads of every dataset (issue #528)', () => {
+  it('Node.js: the methods of the client with the sample values of the path', () => {
+    expect(render('sdk-node', 'get-words-word-datasets')).toBe(
+      [
+        "import { VocabBloomClient } from '@vocab-bloom-hub/client';",
+        '',
+        "const client = new VocabBloomClient({ baseUrl: 'https://x.example' });",
+        "const { data, meta } = await client.wordDatasets('run');",
+        'console.log(`${meta.found} of ${meta.datasets} datasets hold the word`);',
+        'for (const group of data) {',
+        '  // the entries of a group are used under the terms of that group',
+        '  console.log(group.dataset, group.license, group.attribution, group.entries.length);',
+        '}',
+      ].join('\n'),
+    );
+    expect(render('sdk-node', 'get-words-word-datasets-dataset-history')).toContain(
+      "await client.datasetHistory('run', 'default');",
+    );
+  });
+
+  it('Python: the same reads', () => {
+    expect(render('sdk-python', 'get-words-word-datasets')).toBe(
+      [
+        'from vocab_bloom_hub import VocabBloomClient',
+        '',
+        'client = VocabBloomClient("https://x.example")',
+        'answer = client.word_datasets("run")',
+        'print(f"{answer.meta.found} of {answer.meta.datasets} datasets hold the word")',
+        'for group in answer.data:',
+        '    # the entries of a group are used under the terms of that group',
+        '    print(group.dataset, group.license, group.attribution, len(group.entries))',
+      ].join('\n'),
+    );
+    expect(render('sdk-python', 'get-words-word-datasets-dataset-history')).toContain(
+      'client.dataset_history("run", "default")',
+    );
+  });
+
+  it('name only methods the clients have', () => {
+    const node = fs.readFileSync(
+      path.join(__dirname, '../../../../../..', 'packages/npm-sdk/src/client.ts'),
+      'utf8',
+    );
+    const python = fs.readFileSync(
+      path.join(__dirname, '../../../../../..', 'packages/python-sdk/src/vocab_bloom_hub/client.py'),
+      'utf8',
+    );
+    for (const method of ['wordDatasets', 'datasetHistory']) expect(node).toContain(`  ${method}(`);
+    for (const method of ['word_datasets', 'dataset_history']) expect(python).toContain(`def ${method}(`);
   });
 });
 

@@ -83,6 +83,8 @@ const READ_ORDER = [
   '/api/v1/words/{word}/synonyms',
   '/api/v1/words/{word}/antonyms',
   '/api/v1/words/{word}/history',
+  '/api/v1/words/{word}/datasets',
+  '/api/v1/words/{word}/datasets/{dataset}/history',
   '/api/v1/words/id/{id}',
   '/api/v1/words',
   '/api/v1/random',
@@ -152,6 +154,8 @@ export const jsonSchemaOf = (media: MediaT | undefined): SchemaT | undefined =>
 const SAMPLE_BY_NAME: Record<string, unknown> = {
   search: 'run',
   word: 'run',
+  // every instance holds the default dataset
+  dataset: 'default',
   id: 1,
   cursor: 'eyJ3IjoicnVuIn0',
 };

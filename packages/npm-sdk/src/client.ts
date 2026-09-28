@@ -20,6 +20,7 @@ import type {
   Word,
   WordFilters,
   WordResponse,
+  WordDatasetsResponse,
   WordsBatchResponse,
   WordsResponse,
 } from './types';
@@ -245,6 +246,28 @@ export class VocabBloomClient {
    */
   history(headword: string, options?: RequestOptions): Promise<HistoryResponse> {
     return this.get(`/words/${encodeURIComponent(headword)}/history`, undefined, options);
+  }
+
+  /**
+   * A headword as every dataset of the instance has it: a group per dataset
+   * with the terms of that dataset and its entries. The other reads answer
+   * from the dataset the instance serves; entries taken from several groups
+   * are bound by the terms of each
+   */
+  wordDatasets(headword: string, options?: RequestOptions): Promise<WordDatasetsResponse> {
+    return this.get(`/words/${encodeURIComponent(headword)}/datasets`, undefined, options);
+  }
+
+  /**
+   * What was changed or added on the instance in the entries of a headword
+   * in one dataset, named as `dataset` of a group of `wordDatasets()` says it
+   */
+  datasetHistory(headword: string, dataset: string, options?: RequestOptions): Promise<HistoryResponse> {
+    return this.get(
+      `/words/${encodeURIComponent(headword)}/datasets/${encodeURIComponent(dataset)}/history`,
+      undefined,
+      options,
+    );
   }
 
   /** Inflected forms of every entry of a headword */

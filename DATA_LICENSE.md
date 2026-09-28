@@ -111,14 +111,15 @@ The owner of an instance may edit the data it serves, and the instance says wher
 takes data from an instance — through the API, from an export, from a word page — takes it with
 that indication and is asked to keep it:
 
-| What the instance gives                                                         | Where                                                                                                |
-| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Where an entry comes from                                                       | `source` on every word of `/api/v1`, on every part of one and on every edit of the history           |
-| Whether an entry was changed or added                                           | `modified` on every word of `/api/v1` and on every part of one: meanings, forms, translations, links |
-| What was changed, with the values before and after, and who sent the correction | `GET /api/v1/words/{word}/history`                                                                   |
-| How many headwords differ from the source                                       | `modified_entries` of `GET /api/v1/meta`, and of `manifest.json` in an export                        |
-| The history itself, to travel with a copy                                       | `vocab-bloom-hub-en-changes.jsonl` of an export                                                      |
-| The license and the notices of the source                                       | `license`, `license_url`, `attribution`, `license_text` of `/api/v1/meta`; `LICENSE` of an export    |
+| What the instance gives                                                         | Where                                                                                                                                                  |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Where an entry comes from                                                       | `source` on every word of `/api/v1`, on every part of one and on every edit of the history                                                             |
+| Whether an entry was changed or added                                           | `modified` on every word of `/api/v1` and on every part of one: meanings, forms, translations, links                                                   |
+| What was changed, with the values before and after, and who sent the correction | `GET /api/v1/words/{word}/history`                                                                                                                     |
+| How many headwords differ from the source                                       | `modified_entries` of `GET /api/v1/meta`, and of `manifest.json` in an export                                                                          |
+| The history itself, to travel with a copy                                       | `vocab-bloom-hub-en-changes.jsonl` of an export                                                                                                        |
+| The license and the notices of the source                                       | `license`, `license_url`, `attribution`, `license_text` of `/api/v1/meta`; `LICENSE` of an export                                                      |
+| The same for every dataset the instance holds, not only the one it serves       | the groups of `GET /api/v1/words/{word}/datasets`, each with its terms; the edits of one through `GET /api/v1/words/{word}/datasets/{dataset}/history` |
 
 What to do with it, under every license a dataset can have:
 
@@ -139,6 +140,12 @@ What to do with it, under every license a dataset can have:
    changed.
 6. **Do not suggest endorsement.** The names of the sources and of their authors are used to
    credit them, not to suggest that they stand behind a changed entry or behind your product.
+7. **Keep the datasets apart when you read several.** `GET /api/v1/words/{word}/datasets` answers
+   a group per dataset of the instance, and every group states its own `license`, `attribution`
+   and `license_text`. An entry is used under the terms of the group it was taken from: credit
+   each source for its own entries, keep the notices of each, and keep what you build on a
+   share-alike group under that license. Entries of two groups merged into one text are a work
+   under the terms of both.
 
 An entry that was never edited (`modified: false`) is what the source published, as the converter
 of the project read it ([`docs/datasets.md`](docs/datasets.md#public-sources)). `modified` goes
@@ -151,7 +158,8 @@ not legal advice, and the text of each license decides.
 ## Your own instance
 
 A self-hosted instance ships the terms of its active dataset in its exports and its
-`/api/v1/meta`. The terms of every dataset an instance can hold are stated in the code
+`/api/v1/meta`, and the terms of every dataset it holds with the groups of
+`GET /api/v1/words/{word}/datasets`: a dataset is public from the moment it is installed. The terms of every dataset an instance can hold are stated in the code
 (`apps/server/core/constants/dataset_catalog.ts`) and cannot be edited on an instance: what you
 edit in a dataset stays under the license of that dataset. Data under other terms is another
 dataset — a source added to the catalog with its converter

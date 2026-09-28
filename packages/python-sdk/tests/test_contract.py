@@ -23,6 +23,8 @@ METHOD_BY_OPERATION = {
     "PublicWordsController_synonyms": "synonyms",
     "PublicWordsController_antonyms": "antonyms",
     "PublicWordsController_history": "history",
+    "PublicWordDatasetsController_byHeadword": "word_datasets",
+    "PublicWordDatasetsController_history": "dataset_history",
     "PublicDictionaryController_random": "random",
     "PublicDictionaryController_meta": "meta",
     "PublicOpenApiController_openapi": "openapi",

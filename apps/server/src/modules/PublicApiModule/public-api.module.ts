@@ -13,7 +13,10 @@ import { PublicDictionaryController } from './public-dictionary.controller';
 import { PublicWordsService } from './public-words.service';
 import { PublicMetaService } from './public-meta.service';
 import { DictionaryLastModifiedService } from './dictionary-last-modified.service';
-import { PublicCacheInterceptor } from './public-cache.interceptor';
+import { PublicCacheInterceptor, PublicDatasetsCacheInterceptor } from './public-cache.interceptor';
+import { DatasetsLastModifiedService } from './datasets-last-modified.service';
+import { PublicWordDatasetsController } from './public-word-datasets.controller';
+import { PublicWordDatasetsService } from './public-word-datasets.service';
 import { PublicOpenApiController } from './public-openapi.controller';
 import { PublicOpenApiService } from './public-openapi.service';
 
@@ -33,6 +36,9 @@ import { PublicOpenApiService } from './public-openapi.service';
   ],
   controllers: [
     PublicSearchController,
+    // before the reads of the served dataset: /words/id/datasets is about the
+    // headword "id", and /words/id/{id} of the next controller would take it
+    PublicWordDatasetsController,
     PublicWordsController,
     PublicDictionaryController,
     PublicOpenApiController,
@@ -42,6 +48,9 @@ import { PublicOpenApiService } from './public-openapi.service';
     PublicMetaService,
     DictionaryLastModifiedService,
     PublicCacheInterceptor,
+    PublicWordDatasetsService,
+    DatasetsLastModifiedService,
+    PublicDatasetsCacheInterceptor,
     PublicOpenApiService,
   ],
 })

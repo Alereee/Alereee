@@ -42,7 +42,20 @@ export class AddDatasets1789600000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`ALTER TABLE "public"."audit_log" DROP COLUMN "dataset"`);
-    await queryRunner.query(`DROP TABLE "public"."dataset_migrations"`);
+    // The journal of the dataset migrations of `public` loses the row this
+    // migration wrote, not the rows of the dataset migrations that ran
+    // since: what they built in `public` is still there, and a journal that
+    // forgot them would have them run again on the next start (issue #531)
+    await queryRunner.query(
+      `DELETE FROM "public"."dataset_migrations" WHERE "name" = 'DatasetBaseline1789500000000'`,
+    );
+    await queryRunner.query(
+      `DO $$ BEGIN
+         IF NOT EXISTS (SELECT 1 FROM "public"."dataset_migrations") THEN
+           DROP TABLE "public"."dataset_migrations";
+         END IF;
+       END $$`,
+    );
     await queryRunner.query(`DELETE FROM "public"."settings" WHERE "field" = 'active_dataset'`);
     await queryRunner.query(`DROP TABLE "public"."datasets"`);
   }

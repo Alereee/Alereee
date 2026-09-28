@@ -62,11 +62,12 @@ Every successful answer is an envelope: the payload under `data`, paging and cou
 | `GET`  | `/api/v1/words/{word}/forms`        | —                                                                                                      | `{ data: PublicWordFormV1T[], meta: { word, count } }`                                                              |
 | `GET`  | `/api/v1/words/{word}/synonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
 | `GET`  | `/api/v1/words/{word}/antonyms`     | —                                                                                                      | `{ data: PublicWordLinkV1T[], meta: { word, count } }`                                                              |
+| `GET`  | `/api/v1/words/{word}/history`      | —                                                                                                      | `{ data: PublicChangeV1T[], meta: { word, count } }`                                                                |
 | `GET`  | `/api/v1/words/id/{id}`             | —                                                                                                      | `{ data: PublicWordV1T }`                                                                                           |
 | `GET`  | `/api/v1/words`                     | filters, `cursor?`, `limit?`, `with_meanings?`, `with_translations?`                                   | `{ data: PublicWordV1T[], meta: { limit, has_more, next_cursor } }`                                                 |
 | `GET`  | `/api/v1/random`                    | filters                                                                                                | `{ data: PublicWordV1T }`                                                                                           |
 | `POST` | `/api/v1/words/batch`               | `{ words: string[] }` (1–50)                                                                           | `{ data: { word, count, entries: PublicWordV1T[] }[], meta: { count, not_found } }`                                 |
-| `POST` | `/api/v1/suggestions`               | `{ headword, word_id?, message?, kind?, edits? }`                                                      | `201 { data: { id, status } }`                                                                                      |
+| `POST` | `/api/v1/suggestions`               | `{ headword, word_id?, message?, kind?, edits?, author_name?, author_consent? }`                       | `201 { data: { id, status } }`                                                                                      |
 
 The same endpoints can be tried on the website's playground and the admin's _Documentation_
 pages ([api-tools.md](./api-tools.md)); the machine-readable contract is the
@@ -86,15 +87,22 @@ _Suggestions_ page). Two kinds share the endpoint:
   meaning or its translation, `description` for a short translation). The server snapshots the
   current values into before/after diffs at file time; unknown fields, empty values, targets of
   another headword and a proposal that changes nothing are rejected. Applying walks every item
-  through the same edit services the admin UI uses, so the changes are audited and flag the
-  entry `user_modified`.
+  through the same edit services the admin UI uses, so the changes are recorded in the history
+  of the dataset — as a correction of a reader — and flag the entry `user_modified`.
+
+A sender who wants to be credited passes `author_name` (up to 80 characters) **together with
+`author_consent: true`**: the name is published with the correction — on the word page, in
+`/words/{word}/history`, in the exports of the data. A name without the consent answers `400`;
+a consent without a name names nobody. The owner removes a name on request
+([`data.md`](./data.md#personal-data)).
 
 The headword must exist in the dictionary. The endpoint has a rate limit of its own —
 `SUGGESTIONS_RATE_LIMIT`, default `5/3600` (five reports per hour per client), separate from
 the shared `/api/v1` budget — and answers `503 suggestion_queue_full` once 500 reports are
 waiting for the admin. See [`data.md`](./data.md#reporting-errors). A suggestion the admin
-applies becomes part of the dictionary data and travels with it under the data license, CC BY
-4.0 ([`DATA_LICENSE.md`](../DATA_LICENSE.md)); the word pages say so next to the form.
+applies becomes part of the dictionary data and travels with it under the license of the
+dataset it corrects — CC BY 4.0 for the project's own
+([`DATA_LICENSE.md`](../DATA_LICENSE.md)); the word pages say so next to the form.
 
 The examples use `localhost:3010`, the port of a start without Docker; a docker compose
 installation publishes the API on `localhost:3240` by default (`SERVER_PORT`).
@@ -153,7 +161,8 @@ exact headwords; a blank term answers an empty list.
 
 `GET /api/v1/words/{word}` answers **every entry** of a headword — one item per part of
 speech, each with its forms, meanings (definitions, examples, translations, synonyms,
-antonyms) and short translations. The spelling is matched case-insensitively; URL-encode
+antonyms) and short translations. The spelling is matched case-insensitively
+([unless the dictionary holds both spellings](#spellings-that-differ-by-case)); URL-encode
 spaces for phrases (`/api/v1/words/put%20up%20with`). An inflected form resolves to its base
 entry: `/api/v1/words/ran` answers the verb _run_ (with `ran` among its `forms`). An unknown
 spelling answers `404` with `word_doesnt_found`.
@@ -167,6 +176,24 @@ word_id, part_of_speech }`, each `word` readable through `/words/{word}` — so 
 does not need the full entry; a headword without links answers an empty list.
 
 `GET /api/v1/words/id/{id}` is the same entry by its numeric id (the `id` of any item above).
+
+##### Spellings that differ by case
+
+The project's own dataset writes its headwords in lower case, and a lookup does not depend on the
+case of the letters: `Run`, `RUN` and `run` answer the same entries with `meta.word: "run"`. A
+dataset of a public source holds words that differ by nothing else — `Polish`, the language, and
+`polish`, to make shiny; `Test`, a match of cricket, and `test`. Those are **words of their own**:
+
+| Request              | Answer                                                     | `meta.word` | `meta.variants`        |
+| -------------------- | ---------------------------------------------------------- | ----------- | ---------------------- |
+| `/words/polish`      | the entries spelled `polish`                               | `polish`    | `["Polish"]`           |
+| `/words/Polish`      | the entries spelled `Polish`                               | `Polish`    | `["polish"]`           |
+| `/words/POLISH`      | the entries of both: the dictionary has no word spelled so | `polish`    | `["Polish", "polish"]` |
+| `/words/Run`, `/RUN` | the entries of `run`: the dictionary holds one spelling    | `run`       | `[]`                   |
+
+`meta.variants` lists the other spellings of the headword, each readable through
+`/words/{word}`, and every entry says its own in `word`. The partial reads, the history and the
+batch lookup match the same way. `variants` was added after 1.0 and is optional in the contract.
 
 `POST /api/v1/words/batch` with `{ "words": ["run", "ran", "put up with"] }` looks
 up to 50 spellings in one request — for a consumer enriching a word list, which would
@@ -191,6 +218,88 @@ the project's own dataset, `wiktionary`, `wordnet`, `princeton-wordnet`. An inst
 ([`datasets.md`](./datasets.md)), so every word of an answer has the same source; the terms
 that go with it are in `GET /api/v1/meta`. The field was added after 1.0 and is optional
 in the contract: a server of 1.0 does not send it.
+
+`source` is on **every answer that carries an entry, a part of one or an edit of one**: the
+headword, id, batch, list and random reads, both searches, the items of `/meanings`, `/forms`,
+`/translations`, `/synonyms` and `/antonyms`, and the edits of `/history`. An item taken out of
+its answer still says what it is attributed to.
+
+Every word says whether it was **`modified`**: changed or added on the instance, so that it is
+not, or not only, what its source says. The licenses of the datasets ask that a reader is told;
+show it wherever you show the entry. The flag is per entry — the noun of a headword may be
+modified and its verb not — and goes back to `false` when an update of the dataset replaces the
+entry with the content of its source, or when the change is taken back. Optional in the
+contract like `source`.
+
+The mark is on **every answer that carries an entry or a part of one**: the headword, id, batch,
+list and random reads, both searches, and the partial reads — an item of `/meanings`, `/forms`,
+`/translations`, `/synonyms` and `/antonyms` carries the `modified` of the entry it belongs to,
+next to `word_id` and `part_of_speech`. `GET /api/v1/meta` says it of the dataset as a whole:
+`modified_entries`.
+
+#### The history of a headword
+
+`GET /api/v1/words/{word}/history` lists **what was changed**: the edits of the entries of the
+headword that show in what is served, the latest first. The history of a dataset starts empty —
+the data is taken to be what its source published until an edit is recorded — so it answers an
+empty list for a headword served as its source has it, and `404` for an unknown spelling; an inflected form answers with
+the history of its base entry.
+
+```json
+{
+  "data": [
+    {
+      "created_at": "2026-09-27T10:00:00.000Z",
+      "word": "lamp",
+      "part_of_speech": "noun",
+      "entity": "meaning",
+      "action": "update",
+      "record": { "title": "a light", "sort_order": 1 },
+      "diff": { "definition": { "before": "A light.", "after": "A device that gives light." } },
+      "origin": "suggestion",
+      "author": "Ada Lovelace",
+      "source": "wiktionary"
+    }
+  ],
+  "meta": { "word": "lamp", "count": 1 }
+}
+```
+
+| Field            | What it says                                                                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity`         | what was edited: `word`, `word_form`, `meaning`, `meaning_translation`, `short_translation`                                                                    |
+| `action`         | `create`, `update` or `delete`                                                                                                                                 |
+| `word`           | the spelling of the entry the edit belongs to, as `word` of the entry says it: with `part_of_speech` it names the entry among the ones `/words/{word}` answers |
+| `part_of_speech` | the entry of the headword the edit belongs to                                                                                                                  |
+| `record`         | what names the edited record inside its entry — the form, the title of the meaning, the translation; `null` for the entry itself. No ids                       |
+| `diff`           | `{ field: { before, after } }`: the fields that changed; every field of a record that was added (`before: null`) or deleted (`after: null`)                    |
+| `origin`         | `admin` — an edit of the owner; `suggestion` — a correction of a reader the owner applied                                                                      |
+| `author`         | the reader who sent the correction, when they asked to be named; `null` otherwise                                                                              |
+| `source`         | the source of the dataset the edit was made in: what the changed entry is attributed to, next to the owner of the instance                                     |
+
+The values are what the records say: related words by their spelling, no ids, no timestamps of
+the database — the same history reads the same on another instance. The editorial state of the
+instance (`generated`, `generated_by_model`) is left out. At most 200 edits are listed, the
+latest. How the history is kept and undone:
+[`datasets.md`](./datasets.md#editing-a-dataset-the-history-of-edits).
+
+#### What a consumer does with it
+
+The mark and the history exist because the licenses of the data ask that a change is indicated,
+and the obligation passes to whoever shows the data further:
+
+| You read                                 | You do                                                                                             |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `attribution`, `license_url` of `/meta`  | show the attribution line and link to the license wherever you show the data                       |
+| `modified: true` on a word or a part     | say next to the entry that it was changed: it is not, or not only, what its source published       |
+| `/words/{word}/history`                  | optional: show or link what was changed, and credit the `author` of a correction when one is named |
+| `license` of `/meta` ending in `-SA-4.0` | keep what you build on the data, changed entries included, under the same license                  |
+| a non-empty `license_text` of `/meta`    | keep the text with every copy of the data: show it, or link to a page that does                    |
+| `modified_entries` of `/meta` above `0`  | know that the instance serves data that differs from its source                                    |
+
+Read them from the API rather than hard-coding them: the owner may activate another dataset, edit
+an entry or take a change back at any time. The terms in full:
+[`DATA_LICENSE.md`](../DATA_LICENSE.md#using-data-that-was-changed-on-an-instance).
 
 #### Filtered list and cursor pagination
 
@@ -249,8 +358,18 @@ translation in it has been imported yet.
 
 The terms are the ones of the **active dataset** and change when the owner activates another
 one ([`datasets.md`](./datasets.md)): read them from `meta` rather than hard-coding the
-license of the project's dataset. `dataset`, `source` and `attribution_url` were added after
-1.0 and are optional in the contract.
+license of the project's dataset. `license_text` holds the notices the source of the dataset
+asks to be kept with its data, in full — the WordNet license, the one of the CMU Pronouncing
+Dictionary; an empty string for a dataset whose license is named by its link alone. Show it, or
+link to a page that does, wherever the license asks for its text on every copy. `dataset`,
+`source`, `attribution_url` and `license_text` were added after 1.0 and are optional in the
+contract.
+
+`modified_entries` counts the headwords the instance serves with entries that were changed or
+added on it: `0` says that the data is what its source published, anything else that a
+consumer shows data that differs from the source and has to say so
+([The history of a headword](#the-history-of-a-headword)). It is refreshed with the counts, at
+most once a minute. Optional in the contract.
 
 ### OpenAPI document
 

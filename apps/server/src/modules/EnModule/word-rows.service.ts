@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityMetadata, FindOptionsRelations, SelectQueryBuilder } from 'typeorm';
 import { EnWord } from './entities/en_word.entity';
+import { EnChange } from './entities/en_change.entity';
 import { EnEntry } from './entities/en_entry.entity';
 import { EnMeaning } from './entities/en_meaning.entity';
 import { EnMeaningTranslation } from './entities/en_meaning_translation.entity';
@@ -24,6 +25,12 @@ type RelationsT = FindOptionsRelations<EnWord>;
  * `toPublicWord`) read: the scalar columns of every row and the relations asked
  * for, each collection ordered by its natural key.
  */
+/** Answers whether a row belongs to an article with edits that still show */
+export type ModifiedArticlesT = { has: (row: EnWord) => boolean };
+
+const articleKey = (headword: string, partOfSpeech: string | null): string =>
+  `${headword}\u0000${partOfSpeech ?? ''}`;
+
 @Injectable()
 export class WordRowsService {
   constructor(
@@ -110,6 +117,33 @@ export class WordRowsService {
    * relations of `relations` (the keys of FULL_WORD_RELATIONS are understood);
    * an unknown id is skipped
    */
+  /**
+   * The articles among the given rows that were changed or added on this
+   * instance (issue #531): the ones with an edit that still shows in what is
+   * served. One statement for the whole answer, by the index of the
+   * headword; an edit without a part of speech is about every article of
+   * its headword. A form row answers for its own spelling.
+   */
+  async modifiedArticles(rows: readonly EnWord[]): Promise<ModifiedArticlesT> {
+    const headwords = [...new Set(rows.map((row) => row.word?.word).filter(Boolean))];
+    const found = new Set<string>();
+    if (headwords.length > 0) {
+      const edits = await this.dataSource
+        .getRepository(EnChange)
+        .createQueryBuilder('c')
+        .select(['c.headword AS headword', 'c.part_of_speech AS part_of_speech'])
+        .distinct(true)
+        .where('c.headword IN (:...headwords)', { headwords })
+        .andWhere('c.superseded_at IS NULL')
+        .getRawMany<{ headword: string; part_of_speech: string | null }>();
+      for (const edit of edits) found.add(articleKey(edit.headword, edit.part_of_speech));
+    }
+    return {
+      has: (row) =>
+        found.has(articleKey(row.word.word, row.part_of_speech)) || found.has(articleKey(row.word.word, null)),
+    };
+  }
+
   async load(ids: number[], relations: RelationsT): Promise<EnWord[]> {
     if (ids.length === 0) return [];
     const words = this.dataSource.getMetadata(EnWord);

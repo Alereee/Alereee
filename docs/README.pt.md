@@ -73,7 +73,8 @@ lê-los, um painel de administração para editá-los e SDKs para construir em c
 
 **O painel de administração** — oito idiomas de interface
 
-- editar palavras, sentidos, traduções e ligações; cada alteração em um registro de auditoria
+- editar palavras, sentidos, traduções e ligações; cada alteração fica em um histórico com os
+  valores antes e depois, visível para os leitores e reversível com um clique
 - moderar as correções que os leitores enviam das páginas de palavras
 - disparar requisições em massa a um modelo de linguagem sobre um recorte filtrado do dicionário
 - importar e exportar o dicionário inteiro como dataset, online ou a partir de um arquivo

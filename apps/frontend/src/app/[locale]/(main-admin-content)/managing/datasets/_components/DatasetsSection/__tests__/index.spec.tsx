@@ -177,6 +177,12 @@ describe('DatasetsSection', () => {
     expect(dialog.getByRole('link', { name: 'BSD 2-Clause License' })).toBeInTheDocument();
     expect(dialog.queryByTestId('share-alike')).not.toBeInTheDocument();
     expect(dialog.getByTestId('source-pronunciations')).toHaveTextContent('optional');
+    // the notices the sources want on every copy can be read before anything is installed
+    fireEvent.click(dialog.getByText('terms_full_text'));
+    const notices = dialog.getAllByTestId('license-notice');
+    expect(notices).toHaveLength(2);
+    expect(notices[0]).toHaveTextContent('Open English Wordnet 2023 Copyright 2023');
+    expect(notices[1]).toHaveTextContent('Carnegie Mellon University');
 
     // the required file is enough to start
     attach('file', 'english-wordnet-2025.zip');

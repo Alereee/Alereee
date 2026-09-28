@@ -131,6 +131,32 @@ export default {
     network_error: 'A requisição não chegou à API: {error}',
     no_response: 'Nada enviado ainda.',
   },
+  // the terms of the data the word pages show (issue #531)
+  terms: {
+    title: 'Condições dos dados do dicionário',
+    intro: 'De onde vêm as palavras deste site e sob quais condições são mostradas.',
+    source: 'Fonte',
+    license: 'Licença',
+    attribution: 'Atribuição',
+    notice: 'Aviso',
+    modified:
+      'Uma entrada alterada ou adicionada pelo proprietário deste site diz isso sob a sua classe gramatical; vale para ela a mesma licença.',
+    use_title: 'Se você usa estes dados',
+    use_intro:
+      'Os dados podem ser copiados e reutilizados conforme a sua licença. A quem o faz pede-se o seguinte.',
+    use_attribution: 'Cite a fonte: mostre a atribuição indicada acima e um link para a licença.',
+    use_modified:
+      'Diga de um verbete alterado que ele foi alterado. A API marca esses verbetes: uma palavra e cada uma de suas partes trazem modified: true, de modo que a marca pode ser repassada como está.',
+    use_history:
+      'O que foi alterado é público: {method} lista as edições de uma palavra com os valores antes e depois e cita o leitor que enviou uma correção quando ele pediu para ser citado.',
+    use_same_license: 'Um verbete alterado fica sob a mesma licença que o restante dos dados.',
+    use_share_alike:
+      'A licença exige compartilhamento pela mesma licença: o que é construído sobre os dados permanece sob a mesma licença.',
+    use_notice: 'Mantenha os avisos da fonte, reproduzidos abaixo na íntegra, em cada cópia dos dados.',
+    use_more: 'As condições em detalhe',
+    own_license: 'Por que esta licença e o que ela permite',
+    full_text: 'Os avisos da fonte, na íntegra',
+  },
   word: {
     index_title: 'Palavras',
     index_intro:
@@ -185,6 +211,32 @@ export default {
     try_in_playground: 'teste no playground',
     license_note: 'dados sob {license}',
     ai_note: 'gerado por IA, pode conter erros',
+    modified_note: 'alterado ou adicionado pelo proprietário deste site',
+    history_title: 'O que foi alterado neste site',
+    other_spellings: 'Outras grafias',
+    history_intro:
+      'Edições que o proprietário deste site fez neste verbete, da mais recente para a mais antiga.',
+    history_terms: 'O que isso significa se você usa os dados',
+    history_entity_word: 'Verbete',
+    history_entity_word_form: 'Forma da palavra',
+    history_entity_meaning: 'Significado',
+    history_entity_meaning_translation: 'Tradução de um significado',
+    history_entity_short_translation: 'Tradução curta',
+    history_action_create: 'adicionado',
+    history_action_update: 'alterado',
+    history_action_delete: 'excluído',
+    history_reader: 'correção enviada por um leitor',
+    history_author: 'correção enviada por {name}',
+    history_before: 'antes',
+    history_after: 'agora',
+    history_field_description: 'descrição',
+    history_field_transcription: 'pronúncia',
+    history_field_definition: 'definição',
+    history_field_title: 'título',
+    history_field_examples: 'exemplos',
+    history_field_synonyms: 'sinônimos',
+    history_field_antonyms: 'antônimos',
+    history_field_word: 'grafia',
     report_license_note:
       'Uma correção aceita pelo dono passa a fazer parte dos dados do dicionário, publicados sob {license}.',
     report_button: 'Relatar um erro',
@@ -197,6 +249,10 @@ export default {
     report_send: 'Enviar o relato',
     report_sending: 'Enviando…',
     report_cancel: 'Cancelar',
+    report_author: 'Seu nome, para receber o crédito pela correção (opcional)',
+    report_author_consent:
+      'Mostrar este nome ao lado da correção neste site e nas cópias dos dados do dicionário. Um nome publicado não pode ser retirado das cópias que outros fizeram.',
+    report_author_consent_needed: 'Marque a caixa para ser citado, ou deixe o nome vazio.',
     report_done: 'Obrigado — o relato está na fila de moderação.',
     report_rate_limited: 'Relatos demais deste dispositivo — tente novamente mais tarde.',
     report_queue_full: 'A fila está cheia agora — tente de novo quando o dono a tiver processado.',

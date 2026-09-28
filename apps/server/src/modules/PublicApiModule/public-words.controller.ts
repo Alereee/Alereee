@@ -18,6 +18,7 @@ import { HeadwordTranslationsV1QueryDTO } from './dto/HeadwordTranslationsV1Quer
 import { PUBLIC_BATCH_MAX_WORDS, WordsBatchV1ReqDTO } from './dto/WordsBatchV1Req.dto';
 import {
   PublicHeadwordFormsV1ResT,
+  PublicHeadwordHistoryV1ResT,
   PublicHeadwordLinksV1ResT,
   PublicHeadwordMeaningsV1ResT,
   PublicHeadwordTranslationsV1ResT,
@@ -123,6 +124,18 @@ export class PublicWordsController {
     @Query() query: HeadwordTranslationsV1QueryDTO,
   ): Promise<PublicHeadwordTranslationsV1ResT> {
     return this.publicWordsService.getTranslationsByHeadword(word, query.language);
+  }
+
+  @ApiOperation({
+    summary: 'What was changed or added on the instance in the entries of a headword',
+    description:
+      'The edits that still show in what is served, the latest first, with the values before and after: ' +
+      'the entries of such a headword carry `modified: true`. Empty for a headword served as its source has it.',
+  })
+  @ApiParam(HEADWORD_PARAM)
+  @Get(':word/history')
+  async history(@Param('word', HeadwordParamPipe) word: string): Promise<PublicHeadwordHistoryV1ResT> {
+    return this.publicWordsService.getHistoryByHeadword(word);
   }
 
   @ApiOperation({ summary: 'The inflected forms of a headword across its entries' })

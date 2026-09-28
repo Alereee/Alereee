@@ -64,7 +64,7 @@ export const AutoImportBanner: React.FC<AutoImportBannerP> = ({ status: injected
           ? t('auto_import_downloading')
           : t('auto_import_running', values)
         : t('manual_import_running', values);
-    return <Alert type="info" showIcon banner message={message} data-testid="import-banner-running" />;
+    return <Alert type="info" showIcon banner title={message} data-testid="import-banner-running" />;
   }
 
   if (status.trigger !== ImportTriggerE.auto) return null;
@@ -75,7 +75,7 @@ export const AutoImportBanner: React.FC<AutoImportBannerP> = ({ status: injected
         type="error"
         showIcon
         banner
-        message={t('auto_import_failed', { error: status.error })}
+        title={t('auto_import_failed', { error: status.error })}
         data-testid="import-banner-failed"
       />
     );
@@ -89,7 +89,7 @@ export const AutoImportBanner: React.FC<AutoImportBannerP> = ({ status: injected
       banner
       closable
       onClose={dismiss}
-      message={t('auto_import_completed', { version: status.dataset_version ?? '—' })}
+      title={t('auto_import_completed', { version: status.dataset_version ?? '—' })}
       data-testid="import-banner-completed"
     />
   );

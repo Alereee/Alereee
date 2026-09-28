@@ -4,6 +4,7 @@ import { Modal, Typography } from 'antd';
 import { EnMeaningTranslationT } from 'server/types';
 import { DirectTranslations } from '../DirectTranslations';
 import styles from './styles.module.scss';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 const { Text } = Typography;
 type DeleteMeaningTranslationModalP = {
@@ -42,6 +43,7 @@ export const DeleteMeaningTranslationModal: React.FC<DeleteMeaningTranslationMod
       onCancel={onClose}
       className={styles.deleteModal}
     >
+      <EditLicenseNote />
       <DirectTranslations translation={translation as EnMeaningTranslationT} />
       <Text strong>{translation?.title}</Text>
       <Text strong>{translation?.definition}</Text>

@@ -248,6 +248,10 @@ export type DatasetManifestT = {
   attribution_url?: string | undefined;
   // a notice for the readers of the data; an empty string says there is none
   notice?: string | undefined;
+  // entries that were changed or added on the instance the dataset was
+  // exported from (issue #531): the copy differs from its source by them.
+  // Absent in a dataset nobody edited and in every manifest written before
+  modified_entries?: number | undefined;
 };
 
 /** The fields of a manifest that say where the data comes from and under which terms */
@@ -345,3 +349,9 @@ export type EnStatisticsIssueKeyT =
 export type EnIssueStatT = { key: EnStatisticsIssueKeyT; count: number; total: number };
 export type EnIssuesStatisticsT = { issues: EnIssueStatT[] };
 export type GetEnIssuesStatisticsResT = EnIssuesStatisticsT | ErrorResT;
+
+// Mirrors ExportDictionaryQueryDTO: the settings of an export
+export type ExportDictionaryQueryT = {
+  /** The version to write for the entries edited on the instance, in place of `custom_version` */
+  edited_version?: string | undefined;
+};

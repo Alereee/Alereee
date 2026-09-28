@@ -73,7 +73,8 @@ pour les lire, un panneau d’administration pour les modifier et des SDK pour c
 
 **Le panneau d’administration** — huit langues d’interface
 
-- modifier les mots, les sens, les traductions et les liens ; chaque changement dans un journal d’audit
+- modifier les mots, les sens, les traductions et les liens ; chaque changement reste dans un
+  historique avec les valeurs avant et après, visible des lecteurs et annulable en un clic
 - modérer les corrections que les lecteurs envoient depuis les pages de mots
 - lancer des requêtes en masse vers un modèle de langage sur une tranche filtrée du dictionnaire
 - importer et exporter le dictionnaire entier en jeu de données, en ligne ou depuis un fichier

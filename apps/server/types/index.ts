@@ -1,5 +1,6 @@
 export * from './audit';
 export * from './auth';
+export * from './changes';
 export * from './datasets';
 export * from './dictionaries';
 export * from './dictionary_types';

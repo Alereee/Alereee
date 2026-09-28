@@ -1,5 +1,6 @@
 import { createWriteStream, WriteStream } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { LICENSE_FILE_NAME } from '../../core/constants/dataset_catalog';
 import * as path from 'node:path';
 import { once } from 'node:events';
 import {
@@ -29,6 +30,8 @@ const SHORT_TRANSLATION_WORDS = 6;
 
 export type WriterOptionsT = {
   outDir: string;
+  /** The text of the LICENSE file written next to the manifest: the terms and the notices of the source */
+  license?: string | undefined;
   /** The version of the dataset that is written: the source's release, or the day of the conversion */
   version: string;
   provenance: Required<ManifestProvenanceT>;
@@ -264,6 +267,9 @@ export class DatasetWriter {
       `${JSON.stringify(manifest, null, 2)}\n`,
       'utf-8',
     );
+    if (this.options.license) {
+      await writeFile(path.join(this.options.outDir, LICENSE_FILE_NAME), this.options.license, 'utf-8');
+    }
     return { entries: this.entries, meanings: this.meanings, late_duplicates: this.lateDuplicates, manifest };
   }
 }

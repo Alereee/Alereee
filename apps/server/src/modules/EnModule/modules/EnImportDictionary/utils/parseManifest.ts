@@ -19,6 +19,7 @@ export const parseManifest = (raw: unknown): DatasetManifestT | null => {
     lineCounts.every((f) => isCount(f?.lines)) &&
     (manifest.synonym_links === undefined || isCount(manifest.synonym_links)) &&
     (manifest.antonym_links === undefined || isCount(manifest.antonym_links)) &&
+    (manifest.modified_entries === undefined || isCount(manifest.modified_entries)) &&
     MANIFEST_PROVENANCE_FIELDS.every((field) => isOptionalString(manifest[field]));
   return isValid ? manifest : null;
 };

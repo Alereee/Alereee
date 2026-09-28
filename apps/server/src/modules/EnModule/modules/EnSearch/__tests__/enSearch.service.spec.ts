@@ -62,7 +62,10 @@ describe('EnSearchService', () => {
 
     service = new EnSearchService(
       repMock as Repository<EnWord>,
-      { load: async () => [] } as unknown as WordRowsService,
+      {
+        load: async () => [],
+        modifiedArticles: async () => ({ has: () => false }),
+      } as unknown as WordRowsService,
     );
   });
 

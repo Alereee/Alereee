@@ -114,6 +114,7 @@ describe('structured data', () => {
       attribution: 'Wiktionary',
       attribution_url: 'https://en.wiktionary.org',
       notice: '',
+      license_text: '',
     };
 
     expect(definedTermJsonLd({ locale: 'en', word: 'lamp', terms }).inDefinedTermSet).toMatchObject({

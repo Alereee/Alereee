@@ -1,4 +1,5 @@
 import { DatasetWriter, WriterSummaryT } from './writer';
+import { licenseOfAdapter } from './terms';
 import { SkipReasonT, SourceAdapterT } from './types';
 
 export type ConvertOptionsT = {
@@ -27,6 +28,7 @@ export const convert = async (options: ConvertOptionsT): Promise<ConvertSummaryT
     outDir: options.outDir,
     version: options.version || versionOfToday(),
     provenance: options.source.provenance(sourceOptions),
+    license: licenseOfAdapter(options.source.name, sourceOptions),
   });
   const skipped: Partial<Record<SkipReasonT, number>> = {};
   await options.source.convert(options.input, sourceOptions, {

@@ -2,6 +2,7 @@ import { APIRequestContext, expect, Page, test } from '@playwright/test';
 
 import { API_URL } from '../config';
 import { seedWord } from '../helpers/seed';
+import { pickOption } from '../helpers/select';
 
 // UI-driven CRUD flows (issue #243): every scenario performs the change through
 // the real admin UI and then verifies the persisted result through the API
@@ -30,7 +31,7 @@ test.describe('UI-driven word CRUD', () => {
     // Step 1: check that the word does not exist yet
     await page.getByRole('textbox').fill('sprout');
     await page.getByRole('combobox').last().click();
-    await page.locator('.ant-select-item-option[title="verb"]').click();
+    await pickOption(page, 'verb');
     await page.getByRole('button', { name: 'check-circle' }).click();
 
     // Step 2: basic information (the wizard advances only when the word is absent)

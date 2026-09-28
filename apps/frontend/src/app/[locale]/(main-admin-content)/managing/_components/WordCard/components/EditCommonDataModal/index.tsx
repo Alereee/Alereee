@@ -10,6 +10,7 @@ import {
 } from '@/app/[locale]/(main-admin-content)/managing/_components/CommonInfoFields';
 import { getDefaultValue } from '@/app/[locale]/(main-admin-content)/managing/_components/WordCard/components/EditCommonDataModal/utils';
 import styles from './styles.module.scss';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 type EditCommonDataModalP = {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export const EditCommonDataModal: React.FC<EditCommonDataModalP> = ({ isOpen, on
       confirmLoading={submitting}
       onOk={handleOk}
     >
+      <EditLicenseNote />
       <div className={styles.fields}>
         <CommonInfoFields pos={pos} value={d} onChange={setD} />
       </div>

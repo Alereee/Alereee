@@ -17,7 +17,12 @@ type EditPageP = {
 
 export default async function EditWordPage({ params }: CommonPageP<EditPageP>) {
   const { locale, wordId } = await params;
-  const wordData = await ServerEnApi.getWordById(+wordId);
+  const [wordData, datasets] = await Promise.all([
+    ServerEnApi.getWordById(+wordId),
+    // the dataset the word is edited in, for the license of the edit (issue #531)
+    ServerEnApi.getDatasets(),
+  ]);
+  const dataset = 'error' in datasets ? undefined : datasets.datasets.find((item) => item.active);
   const t = await getTranslations('menu');
   const manageT = await getTranslations('managing');
   if ('error' in wordData) {
@@ -46,7 +51,7 @@ export default async function EditWordPage({ params }: CommonPageP<EditPageP>) {
     <div className={styles.page}>
       <Title level={2}>{manageT('edit_word')}</Title>
       <Breadcrumb items={breadCrumbs} />
-      <WordCard word={wordData} mode={WordCardModeE.edit} />
+      <WordCard word={wordData} mode={WordCardModeE.edit} dataset={dataset} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Modal, Typography } from 'antd';
 import { AvailableTranslationLanguagesE, EnShortTranslationT } from 'server/types';
 import styles from './styles.module.scss';
 import { TranslationLanguageSelect } from '@/app/[locale]/(main-admin-content)/managing/_components/EnWordForm/components/TranslationLanguageSelect';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 const { Text } = Typography;
 type DeleteShortTranslationModalP = {
@@ -42,6 +43,7 @@ export const DeleteShortTranslationModal: React.FC<DeleteShortTranslationModalP>
       onCancel={onClose}
       className={styles.deleteModal}
     >
+      <EditLicenseNote />
       <TranslationLanguageSelect
         value={translation?.language as AvailableTranslationLanguagesE}
         onChange={() => {}}

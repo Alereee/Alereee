@@ -382,7 +382,15 @@ export class EnSearchService {
     this.metrics?.searchAnswered(tier, short_term);
     // the phrasal base too: the item type promises `base_phrasal` (issue #392)
     const words = await this.findWordsByIdsOrdered(ids, SEARCH_ITEM_RELATIONS);
-    return { items: words.map((w) => toPublicSearchWord(w, similarity?.get(w.id))), fuzzy, short_term };
+    // a search answer shows what an entry says, so it says whether that was changed (issue #531)
+    const modified = await this.wordRows.modifiedArticles(words);
+    return {
+      items: words.map((w) =>
+        toPublicSearchWord(w, { similarity: similarity?.get(w.id), modified: modified.has(w) }),
+      ),
+      fuzzy,
+      short_term,
+    };
   }
 
   async searchDetailed({
@@ -413,6 +421,7 @@ export class EnSearchService {
     }
 
     const words = await this.findWordsByIdsOrdered(pageIds, relations);
+    const modified = await this.wordRows.modifiedArticles(words);
     return {
       items: words.map((w) =>
         toPublicWord(w, {
@@ -420,6 +429,7 @@ export class EnSearchService {
           with_translations,
           translation_languages,
           similarity: similarity?.get(w.id),
+          modified: modified.has(w),
         }),
       ),
       page,

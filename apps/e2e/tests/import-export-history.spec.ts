@@ -88,26 +88,58 @@ test.describe('import, export and history', () => {
     await expect(page.getByRole('button', { name: 'Export again' })).toBeVisible();
   });
 
-  test('history lists the import run and an admin mutation, searchable by headword', async ({
+  // An entry edited here carries custom_version, a mark of this instance:
+  // the owner names the version such entries are published under
+  test('the export takes the version of the edited entries, and nothing that is not a version', async ({
+    page,
+  }) => {
+    await page.goto('/en/managing/export-dictionary');
+    const version = page.getByLabel('Version of the entries edited here');
+    const start = page.getByRole('button', { name: 'Start exporting' });
+    await expect(page.getByText('The dictionary itself is not changed.', { exact: false })).toBeVisible();
+
+    await version.fill('the next one');
+    await expect(page.getByText('64 characters at most', { exact: false })).toBeVisible();
+    await expect(start).toBeDisabled();
+
+    await version.fill('2.1.0');
+    await expect(start).toBeEnabled();
+    const asked = page.waitForRequest((request) => request.url().includes('/dictionary/export?'));
+    await start.click();
+    expect(new URL((await asked).url()).searchParams.get('edited_version')).toBe('2.1.0');
+    await expect(page.getByText('100.00%')).toBeVisible({ timeout: 30_000 });
+  });
+
+  // issue #531: one journal for one thing
+  test('history keeps the edits of the dictionary apart from the events of the instance', async ({
     page,
     request,
   }) => {
     await seedWord(request, 'chronicle');
 
     await page.goto('/en/history');
-    await expect(page.getByRole('heading', { name: 'History' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'History', exact: true })).toBeVisible();
 
-    // the import from the first test is one summary row: import / dictionary
+    // the edits of the dictionary come first; the search narrows by headword prefix (fires on Enter)
+    await expect(page.getByRole('tab', { name: 'Edits of the dictionary' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await page.getByPlaceholder('Word prefix…').fill('chronicle');
+    await page.getByPlaceholder('Word prefix…').press('Enter');
+    const seededRow = page.getByRole('row').filter({ hasText: 'chronicle' });
+    await expect(seededRow).toHaveCount(1);
+    await expect(seededRow).toContainText('added');
+    await expect(seededRow).toContainText('entry');
+    await expect(seededRow.getByRole('button', { name: 'Take back' })).toBeVisible();
+
+    // what was done on the instance is the other journal: the import of the
+    // first test is one summary row, import / dictionary
+    await page.getByRole('tab', { name: 'Events of the instance' }).click();
     const importRow = page.getByRole('row').filter({ hasText: 'dictionary' }).filter({ hasText: 'import' });
     await expect(importRow.first()).toBeVisible();
     await expect(importRow.first()).toContainText('source');
-
-    // the search narrows by headword prefix (fires on Enter)
-    await page.getByPlaceholder('Word or field prefix…').fill('chronicle');
-    await page.getByPlaceholder('Word or field prefix…').press('Enter');
-    const seededRow = page.getByRole('row').filter({ hasText: 'chronicle' });
-    await expect(seededRow.first()).toBeVisible();
-    await expect(seededRow.first()).toContainText('created');
-    await expect(page.getByRole('row').filter({ hasText: 'dictionary' })).toHaveCount(0);
+    // the word that was added is no event of the instance
+    await expect(page.getByRole('row').filter({ hasText: 'chronicle' })).toHaveCount(0);
   });
 });

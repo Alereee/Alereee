@@ -39,6 +39,13 @@ export default {
       'Le fichier n’est pas ce que distribue la source de ce jeu de données : téléchargez-le à nouveau comme l’indique l’instruction',
     [ErrorCodes.dataset_not_installable]:
       'Ce jeu de données se charge sur la page d’import, pas à partir d’un fichier d’une source',
+    [ErrorCodes.generated_not_allowed]:
+      'Un jeu de données d’une source publique contient ce que des personnes ont écrit : une entrée générée par un modèle ne peut pas y être ajoutée',
+    [ErrorCodes.change_doesnt_found]: 'La modification est introuvable',
+    [ErrorCodes.change_not_revertible]:
+      'Cette modification ne peut pas être annulée : elle n’est plus visible dans ce qui est servi, ou ses valeurs n’ont jamais été enregistrées',
+    [ErrorCodes.change_outdated]:
+      'L’enregistrement a été modifié de nouveau après cette modification, ou n’existe plus : annulez d’abord les modifications ultérieures',
     [ErrorCodes.dataset_is_active]:
       'Le jeu de données actif ne peut pas être supprimé : activez-en un autre d’abord',
     [ErrorCodes.dataset_is_default]: 'Le jeu de données par défaut ne peut pas être supprimé',
@@ -120,6 +127,7 @@ export default {
     col_kind: 'Type',
     col_message: 'Signalement',
     col_dataset_version: 'Jeu de données',
+    col_author: 'Envoyé par',
     col_actions: 'Actions',
     kind_report: 'signalement',
     kind_edit: 'modification',
@@ -147,7 +155,11 @@ export default {
   },
   history: {
     intro:
-      "Chaque modification faite via l'API d'administration, la plus récente en premier. Les imports apparaissent comme une ligne de résumé. Les lignes plus anciennes que AUDIT_RETENTION_DAYS (90 par défaut) sont supprimées.",
+      'Ce qui a été fait sur cette instance, du plus récent au plus ancien : imports, réglages, changements de jeu de données, décisions sur les signalements. Les lignes plus anciennes que AUDIT_RETENTION_DAYS (90 par défaut) sont supprimées. Les modifications du dictionnaire sont dans l’autre onglet ; celles d’avant l’historique des modifications restent ici jusqu’à leur expiration.',
+    tab_edits: 'Modifications du dictionnaire',
+    tab_events: 'Événements de l’instance',
+    intro_edits:
+      'Tout ce qui a été modifié dans les articles du jeu de données actif, du plus récent au plus ancien, avec les valeurs avant et après. Cet historique fait partie des données : il est conservé sans limite et voyage avec l’export.',
     col_time: 'Quand',
     col_action: 'Action',
     col_entity: 'Quoi',
@@ -170,6 +182,55 @@ export default {
     entity_suggestion: 'suggestion',
     empty: 'Aucune modification enregistrée pour le moment.',
     entity_dataset: 'jeu de données',
+  },
+  // the history of the edits of a dataset (issue #531)
+  changes: {
+    title: 'Historique des modifications',
+    intro:
+      'Ce qui a été modifié dans cet article sur cette instance, avec les valeurs avant et après. Les lecteurs sont informés d’une modification tant qu’elle est visible dans ce qui est servi ; l’annuler rétablit les valeurs qu’elle a remplacées.',
+    col_time: 'Quand',
+    col_what: 'Quoi',
+    col_changes: 'Valeurs',
+    col_author: 'Auteur',
+    author_admin: 'administrateur',
+    author_reader: 'un lecteur, sans nom',
+    filter_author: 'Nom de l’auteur…',
+    col_state: 'État',
+    action_create: 'ajouté',
+    action_update: 'modifié',
+    action_delete: 'supprimé',
+    entity_word: 'article',
+    entity_word_form: 'forme du mot',
+    entity_meaning: 'sens',
+    entity_meaning_translation: 'traduction d’un sens',
+    entity_short_translation: 'traduction courte',
+    origin_admin: 'administrateur',
+    origin_suggestion: 'correction d’un lecteur',
+    origin_revert: 'annulation',
+    state_active: 'visible',
+    state_superseded: 'n’est plus visible depuis le {date}',
+    more_fields: 'et {count} de plus',
+    before: 'avant',
+    after: 'après',
+    show_values: 'Afficher les valeurs en entier',
+    hide_values: 'Masquer les valeurs',
+    revert: 'Annuler',
+    revert_confirm: 'Rétablir les valeurs que cette modification a remplacées ?',
+    cancel: 'Fermer',
+    reverted: 'La modification a été annulée',
+    filter_entity: 'Quoi',
+    filter_origin: 'Origine',
+    filter_search: 'Début du mot…',
+    filter_active: 'Seulement ce qui est encore visible',
+    empty: 'Aucune modification enregistrée.',
+    forget_title: 'Retirer un nom de l’historique',
+    forget_hint:
+      'Un lecteur nommé comme auteur d’une correction peut demander que son nom soit retiré. Les modifications restent ; le nom est retiré de l’historique et des signalements de tous les jeux de données de cette instance. Les copies déjà exportées sont hors d’atteinte.',
+    forget_placeholder: 'Le nom, exactement comme il est affiché',
+    forget_btn: 'Retirer le nom',
+    forget_confirm: 'Retirer « {name} » de l’historique de tous les jeux de données ?',
+    forgotten: 'Le nom a été retiré de {count} lignes',
+    forgotten_none: 'Aucune ligne ne nomme « {name} »',
   },
   managing: {
     add_word: 'Ajouter un mot',
@@ -252,6 +313,8 @@ export default {
     terms_attribution: 'Quiconque affiche les données doit afficher cette ligne :',
     terms_share_alike:
       'Une licence de partage à l’identique : tout ce qui est fait à partir des données — un produit, un export, une entrée corrigée — doit rester sous la même licence.',
+    terms_full_text:
+      'Les avis de la source, en entier : ils accompagnent les données sur le site et dans chaque export',
     warnings_title: 'Avant de commencer',
     warn_not_mixed:
       'Les jeux de données ne sont jamais mélangés : rien de celui-ci ne va dans un autre, ni rien d’un autre dans celui-ci.',
@@ -299,11 +362,18 @@ export default {
     en_saving_11: 'Enregistrement des traductions de sens...',
     en_saving_12: 'Enregistrement des traductions courtes...',
     en_saving_13: 'Conversion de la source...',
+    en_saving_14: 'Enregistrement de l’historique des modifications...',
     en_downloading_file: 'Téléchargement du fichier...',
     elapsed_time: 'Temps écoulé',
     retry_importing: 'Réessayer',
     retry_exporting: 'Réessayer',
     export_again: 'Exporter à nouveau',
+    export_edited_version_invalid:
+      'Lettres, chiffres, points, tirets, tirets bas et signes plus, 64 caractères au maximum, en commençant par une lettre ou un chiffre.',
+    export_edited_version_hint:
+      'Un article modifié sur cette instance porte la version custom_version. Indiquez la version à écrire à sa place dans l’export, ou laissez le champ vide pour l’exporter tel quel. Le dictionnaire lui-même n’est pas modifié.',
+    export_edited_version_placeholder: 'custom_version',
+    export_edited_version: 'Version des articles modifiés ici',
     data_license: 'Chaque export est publié sous la licence',
     data_attribution: 'Attribution :',
     up_to_date: 'Vous avez déjà la dernière version du dictionnaire',
@@ -331,6 +401,7 @@ export default {
     file_grammar_patterns: 'Structures grammaticales',
     file_phrases: 'Expressions',
     file_meanings: 'Sens',
+    file_changes: 'Historique des modifications',
     file_meaning_translations_lang: 'Traductions de sens : {language}',
     file_short_translations_lang: 'Traductions courtes : {language}',
     file_manifest: 'Manifeste',
@@ -350,6 +421,8 @@ export default {
       'Un import dans un autre jeu de données ne touche pas l’actif : l’API continue de le servir jusqu’à l’activation du nouveau.',
   },
   bulk_request: {
+    license_note:
+      'Les lignes sont des données de « {dataset} », sous {license}. Ce qu’un modèle en fait est dérivé de ces données et relève des mêmes conditions, et rien de généré par un modèle n’est ajouté à ce jeu de données.',
     title: 'Requête en masse',
     intro:
       "Parcourt dans le navigateur les lignes sélectionnées d'une table du dictionnaire (mots, sens, traductions de sens ou traductions courtes), envoie une requête par ligne à l'URL ci-dessous et rassemble les réponses converties dans un fichier jsonl. Rien n'est écrit dans le dictionnaire et la clé d'API ne quitte jamais cette page.",
@@ -472,6 +545,11 @@ export default {
   },
 
   en_managing_words: {
+    editing_license: 'Vous modifiez les données de « {dataset} », sous licence',
+    editing_license_effect:
+      'Ce que vous modifiez est publié sous la même licence, et les lecteurs sont informés que l’entrée a été modifiée par le propriétaire de ce site.',
+    editing_no_generated:
+      'Ce jeu de données contient ce que des personnes ont écrit : aucun texte généré par un modèle n’y est ajouté.',
     word: 'Mot',
     edit_word_link: 'Modifier le mot ?',
     part_of_speech: 'Catégorie grammaticale',
@@ -664,6 +742,9 @@ export default {
       "Les synonymes de chaque sens de l'entrée en une liste plate : chaque élément est une entrée liée (lisible via la consultation d'entrée) avec le meaning_id, le word_id et le part_of_speech auxquels il appartient. Une entrée sans synonymes répond par une liste vide.",
     desc_word_antonyms:
       "Les antonymes de chaque sens de l'entrée en une liste plate : chaque élément est une entrée liée avec le meaning_id, le word_id et le part_of_speech auxquels il appartient. Une entrée sans antonymes répond par une liste vide.",
+    endpoint_word_history: 'Historique d’une entrée',
+    desc_word_history:
+      'Ce qui a été modifié ou ajouté sur l’instance dans les articles de l’entrée : les modifications encore visibles dans ce qui est servi, de la plus récente à la plus ancienne, avec les valeurs avant et après pour chaque champ. Ces articles portent modified: true. Une entrée servie telle que dans sa source répond par une liste vide.',
     endpoint_word_by_id: 'Entrée par id',
     endpoint_words: 'Liste filtrée',
     endpoint_random: 'Entrée aléatoire',

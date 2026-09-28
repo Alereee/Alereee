@@ -187,7 +187,7 @@ describe('public API reads /api/v1/words, /random, /meta (e2e, issue #272)', () 
       const res = await request(server()).get('/api/v1/words/run').expect(200);
       expect(res.headers['x-api-version']).toBe('1');
       const body = res.body as PublicHeadwordV1ResT;
-      expect(body.meta).toEqual({ word: 'run', count: 2 });
+      expect(body.meta).toEqual({ word: 'run', count: 2, variants: [] });
       expect(body.data.map((w) => [w.id, w.part_of_speech])).toEqual([
         [ids.runNoun, EnPartOfSpeechE.noun],
         [ids.runVerb, EnPartOfSpeechE.verb],
@@ -228,7 +228,7 @@ describe('public API reads /api/v1/words, /random, /meta (e2e, issue #272)', () 
     it('resolves an inflected form to its base entry, case-insensitively', async () => {
       const res = await request(server()).get('/api/v1/words/RAN').expect(200);
       const body = res.body as PublicHeadwordV1ResT;
-      expect(body.meta).toEqual({ word: 'ran', count: 1 });
+      expect(body.meta).toEqual({ word: 'ran', count: 1, variants: [] });
       expect(body.data[0]).toMatchObject({ id: ids.runVerb, word: 'run' });
     });
 
@@ -319,7 +319,7 @@ describe('public API reads /api/v1/words, /random, /meta (e2e, issue #272)', () 
     it('flattens the meanings of every entry, each naming its entry', async () => {
       const res = await request(server()).get('/api/v1/words/run/meanings').expect(200);
       const body = res.body as PublicHeadwordMeaningsV1ResT;
-      expect(body.meta).toEqual({ word: 'run', count: 2 });
+      expect(body.meta).toEqual({ word: 'run', count: 2, variants: [] });
       expect(body.data.map((m) => [m.title, m.word_id, m.part_of_speech])).toEqual([
         ['an act of running', ids.runNoun, EnPartOfSpeechE.noun],
         ['to move fast', ids.runVerb, EnPartOfSpeechE.verb],
@@ -351,7 +351,7 @@ describe('public API reads /api/v1/words, /random, /meta (e2e, issue #272)', () 
     it('lists short and per-meaning translations, filterable by language', async () => {
       const res = await request(server()).get('/api/v1/words/run/translations').expect(200);
       const body = res.body as PublicHeadwordTranslationsV1ResT;
-      expect(body.meta).toEqual({ word: 'run', count: 2 });
+      expect(body.meta).toEqual({ word: 'run', count: 2, variants: [] });
       expect(body.data.short_translations).toEqual([
         expect.objectContaining({ description: 'бежать', word_id: ids.runVerb, part_of_speech: 'verb' }),
         expect.objectContaining({ description: 'correr', language: 'es' }),
@@ -396,19 +396,28 @@ describe('public API reads /api/v1/words, /random, /meta (e2e, issue #272)', () 
     it('lists the linked headwords per meaning, naming the meaning and the entry', async () => {
       const res = await request(server()).get('/api/v1/words/RUN/synonyms').expect(200);
       const body = res.body as PublicHeadwordLinksV1ResT;
-      expect(body.meta).toEqual({ word: 'run', count: 2 });
+      expect(body.meta).toEqual({ word: 'run', count: 2, variants: [] });
       const meanings = (await request(server()).get('/api/v1/words/run/meanings').expect(200))
         .body as PublicHeadwordMeaningsV1ResT;
       const moveFast = meanings.data.find((m) => m.title === 'to move fast')!;
       expect(body.data).toEqual([
-        { word: 'sprint', meaning_id: moveFast.id, word_id: ids.runVerb, part_of_speech: EnPartOfSpeechE.verb },
+        {
+          word: 'sprint',
+          meaning_id: moveFast.id,
+          word_id: ids.runVerb,
+          part_of_speech: EnPartOfSpeechE.verb,
+          // a part of an entry is attributed like the whole (issue #527)…
+          source: 'vocab-bloom-hub',
+          // …and says that the entry was added on the instance, as the words of this suite were (issue #531)
+          modified: true,
+        },
       ]);
       // an inflected form resolves to its base entry here too
       expect((await request(server()).get('/api/v1/words/ran/synonyms').expect(200)).body.data).toHaveLength(1);
 
       const antonyms = (await request(server()).get('/api/v1/words/abandon/antonyms').expect(200))
         .body as PublicHeadwordLinksV1ResT;
-      expect(antonyms.meta).toEqual({ word: 'abandon', count: 1 });
+      expect(antonyms.meta).toEqual({ word: 'abandon', count: 1, variants: [] });
       expect(antonyms.data).toEqual([
         expect.objectContaining({ word: 'run', word_id: ids.abandon, part_of_speech: EnPartOfSpeechE.verb }),
       ]);
@@ -663,6 +672,10 @@ describe('public API reads /api/v1/words, /random, /meta (e2e, issue #272)', () 
         dataset: 'default',
         source: 'vocab-bloom-hub',
         attribution_url: 'https://huggingface.co/datasets/Fristail27/vocab-bloom-hub-en',
+        // issue #531: a license named by its link has no notice to carry in full
+        license_text: '',
+        // …and every headword of this suite was added on the instance: sprint, run, abandon, put up with
+        modified_entries: 4,
         counts: {
           // headwords: sprint, run, ran, running, abandon, put up with
           entries: 6,

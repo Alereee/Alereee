@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Alert, Button, Modal, Progress, Typography, Upload } from 'antd';
+import { Alert, Button, Collapse, Modal, Progress, Typography, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useLocale, useTranslations } from 'next-intl';
 import { DatasetCatalogEntryT, DatasetCatalogFileT } from 'server/core/constants/dataset_catalog';
@@ -206,7 +206,7 @@ export const InstallDataset: React.FC<InstallDatasetP> = ({
     >
       <div className={styles.instruction}>
         {!supported && (
-          <Alert type="warning" showIcon message={t('not_supported')} data-testid="install-unsupported" />
+          <Alert type="warning" showIcon title={t('not_supported')} data-testid="install-unsupported" />
         )}
 
         <section>
@@ -244,7 +244,26 @@ export const InstallDataset: React.FC<InstallDatasetP> = ({
             </Text>
           </Paragraph>
           {entry.share_alike && (
-            <Alert type="warning" showIcon message={t('terms_share_alike')} data-testid="share-alike" />
+            <Alert type="warning" showIcon title={t('terms_share_alike')} data-testid="share-alike" />
+          )}
+          {entry.notices.length > 0 && (
+            <Collapse
+              size="small"
+              items={[
+                {
+                  key: 'notices',
+                  label: t('terms_full_text'),
+                  children: entry.notices.map((notice) => (
+                    <div key={notice.title} data-testid="license-notice">
+                      <Text strong>{notice.title}</Text>
+                      <pre className={styles.notice} lang="en" dir="ltr">
+                        {notice.text}
+                      </pre>
+                    </div>
+                  )),
+                },
+              ]}
+            />
           )}
           {optional
             .filter((file) => file.license)
@@ -288,13 +307,13 @@ export const InstallDataset: React.FC<InstallDatasetP> = ({
             <Alert
               type="success"
               showIcon
-              message={t(installed ? 'done_update' : 'done')}
+              title={t(installed ? 'done_update' : 'done')}
               description={summary ? t('done_summary', summary) : undefined}
               data-testid="install-done"
             />
           )}
           {status === InstallStatusE.error && (
-            <Alert type="error" showIcon message={error} data-testid="install-error" />
+            <Alert type="error" showIcon title={error} data-testid="install-error" />
           )}
         </section>
       </div>

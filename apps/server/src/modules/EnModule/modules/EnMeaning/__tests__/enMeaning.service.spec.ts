@@ -5,10 +5,10 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { EnEntry } from '../../../entities/en_entry.entity';
+import { DICTIONARY_ENTITIES } from '../../../entities/dictionary-entities';
 import { EnWord } from '../../../entities/en_word.entity';
 import { EnMeaning } from '../../../entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../../../entities/en_meaning_translation.entity';
-import { EnShortTranslation } from '../../../entities/en_short_translation.entity';
 import { EnMeaningService } from '../enMeaning.service';
 import { EnMeaningTranslationService } from '../../EnMeaningTranslation/enMeaningTranslation.service';
 import { AddMeaningReqDTO } from '../dto/AddMeaningReq.dto';
@@ -32,7 +32,7 @@ describe('EnMeaningService (issue #87)', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation],
+      entities: DICTIONARY_ENTITIES,
       synchronize: true,
       // mirrors AppModule: cascade deletes rely on this pragma
       prepareDatabase: (db) => {

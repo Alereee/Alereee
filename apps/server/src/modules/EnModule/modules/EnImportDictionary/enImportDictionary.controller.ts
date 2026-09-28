@@ -7,6 +7,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Res,
   UploadedFiles,
   UseGuards,
@@ -21,6 +22,7 @@ import { EnImportDictionaryService } from './enImportDictionary.service';
 import { AdminGuard } from '../../../AuthModule/guards/admin.guard';
 import { ImportDictionaryReq } from './dto/ImportDictionaryReq.dto';
 import { UploadDictionaryReqDTO } from './dto/UploadDictionaryReq.dto';
+import { ExportDictionaryQueryDTO } from './dto/ExportDictionaryQuery.dto';
 import { DatasetManifestT, ImportSourcesT } from '../../../../../types';
 import type { ImportStatusT } from '../../../../../types';
 import { ErrorCodes } from '../../../../../core/constants/error_codes';
@@ -115,8 +117,8 @@ export class EnImportDictionaryController {
 
   @UseGuards(AdminGuard)
   @Get('export')
-  async exportDictionary(@Res() res: Response): Promise<void> {
-    return this.enImportDictionaryService.exportDictionary(res);
+  async exportDictionary(@Query() query: ExportDictionaryQueryDTO, @Res() res: Response): Promise<void> {
+    return this.enImportDictionaryService.exportDictionary(res, { editedVersion: query.edited_version });
   }
 
   @UseGuards(AdminGuard)

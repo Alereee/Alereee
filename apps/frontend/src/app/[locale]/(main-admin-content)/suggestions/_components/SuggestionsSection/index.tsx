@@ -152,6 +152,12 @@ export const SuggestionsSection: React.FC = () => {
       ),
     },
     {
+      // who asked to be credited (issue #531): named in the history once the correction is applied
+      title: t('col_author'),
+      dataIndex: 'author_name',
+      render: (value: string | null) => value ?? '—',
+    },
+    {
       title: t('col_dataset_version'),
       dataIndex: 'dataset_version',
       width: 130,

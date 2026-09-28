@@ -5,15 +5,16 @@ English Wiktionary, Open English WordNet, Princeton WordNet — each one complet
 **one of them served at a time**. Datasets are never mixed: an answer of the API comes from one
 source and carries the terms of that source.
 
-|                     |                                                                                                          |
-| ------------------- | -------------------------------------------------------------------------------------------------------- |
-| Needs               | PostgreSQL. On SQLite (development) there is the default dataset only and the page says so               |
-| Where               | Admin → **Managing → Datasets**; `/api/en/datasets` of the admin API                                     |
-| Which datasets      | the ones the code knows: a closed catalog, with the license and the attribution of each stated in it     |
-| A dataset is        | a Postgres schema with the dictionary tables in it, plus a row in the registry                           |
-| The default dataset | `default`, the tables in `public` an instance always had. It cannot be deleted                           |
-| Switching           | a click; the server re-opens its database connection on the other schema — no restart, no failed request |
-| Upgrading to this   | nothing to do: the migration registers the existing dictionary as `default` and leaves it in place       |
+|                     |                                                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Needs               | PostgreSQL. On SQLite (development) there is the default dataset only and the page says so                                         |
+| Where               | Admin → **Managing → Datasets**; `/api/en/datasets` of the admin API                                                               |
+| Which datasets      | the ones the code knows: a closed catalog, with the license and the attribution of each stated in it                               |
+| A dataset is        | a Postgres schema with the dictionary tables in it, plus a row in the registry                                                     |
+| The default dataset | `default`, the tables in `public` an instance always had. It cannot be deleted                                                     |
+| Switching           | a click; the server re-opens its database connection on the other schema — no restart, no failed request                           |
+| Upgrading to this   | nothing to do: the migration registers the existing dictionary as `default` and leaves it in place                                 |
+| Editing             | every dataset can be edited; what was changed is kept as [a history](#editing-a-dataset-the-history-of-edits) and shown to readers |
 
 ## The catalog
 
@@ -111,20 +112,110 @@ not ([`offline-import.md`](./offline-import.md)).
 - **Every read and every edit** goes to the tables of the new active dataset: the public API,
   the admin UI, the search, the export, the suggestions of the readers.
 - **`GET /api/v1/meta`** reports the dataset (`dataset`, `source`, `dataset_version`) and its
-  terms (`license`, `license_url`, `attribution`, `attribution_url`, `notice`); every word of the
-  public API names its `source`. The word pages of the website print the license and the
-  attribution of the dataset, and the form _Report a mistake_ names the license a correction is
-  sent under.
+  terms (`license`, `license_url`, `attribution`, `attribution_url`, `notice`, and `license_text`
+  — the notices of the source in full, where its license asks for them); every word of the public API names its `source`, and so does every part of a word served on its own and every edit of the history. The word pages of the website print the license and the
+  attribution of the dataset and lead to `/dataset-terms`, the page with the terms in full; the
+  form _Report a mistake_ names the license a correction is sent under.
 - **Caches are invalidated**: the `ETag` and `Last-Modified` of the public API change with the
   switch, so a client that revalidates gets the new data. The website keeps a rendered word page
   for up to an hour; rebuild or restart it to show the new dataset everywhere at once.
+- **Case may tell two words apart.** The project's dataset writes its headwords in lower case;
+  Wiktionary and WordNet hold `Polish` next to `polish`. Where a dataset holds both, each is a
+  word of its own in the API and a page of its own on the website
+  ([`api.md`](./api.md#spellings-that-differ-by-case)).
 - **Ids are per dataset.** The entry with id 42 of one dataset has nothing to do with id 42 of
-  another: a client that stored ids re-reads them by headword after a switch. The _History_
-  page says which dataset a row is about.
+  another: a client that stored ids re-reads them by headword after a switch.
+- **The history of edits is per dataset** too: the _History_ page lists the edits of the active
+  dataset, and says of every event of the instance which dataset it was about.
 - **The moderation queue is per dataset**: a report about an entry stays with the dataset the
   entry belongs to and comes back when that dataset is active again.
 - **The automatic first-start import** (`DICTIONARY_AUTO_IMPORT`) fills `default` only, and only
   while `default` is the active dataset.
+
+## Editing a dataset: the history of edits
+
+Every dataset can be edited in the admin UI, a dataset of a public source like the project's
+own. The licenses allow it, and each asks for something in return:
+
+| Dataset                                 | License         | What an edit obliges to                                                        |
+| --------------------------------------- | --------------- | ------------------------------------------------------------------------------ |
+| The project's own, Open English WordNet | CC BY 4.0       | keep the attribution, **indicate that the data was modified**                  |
+| English Wiktionary                      | CC BY-SA 4.0    | the same, and the modified entry stays under CC BY-SA                          |
+| Princeton WordNet                       | WordNet license | the full notice with its disclaimer on every copy, modifications included      |
+| CMU Pronouncing Dictionary              | BSD 2-Clause    | keep the copyright notice (it travels with the WordNet datasets that carry it) |
+
+What the instance does about it:
+
+- **Every edit leaves a row in the history of its dataset** — the table `en_changes`, in the
+  schema of the dataset, next to the entries it is about. A row holds what was edited (the
+  entry, a form, a meaning, a translation), what was done (added, changed, deleted) and **the
+  values before and after**, field by field; a record that was added or deleted is kept whole.
+  Rows name an entry by its spelling and part of speech, never by an id: ids change when a
+  dataset is updated and differ between instances.
+- **A reader is told.** A word of the public API carries `modified: true` while it has edits
+  that show in what is served — in every answer that carries an entry or a part of one, the
+  searches and the partial reads included — and `/api/v1/meta` counts such headwords
+  (`modified_entries`). The word page says _changed or added by the owner of this site_ under
+  the part of speech, and `GET /api/v1/words/{word}/history` — the section _What was changed on
+  this site_ of the word page — lists the edits with their values.
+- **The admin is told before the edit**: the card of a word and every dialog of it name the
+  dataset being edited and its license.
+- **The notices of a source travel in full**: `license_text` of `/api/v1/meta`, the page
+  `/dataset-terms` of the website, the instruction of the dataset in the admin UI and a
+  `LICENSE` file in every export.
+- **An export says how it differs from its source**: `modified_entries` in `manifest.json`, and
+  the history itself as a file of the dataset
+  ([`offline-import.md`](./offline-import.md#dataset-format)). An instance that imports the
+  copy shows the same entries as modified.
+- **Nothing generated by a language model goes into a dataset of a public source**: such a
+  dataset holds what people wrote and carries no notice about generated text. The forms offer
+  no _generated_ switch there, the API answers `400 generated_not_allowed`, and an import that
+  carries generated entries is refused.
+
+**What shows and what does not.** A row of the history _shows_ while the edit it records is a
+part of what the instance serves. It stops showing — `superseded_at` is set, the row stays —
+when an update of the dataset replaces the entry with the content of its source (after _Return
+to the official version_), or when the change is taken back. An entry is `modified` exactly
+while it has rows that show: there is no flag to keep in step with the table. Readers are shown
+the rows that show; the admin sees all of them. History is never erased.
+
+**Taking a change back.** _Take back_ on a row of the history restores the values the change
+replaced: an edit gets its old values, a record that was added is removed, one that was deleted
+comes back with everything it said. A history is undone from its end — when the record was
+edited again after the change, the later change goes first (`409 change_outdated`). What is
+restored is written to the history as a row of its own, and an entry with no change left is
+what its source says again: an update of the dataset may replace it, and it carries the version
+of its dataset instead of `custom_version` — the history records the version an entry had when
+it became the owner's, and the last change taken back returns it. An entry edited before the
+history recorded versions keeps `custom_version`: nothing is guessed. A change that no longer
+shows cannot be taken back (`409 change_not_revertible`).
+
+**The author of a correction.** A reader who sends a correction through _Report a mistake_ may
+give a name, with an explicit consent to have it shown and exported; the name goes into the
+history when the admin applies the correction and is shown on the word page. A name is personal
+data ([`data.md`](./data.md#personal-data)): _Take a name out of the history_ on the _History_
+page removes it from the history and the reports of **every dataset of the instance**; the
+edits stay.
+
+| Route                                | What it does                                                                                                                                              |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/words/{word}/history`   | public: the edits of a headword that show, the latest first ([`api.md`](./api.md#the-history-of-a-headword))                                              |
+| `GET /api/en/changes`                | admin: the whole history of the active dataset; `headword`, `part_of_speech`, `search`, `author`, `entity`, `action`, `origin`, `active`, `page`, `limit` |
+| `POST /api/en/changes/{id}/revert`   | admin: takes one change back. `409 change_outdated`, `409 change_not_revertible`                                                                          |
+| `POST /api/en/changes/forget-author` | admin: `{ "author": "…" }` — takes a name out of every dataset; answers how many rows named it                                                            |
+
+The history is a part of the data, and the _History_ page keeps it apart from the journal of
+the instance: **edits of the dictionary** on one tab — kept for good, exported with the dataset
+— and **events of the instance** on the other: imports, settings, switches of the dataset,
+verdicts on reports (`audit_log`, kept for `AUDIT_RETENTION_DAYS`). An edit is written to the
+history only.
+
+> [!NOTE]
+> **A dataset is clean until an edit is recorded.** The history starts empty: on an instance
+> that is upgraded, in a dataset that is installed, after an import of data that carries no
+> history file. Nothing is guessed about what was edited before — `user_modified` still keeps
+> such an entry through an update, and says nothing to a reader. From the first version with
+> the history on, every edit is recorded and travels with an export.
 
 ## Datasets are never mixed
 
@@ -175,7 +266,8 @@ installed — the page says why. A dataset of a public source needs PostgreSQL.
 ```
 public                 settings, datasets, audit_log, migrations, dataset_migrations,
                        the enum types — and the tables of the `default` dataset
-ds_wiktionary          en_entries, en_words, en_meanings, …, suggestions, dataset_migrations
+ds_wiktionary          en_entries, en_words, en_meanings, …, en_changes, suggestions,
+                       dataset_migrations
 ds_wordnet             the same tables, other rows
 ```
 

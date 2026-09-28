@@ -17,6 +17,7 @@ import { CategorySelect } from '@/app/[locale]/(main-admin-content)/managing/_co
 import { WordLinksSelect } from '@/app/[locale]/(main-admin-content)/managing/_components/EnWordForm/components/WordLinksSelect';
 import styles from './styles.module.scss';
 import { UpdateTypeE } from '@/app/[locale]/(main-admin-content)/managing/_components/WordCard/constants';
+import { EditLicenseNote } from '@/app/[locale]/(main-admin-content)/managing/_components/EditLicenseNote';
 
 const { TextArea } = AntdInput;
 const { Text } = Typography;
@@ -121,6 +122,7 @@ export const AddOrEditMeaningModal: React.FC<AddOrEditMeaningModalP> = ({
       onCancel={onClose}
       title={data?.id === 0 ? t('add_meaning') : t('edit_meaning')}
     >
+      <EditLicenseNote />
       {data && (
         <div className={styles.meaning}>
           <Input

@@ -25,7 +25,11 @@ const expectImportable = async (dir: string): Promise<void> => {
   for (const file of files) expect(DATASET_KNOWN_FILE_NAMES).toContain(file);
   const manifest = parseManifest(JSON.parse(await readFile(path.join(dir, 'manifest.json'), 'utf-8')));
   expect(manifest).not.toBeNull();
-  expect(Object.keys(manifest!.files).sort()).toEqual(files.filter((file) => file !== 'manifest.json').sort());
+  expect(Object.keys(manifest!.files).sort()).toEqual(
+    files.filter((file) => !['manifest.json', 'LICENSE'].includes(file)).sort(),
+  );
+  // the terms of the source travel with the copy, its notices in full (issue #531)
+  expect(files).toContain('LICENSE');
   for (const [file, { lines }] of Object.entries(manifest!.files)) {
     expect((await readJsonl(dir, file)).length).toBe(lines);
   }
@@ -338,6 +342,18 @@ describe('wiktionary: the dataset', () => {
 
     expect(summary.entries).toBe(2);
     expect(summary.manifest.version).toMatch(/^\d{4}\.\d{2}\.\d{2}$/);
+  });
+
+  it('names the license of Wiktionary by its link and says that it is share-alike', async () => {
+    await convert({ source: findSource('wiktionary')!, input: path.join(FIXTURES, 'kaikki.jsonl'), outDir });
+
+    const license = await readFile(path.join(outDir, 'LICENSE'), 'utf-8');
+    expect(license).toContain(
+      'License: Creative Commons Attribution-ShareAlike 4.0 International (CC-BY-SA-4.0)',
+    );
+    expect(license).toContain('https://creativecommons.org/licenses/by-sa/4.0/');
+    expect(license).toContain('Attribution: Wiktionary contributors');
+    expect(license).toContain('Share-alike: what is made from this data has to stay under the same license.');
   });
 
   it('writes what the import reads', async () => {

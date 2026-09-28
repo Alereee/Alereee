@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { EnEntry } from '../entities/en_entry.entity';
+import { DICTIONARY_ENTITIES } from '../entities/dictionary-entities';
 import { EnWord } from '../entities/en_word.entity';
 import { EnMeaning } from '../entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../entities/en_meaning_translation.entity';
@@ -51,7 +51,7 @@ describe('WordRowsService (issue #424)', () => {
     ds = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation],
+      entities: DICTIONARY_ENTITIES,
       synchronize: true,
     });
     await ds.initialize();

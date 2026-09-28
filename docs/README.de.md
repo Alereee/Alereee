@@ -73,7 +73,8 @@ ein Admin-Panel zum Bearbeiten und SDKs, um darauf aufzubauen.
 
 **Das Admin-Panel** — acht Oberflächensprachen
 
-- Wörter, Bedeutungen, Übersetzungen und Links bearbeiten; jede Änderung im Audit-Protokoll
+- Wörter, Bedeutungen, Übersetzungen und Links bearbeiten; jede Änderung bleibt im Verlauf, mit
+  den Werten davor und danach, für Leser sichtbar und mit einem Klick zurückzunehmen
 - die Korrekturen moderieren, die Leser von den Wortseiten schicken
 - Massenanfragen an ein Sprachmodell über einen gefilterten Ausschnitt des Wörterbuchs
 - das ganze Wörterbuch als Datensatz importieren und exportieren, online oder aus einer Datei

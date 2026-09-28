@@ -1,7 +1,5 @@
-import { Inject, Optional, BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { AuditActionE, AuditEntityTypeE } from '../../../../../types';
-import { AuditService } from '../../../AuditModule/audit.service';
-import { diffSnapshots, snapshotScalars } from '../../../AuditModule/audit-diff';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ChangeActionE, ChangeEntityE } from '../../../../../types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AddMeaningResT, DeleteMeaningResT, EditMeaningResT } from '../../../../../types';
@@ -13,6 +11,14 @@ import { EnWord } from '../../entities/en_word.entity';
 import { EnEntry } from '../../entities/en_entry.entity';
 import { EnMeaningTranslationService } from '../EnMeaningTranslation/enMeaningTranslation.service';
 import { markEntryUserModified } from '../../utils/markEntryUserModified';
+import { articleOf, recordChange } from '../../utils/changes/recordChange';
+import {
+  changedFields,
+  createdFields,
+  deletedFields,
+  meaningRecord,
+  meaningSnapshot,
+} from '../../utils/changes/snapshots';
 import { normalizeWordLinks, WORD_LINK_KINDS, WordLinkKindT } from '../../utils/normalizeWordLinks';
 import { loadEntries, resolveBaseFormHeadwords } from '../../utils/findBaseFormHeadwords';
 
@@ -41,11 +47,6 @@ const assertNoSynonymAntonymConflict = (
 @Injectable()
 export class EnMeaningService {
   private readonly logger = new Logger(EnMeaningService.name);
-  // the audit journal records every admin mutation (issue #334); optional so
-  // test modules that boot without AuditModule still resolve
-  @Optional()
-  @Inject(AuditService)
-  private readonly auditService?: AuditService;
 
   constructor(
     @InjectRepository(EnWord)
@@ -109,37 +110,44 @@ export class EnMeaningService {
   async addMeaning(body: AddMeaningReqDTO, manager?: EntityManager): Promise<AddMeaningResT> {
     const em = manager ?? this.enMeaningsRep.manager;
     const { word_id, id: _id, synonyms, antonyms, ...newMeaning } = body;
-    const word = await em.getRepository(EnWord).findOne({ where: { id: word_id }, relations: { word: true } });
+    const word = await em
+      .getRepository(EnWord)
+      .findOne({ where: { id: word_id }, relations: { word: true, base_form: { word: true } } });
 
     if (!word) {
       throw new NotFoundException(ErrorCodes.word_doesnt_found);
     }
 
     const links = await this.resolveWordLinks({ synonyms, antonyms }, word.word.word, em);
-    const res = await em.getRepository(EnMeaning).save({ word: word, ...newMeaning, ...links });
-    if (body.translations.length > 0) {
+    const add = async (tx: EntityManager): Promise<EnMeaning> => {
+      const saved = await tx.getRepository(EnMeaning).save({ word: word, ...newMeaning, ...links });
       for (const translation of body.translations) {
+        // a part of this meaning: its own row in the history would say it twice
         await this.enMeaningTranslationService.addMeaningTranslation(
-          {
-            meaning_id: res.id,
-            ...translation,
-          },
-          manager,
+          { meaning_id: saved.id, ...translation },
+          tx,
         );
       }
-    }
-
-    await markEntryUserModified(em, word.word.word);
-    this.logger.log(`Meaning added to word id=${word_id}, id=${res.id}`);
-    // inside addWord's transaction the word's own create row is enough
-    if (!manager) {
-      await this.auditService?.record({
-        action: AuditActionE.create,
-        entityType: AuditEntityTypeE.meaning,
-        entityId: res.id,
-        headword: word.word.word,
+      // inside addWord's transaction the word's own row holds the meaning
+      if (manager) {
+        await markEntryUserModified(tx, word.word.word);
+        return saved;
+      }
+      const created = await tx.getRepository(EnMeaning).findOneOrFail({
+        where: { id: saved.id },
+        relations: { translations: true, synonyms: true, antonyms: true },
       });
-    }
+      await recordChange(tx, {
+        ...articleOf(word),
+        entity: ChangeEntityE.meaning,
+        action: ChangeActionE.create,
+        record: meaningRecord(created),
+        diff: createdFields(meaningSnapshot(created, true)),
+      });
+      return saved;
+    };
+    const res = manager ? await add(manager) : await em.transaction(add);
+    this.logger.log(`Meaning added to word id=${word_id}, id=${res.id}`);
 
     return { success: true, id: res.id };
   }
@@ -147,20 +155,23 @@ export class EnMeaningService {
   async editMeaning(body: EditMeaningReqDTO): Promise<EditMeaningResT> {
     const meaning = await this.enMeaningsRep.findOne({
       where: { id: body.id },
-      relations: { synonyms: true, antonyms: true, word: { word: true } },
+      relations: { synonyms: true, antonyms: true, word: { word: true, base_form: { word: true } } },
     });
 
     if (!meaning) {
       throw new NotFoundException(ErrorCodes.word_doesnt_found);
     }
 
-    const before = snapshotScalars(meaning);
+    const valuesBefore = meaningSnapshot(meaning);
+    const recordBefore = meaningRecord(meaning);
     if (body.title && body.title !== meaning.title) meaning.title = body.title;
     if (body.definition && body.definition !== meaning.definition) meaning.definition = body.definition;
     if (body.sort_order && body.sort_order !== meaning.sort_order) meaning.sort_order = body.sort_order;
     if (body.meaning_level && body.meaning_level !== meaning.meaning_level)
       meaning.meaning_level = body.meaning_level;
-    if (body.language_register !== meaning.language_register)
+    // null clears the register; a body that does not name it leaves it as it is
+    // (the card sends the links alone when a synonym is added)
+    if (body.language_register !== undefined && body.language_register !== meaning.language_register)
       meaning.language_register = body.language_register;
     if (body.area_variant && body.area_variant !== meaning.area_variant)
       meaning.area_variant = body.area_variant;
@@ -180,37 +191,51 @@ export class EnMeaningService {
     }
     assertNoSynonymAntonymConflict(meaning.synonyms, meaning.antonyms, headword, this.logger);
 
-    await this.enMeaningsRep.save(meaning);
-    await markEntryUserModified(this.enMeaningsRep.manager, headword);
-    this.logger.log(`Meaning updated, id=${body.id}`);
-    await this.auditService?.record({
-      action: AuditActionE.update,
-      entityType: AuditEntityTypeE.meaning,
-      entityId: body.id,
-      headword: meaning.word.word.word,
-      diff: diffSnapshots(before, snapshotScalars(meaning)),
+    await this.enMeaningsRep.manager.transaction(async (em) => {
+      await em.getRepository(EnMeaning).save(meaning);
+      // the history holds what the database holds after the edit, read back:
+      // not what the object in memory was given
+      const saved = await em.getRepository(EnMeaning).findOneOrFail({
+        where: { id: meaning.id },
+        relations: { synonyms: true, antonyms: true },
+      });
+      await recordChange(em, {
+        ...articleOf(meaning.word),
+        entity: ChangeEntityE.meaning,
+        action: ChangeActionE.update,
+        record: recordBefore,
+        diff: changedFields(valuesBefore, meaningSnapshot(saved)),
+      });
     });
+    this.logger.log(`Meaning updated, id=${body.id}`);
     return { success: true };
   }
 
   async deleteMeaning(id: number): Promise<DeleteMeaningResT> {
     // loaded first only for the journal: the headword survives the delete
+    // …and for the history: what is deleted is read before it is gone
     const meaning = await this.enMeaningsRep.findOne({
       where: { id },
-      relations: { word: { word: true } },
+      relations: {
+        word: { word: true, base_form: { word: true } },
+        translations: true,
+        synonyms: true,
+        antonyms: true,
+      },
     });
-    await this.enMeaningsRep.delete({ id });
-    if (meaning) {
-      await markEntryUserModified(this.enMeaningsRep.manager, meaning.word.word.word);
-    }
+    await this.enMeaningsRep.manager.transaction(async (em) => {
+      await em.getRepository(EnMeaning).delete({ id });
+      if (!meaning) return;
+      await recordChange(em, {
+        ...articleOf(meaning.word),
+        entity: ChangeEntityE.meaning,
+        action: ChangeActionE.delete,
+        record: meaningRecord(meaning),
+        diff: deletedFields(meaningSnapshot(meaning, true)),
+      });
+    });
 
     this.logger.log(`Meaning deleted, id=${id}`);
-    await this.auditService?.record({
-      action: AuditActionE.delete,
-      entityType: AuditEntityTypeE.meaning,
-      entityId: id,
-      headword: meaning?.word.word.word ?? null,
-    });
 
     return { success: true };
   }

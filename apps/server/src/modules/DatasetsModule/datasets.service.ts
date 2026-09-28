@@ -242,6 +242,11 @@ export class DatasetsService implements OnModuleInit {
     };
   }
 
+  /** The datasets the instance holds, the active one included */
+  async installed(): Promise<Dataset[]> {
+    return this.datasetsRep.find({ order: { id: 'ASC' } });
+  }
+
   async find(name: string): Promise<Dataset> {
     const dataset = await this.datasetsRep.findOne({ where: { name } });
     if (!dataset) throw new NotFoundException(ErrorCodes.dataset_not_found);

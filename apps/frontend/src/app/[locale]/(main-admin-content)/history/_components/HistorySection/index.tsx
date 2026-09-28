@@ -18,12 +18,23 @@ const ACTION_COLORS: Record<AuditActionE, string> = {
   [AuditActionE.import]: 'purple',
 };
 
+// What the journal is written for (issue #531): the edits of the dictionary
+// are the history of the dataset. The rows of the other kinds, written
+// before that, are still listed until they expire — nothing new to filter by
+const EVENT_ENTITY_TYPES: AuditEntityTypeE[] = [
+  AuditEntityTypeE.dictionary,
+  AuditEntityTypeE.dataset,
+  AuditEntityTypeE.setting,
+  AuditEntityTypeE.suggestion,
+  AuditEntityTypeE.word,
+];
+
 const short = (value: unknown): string => {
   const text = value === null || value === undefined ? '—' : JSON.stringify(value);
   return text.length > 80 ? `${text.slice(0, 77)}…` : text;
 };
 
-/** The journal of admin changes (issue #334): filters + a server-paged table */
+/** The journal of what was done on the instance (issue #334): filters + a server-paged table */
 export const HistorySection: React.FC = () => {
   // dates in the interface language, not the browser's (issue #479)
   const locale = useLocale();
@@ -127,7 +138,7 @@ export const HistorySection: React.FC = () => {
             setEntityTypes(next ?? []);
             setPage(1);
           }}
-          options={Object.values(AuditEntityTypeE).map((value) => ({ label: t(`entity_${value}`), value }))}
+          options={EVENT_ENTITY_TYPES.map((value) => ({ label: t(`entity_${value}`), value }))}
         />
         <Select<AuditActionE[]>
           label={t('filter_action')}

@@ -12,6 +12,7 @@ import {
   AuditListT,
   AuditTriggerE,
   AvailableTranslationLanguagesE,
+  ChangeListT,
   EnAreaVariantsE,
   EnPartOfSpeechE,
   EnWordFormsE,
@@ -48,10 +49,12 @@ const addWordBody = (word: string) => ({
 });
 
 /**
- * The audit journal of issue #334: every admin mutation leaves one row with
- * the action, the entity, the headword and — for updates — the diff of the
- * changed fields; the listing is admin-only and filterable. The journal is
- * operational data: nothing of it appears on the public surface.
+ * The audit journal of issue #334: what was done on the instance — settings,
+ * imports, switches of the dataset, verdicts on reports, the decision to let
+ * an update replace an entry — one row each; the listing is admin-only and
+ * filterable. The edits of the dictionary are not in it (issue #531): they
+ * are the history of the dataset, which is a part of the data. The journal
+ * is operational: nothing of it appears on the public surface.
  */
 describe('Audit log (e2e, issue #334)', () => {
   let app: INestApplication<App>;
@@ -90,46 +93,14 @@ describe('Audit log (e2e, issue #334)', () => {
     expect(list).toEqual({ items: [], total: 0, page: 1, limit: 50, has_more: false });
   });
 
-  it('records a word create with the headword, without meaning noise from the same transaction', async () => {
+  it('leaves the edits of the dictionary to the history of the dataset: one journal for one thing', async () => {
     const res = await request(server()).post('/api/en/add/word').set(auth).send(addWordBody('run')).expect(201);
     wordId = res.body.id;
-
-    const list = await audit();
-    expect(list.total).toBe(1);
-    expect(list.items[0]).toMatchObject({
-      action: AuditActionE.create,
-      entity_type: AuditEntityTypeE.word,
-      entity_id: wordId,
-      headword: 'run',
-      trigger: AuditTriggerE.admin,
-      diff: null,
-    });
-    expect(typeof list.items[0].created_at).toBe('string');
-  });
-
-  it('records an update with only the changed fields in the diff', async () => {
     await request(server())
       .patch(`/api/en/common-info/${wordId}`)
       .set(auth)
       .send({ word_level: 'B2', transcription: 'rʌn' })
       .expect(200);
-
-    const [row] = (await audit('?action=update')).items;
-    expect(row).toMatchObject({
-      action: AuditActionE.update,
-      entity_type: AuditEntityTypeE.word,
-      entity_id: wordId,
-      headword: 'run',
-    });
-    expect(row.diff).toMatchObject({
-      word_level: { before: null, after: 'B2' },
-      transcription: { before: null, after: 'rʌn' },
-    });
-    // the version stamp changes on every edit and is deliberately not journalled
-    expect(row.diff).not.toHaveProperty('version');
-  });
-
-  it('records a standalone meaning create and a delete that still names the headword', async () => {
     const meaning = await request(server())
       .post('/api/en/word/meaning')
       .set(auth)
@@ -144,12 +115,34 @@ describe('Audit log (e2e, issue #334)', () => {
         translations: [],
       })
       .expect(201);
-
     await request(server()).delete(`/api/en/word/meaning/${meaning.body.id}`).set(auth).expect(200);
 
-    const rows = (await audit(`?entity_type=${AuditEntityTypeE.meaning}`)).items;
-    expect(rows.map((r) => r.action)).toEqual([AuditActionE.delete, AuditActionE.create]);
-    expect(rows.every((r) => r.headword === 'run')).toBe(true);
+    expect((await audit()).total).toBe(0);
+
+    const history = await request(server()).get('/api/en/changes').set(auth).expect(200);
+    expect(
+      (history.body as ChangeListT).items.map((change) => [change.entity, change.action, change.headword]),
+    ).toEqual([
+      ['meaning', 'delete', 'run'],
+      ['meaning', 'create', 'run'],
+      ['word', 'update', 'run'],
+      ['word', 'create', 'run'],
+    ]);
+  });
+
+  it('records the decision to let an update replace an entry, under its headword', async () => {
+    await request(server()).patch('/api/en/reset-user-modified/run').set(auth).expect(200);
+
+    const list = await audit();
+    expect(list.total).toBe(1);
+    expect(list.items[0]).toMatchObject({
+      action: AuditActionE.update,
+      entity_type: AuditEntityTypeE.word,
+      headword: 'run',
+      trigger: AuditTriggerE.admin,
+      diff: { user_modified: { before: true, after: false } },
+    });
+    expect(typeof list.items[0].created_at).toBe('string');
   });
 
   it('records settings changes under their field name', async () => {
@@ -180,19 +173,11 @@ describe('Audit log (e2e, issue #334)', () => {
     expect(Date.parse(all.items[0].created_at)).toBeGreaterThanOrEqual(Date.parse(all.items[1].created_at));
 
     const words = await audit(`?entity_type=${AuditEntityTypeE.word}&search=ru`);
-    expect(words.items.every((r) => r.entity_type === AuditEntityTypeE.word && r.headword === 'run')).toBe(
-      true,
-    );
-    expect(words.items.length).toBeGreaterThanOrEqual(2);
+    expect(words.items.map((r) => [r.entity_type, r.headword])).toEqual([[AuditEntityTypeE.word, 'run']]);
 
-    const created = await audit(`?action=${AuditActionE.create}&entity_type=${AuditEntityTypeE.word}`);
+    const created = await audit(`?action=${AuditActionE.create}&entity_type=${AuditEntityTypeE.setting}`);
     expect(created.items).toHaveLength(1);
-  });
-
-  it('records a word delete before the word is gone', async () => {
-    await request(server()).delete(`/api/en/${wordId}`).set(auth).expect(200);
-    const [row] = (await audit(`?action=${AuditActionE.delete}&entity_type=${AuditEntityTypeE.word}`)).items;
-    expect(row).toMatchObject({ entity_id: wordId, headword: 'run' });
+    expect((await audit(`?action=${AuditActionE.delete}`)).items).toEqual([]);
   });
 
   it('stays off the public surface: the prefix is admin API', async () => {

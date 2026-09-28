@@ -212,6 +212,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/words/{word}/history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * What was changed or added on the instance in the entries of a headword
+     * @description The edits that still show in what is served, the latest first, with the values before and after: the entries of such a headword carry `modified: true`. Empty for a headword served as its source has it.
+     */
+    get: operations['PublicWordsController_history'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/words/{word}/forms': {
     parameters: {
       query?: never;
@@ -306,6 +326,10 @@ export interface components {
       message?: Record<string, never>;
       /** @description Edit flow: every touched target of the word form with its proposed values */
       edits?: components['schemas']['SuggestionEditV1DTO'][];
+      /** @description The name the sender wants to be credited by (issue #531). Kept only together with `author_consent: true`: once the correction is applied the name is shown next to it and travels with the copies of the data */
+      author_name?: Record<string, never>;
+      /** @description The sender agrees that `author_name` is shown and exported; required when a name is given */
+      author_consent?: Record<string, never>;
     };
     WordsBatchV1ReqDTO: {
       /**
@@ -352,6 +376,8 @@ export interface components {
       base_phrasal: string | null;
       forms: components['schemas']['PublicWordV1FormT'][];
       similarity?: number;
+      source?: string;
+      modified?: boolean;
     };
     /** @enum {string} */
     EnPartOfSpeechE:
@@ -433,7 +459,6 @@ export interface components {
       meanings: components['schemas']['PublicWordV1MeaningT'][];
       short_translations: components['schemas']['PublicWordV1ShortTranslationT'][];
       phrasal_variants?: string[];
-      source?: string;
       id: number;
       word: string;
       part_of_speech: components['schemas']['EnPartOfSpeechE'];
@@ -458,6 +483,8 @@ export interface components {
       base_phrasal: string | null;
       forms: components['schemas']['PublicWordV1FormT'][];
       similarity?: number;
+      source?: string;
+      modified?: boolean;
     };
     PublicWordV1MeaningT: {
       id: number;
@@ -495,6 +522,7 @@ export interface components {
     PublicHeadwordV1MetaT: {
       word: string;
       count: number;
+      variants?: string[];
     };
     PublicHeadwordV1ResT: {
       data: components['schemas']['PublicWordV1T'][];
@@ -503,6 +531,8 @@ export interface components {
     PublicMeaningV1T: {
       word_id: number;
       part_of_speech: components['schemas']['EnPartOfSpeechE'];
+      source?: string;
+      modified?: boolean;
       id: number;
       sort_order: number;
       title: string;
@@ -524,6 +554,8 @@ export interface components {
     PublicWordFormV1T: {
       word_id: number;
       part_of_speech: components['schemas']['EnPartOfSpeechE'];
+      source?: string;
+      modified?: boolean;
       id: number;
       word: string;
       form_of_word: components['schemas']['EnWordFormsE'];
@@ -537,6 +569,8 @@ export interface components {
     PublicShortTranslationV1T: {
       word_id: number;
       part_of_speech: components['schemas']['EnPartOfSpeechE'];
+      source?: string;
+      modified?: boolean;
       id: number;
       language: components['schemas']['AvailableTranslationLanguagesE'];
       description: string;
@@ -546,6 +580,8 @@ export interface components {
       meaning_id: number;
       word_id: number;
       part_of_speech: components['schemas']['EnPartOfSpeechE'];
+      source?: string;
+      modified?: boolean;
       id: number;
       language: components['schemas']['AvailableTranslationLanguagesE'];
       title: string;
@@ -557,10 +593,75 @@ export interface components {
       word: string;
       word_id: number;
       part_of_speech: components['schemas']['EnPartOfSpeechE'];
+      source?: string;
+      modified?: boolean;
     };
     PublicHeadwordLinksV1ResT: {
       data: components['schemas']['PublicWordLinkV1T'][];
       meta: components['schemas']['PublicHeadwordV1MetaT'];
+    };
+    PublicChangeV1T: {
+      created_at: string;
+      word: string;
+      part_of_speech: string | null;
+      entity: components['schemas']['ChangeEntityE'];
+      action: components['schemas']['ChangeActionE'];
+      record: components['schemas']['ChangeRecordT'] | null;
+      diff: components['schemas']['ChangeDiffT'];
+      origin: components['schemas']['ChangeOriginE'];
+      author: string | null;
+      source?: string;
+    };
+    /**
+     * @description What was edited
+     * @enum {string}
+     */
+    ChangeEntityE: 'word' | 'word_form' | 'meaning' | 'meaning_translation' | 'short_translation';
+    /** @enum {string} */
+    ChangeActionE: 'create' | 'update' | 'delete';
+    /** @description The record of an entry an edit is about, by what it says rather than by its id: ids change when a dataset is updated and differ between instances. Null for the word itself — the headword and the part of speech name it. */
+    ChangeRecordT:
+      | components['schemas']['ChangeFormRecordT']
+      | components['schemas']['ChangeMeaningRecordT']
+      | components['schemas']['ChangeTranslationRecordT']
+      | components['schemas']['ChangeShortTranslationRecordT'];
+    ChangeFormRecordT: {
+      word: string;
+      form_of_word: string;
+    };
+    ChangeMeaningRecordT: {
+      title: string;
+      sort_order: number;
+    };
+    ChangeTranslationRecordT: {
+      meaning: components['schemas']['ChangeMeaningRecordT'];
+      language: string;
+      title: string;
+    };
+    ChangeShortTranslationRecordT: {
+      language: string;
+      description: string;
+    };
+    /** @description The values an edit changed: `{ field: { before, after } }`; a creation has no `before`, a deletion no `after` */
+    ChangeDiffT: {
+      [key: string]: {
+        before: unknown;
+        after: unknown;
+      };
+    };
+    /**
+     * @description Where an edit came from
+     * @enum {string}
+     */
+    ChangeOriginE: 'admin' | 'suggestion' | 'revert';
+    PublicHeadwordHistoryV1MetaT: {
+      word: string;
+      count: number;
+      variants?: string[];
+    };
+    PublicHeadwordHistoryV1ResT: {
+      data: components['schemas']['PublicChangeV1T'][];
+      meta: components['schemas']['PublicHeadwordHistoryV1MetaT'];
     };
     PublicHeadwordTranslationsV1T: {
       short_translations: components['schemas']['PublicShortTranslationV1T'][];
@@ -613,6 +714,8 @@ export interface components {
       dataset?: string;
       source?: string;
       attribution_url?: string | null;
+      license_text?: string;
+      modified_entries?: number;
       counts: components['schemas']['PublicDatasetCountsV1T'];
       available_languages: components['schemas']['PublicAvailableLanguagesV1T'];
     };
@@ -1215,6 +1318,56 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PublicHeadwordTranslationsV1ResT'];
+        };
+      };
+      /** @description Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+      /** @description Nothing matches */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+      /** @description Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicApiErrorT'];
+        };
+      };
+    };
+  };
+  PublicWordsController_history: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Headword spelling, case-insensitive (spaces URL-encoded for phrases). An inflected form resolves to its base entry */
+        word: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicHeadwordHistoryV1ResT'];
         };
       };
       /** @description Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor */

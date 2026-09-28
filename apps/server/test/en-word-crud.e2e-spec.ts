@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { buildTypeOrmOptions } from '../src/db/typeorm-options';
+import { typeOrmRoot } from '../src/db/typeorm-root';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import configuration from '../configuration';
@@ -81,7 +81,7 @@ describe('En word add/edit routes (e2e, issue #87)', () => {
         // SettingsService (pulled in through EnModule) depends on the global ConfigService
         ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
         ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 100 }] }),
-        TypeOrmModule.forRoot(buildTypeOrmOptions()),
+        TypeOrmModule.forRootAsync(typeOrmRoot),
         EnModule,
       ],
     }).compile();
@@ -450,10 +450,18 @@ describe('En word add/edit routes (e2e, issue #87)', () => {
       expect((await getWord()).user_modified).toBe(true);
 
       await resetFlag('swim').expect(200);
+      // a form saved as it was changes nothing: the entry still follows its dataset (issue #531)
       await request(server())
         .patch('/api/en/word-form')
         .set(auth)
         .send({ id: flagFormId, transcription: 'swæm' })
+        .expect(200);
+      expect((await getWord()).user_modified).toBe(false);
+
+      await request(server())
+        .patch('/api/en/word-form')
+        .set(auth)
+        .send({ id: flagFormId, transcription: 'swam' })
         .expect(200);
       expect((await getWord()).user_modified).toBe(true);
     });

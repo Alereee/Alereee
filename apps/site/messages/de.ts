@@ -132,6 +132,34 @@ export default {
     network_error: 'Die Anfrage hat die API nicht erreicht: {error}',
     no_response: 'Noch nichts gesendet.',
   },
+  // the terms of the data the word pages show (issue #531)
+  terms: {
+    title: 'Bedingungen für die Wörterbuchdaten',
+    intro: 'Woher die Wörter dieser Website stammen und unter welchen Bedingungen sie gezeigt werden.',
+    source: 'Quelle',
+    license: 'Lizenz',
+    attribution: 'Namensnennung',
+    notice: 'Hinweis',
+    modified:
+      'Ein Eintrag, den der Betreiber dieser Website geändert oder hinzugefügt hat, ist unter seiner Wortart so gekennzeichnet; für ihn gilt dieselbe Lizenz.',
+    use_title: 'Wenn Sie diese Daten verwenden',
+    use_intro:
+      'Die Daten dürfen unter ihrer Lizenz kopiert und weiterverwendet werden. Wer das tut, wird um Folgendes gebeten.',
+    use_attribution:
+      'Nennen Sie die Quelle: Zeigen Sie die oben stehende Namensnennung und verlinken Sie die Lizenz.',
+    use_modified:
+      'Sagen Sie bei einem geänderten Eintrag, dass er geändert wurde. Die API kennzeichnet solche Einträge: Ein Wort und jeder seiner Teile trägt modified: true, sodass die Kennzeichnung unverändert weitergegeben werden kann.',
+    use_history:
+      'Was geändert wurde, ist öffentlich: {method} listet die Änderungen eines Wortes mit den Werten davor und danach auf und nennt den Leser, der eine Korrektur eingesandt hat, wenn er genannt werden wollte.',
+    use_same_license: 'Ein geänderter Eintrag steht unter derselben Lizenz wie die übrigen Daten.',
+    use_share_alike:
+      'Die Lizenz verlangt Weitergabe unter gleichen Bedingungen: Was auf den Daten aufbaut, bleibt unter derselben Lizenz.',
+    use_notice:
+      'Bewahren Sie die Hinweise der Quelle, die unten vollständig stehen, bei jeder Kopie der Daten auf.',
+    use_more: 'Die Bedingungen im Einzelnen',
+    own_license: 'Warum diese Lizenz, und was sie erlaubt',
+    full_text: 'Die Hinweise der Quelle im vollen Wortlaut',
+  },
   word: {
     index_title: 'Wörter',
     index_intro:
@@ -186,6 +214,32 @@ export default {
     try_in_playground: 'probier es im Playground',
     license_note: 'Daten unter {license}',
     ai_note: 'KI-generiert, kann Fehler enthalten',
+    modified_note: 'vom Betreiber dieser Website geändert oder hinzugefügt',
+    history_title: 'Was auf dieser Website geändert wurde',
+    other_spellings: 'Andere Schreibweisen',
+    history_intro:
+      'Änderungen, die der Betreiber dieser Website an diesem Eintrag vorgenommen hat, die neuesten zuerst.',
+    history_terms: 'Was das bedeutet, wenn Sie die Daten verwenden',
+    history_entity_word: 'Eintrag',
+    history_entity_word_form: 'Wortform',
+    history_entity_meaning: 'Bedeutung',
+    history_entity_meaning_translation: 'Übersetzung einer Bedeutung',
+    history_entity_short_translation: 'Kurzübersetzung',
+    history_action_create: 'hinzugefügt',
+    history_action_update: 'geändert',
+    history_action_delete: 'gelöscht',
+    history_reader: 'Korrektur eines Lesers',
+    history_author: 'Korrektur eingesandt von {name}',
+    history_before: 'vorher',
+    history_after: 'jetzt',
+    history_field_description: 'Beschreibung',
+    history_field_transcription: 'Aussprache',
+    history_field_definition: 'Definition',
+    history_field_title: 'Titel',
+    history_field_examples: 'Beispiele',
+    history_field_synonyms: 'Synonyme',
+    history_field_antonyms: 'Antonyme',
+    history_field_word: 'Schreibweise',
     report_license_note:
       'Eine vom Betreiber übernommene Korrektur wird Teil der Wörterbuchdaten, veröffentlicht unter {license}.',
     report_button: 'Fehler melden',
@@ -198,6 +252,11 @@ export default {
     report_send: 'Meldung senden',
     report_sending: 'Wird gesendet…',
     report_cancel: 'Abbrechen',
+    report_author: 'Ihr Name, um als Urheber der Korrektur genannt zu werden (optional)',
+    report_author_consent:
+      'Diesen Namen neben der Korrektur auf dieser Website und in den Kopien der Wörterbuchdaten zeigen. Ein veröffentlichter Name lässt sich aus den Kopien, die andere gemacht haben, nicht zurückholen.',
+    report_author_consent_needed:
+      'Setzen Sie das Häkchen, um genannt zu werden, oder lassen Sie den Namen leer.',
     report_done: 'Danke — die Meldung ist in der Moderationswarteschlange.',
     report_rate_limited: 'Zu viele Meldungen von diesem Gerät — versuch es später noch einmal.',
     report_queue_full:

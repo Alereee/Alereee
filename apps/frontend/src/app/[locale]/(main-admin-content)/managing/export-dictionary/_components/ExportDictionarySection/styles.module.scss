@@ -26,3 +26,10 @@
     }
   }
 }
+
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 720px;
+}

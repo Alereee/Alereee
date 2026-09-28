@@ -1,7 +1,5 @@
-import { Inject, Optional, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { AuditActionE, AuditEntityTypeE } from '../../../../../types';
-import { AuditService } from '../../../AuditModule/audit.service';
-import { diffSnapshots, snapshotScalars } from '../../../AuditModule/audit-diff';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ChangeActionE, ChangeEntityE } from '../../../../../types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import {
@@ -15,15 +13,18 @@ import { ErrorCodes } from '../../../../../core/constants/error_codes';
 import { EnMeaningTranslation } from '../../entities/en_meaning_translation.entity';
 import { EnMeaning } from '../../entities/en_meaning.entity';
 import { markEntryUserModified } from '../../utils/markEntryUserModified';
+import { articleOf, recordChange } from '../../utils/changes/recordChange';
+import {
+  changedFields,
+  createdFields,
+  deletedFields,
+  translationRecord,
+  translationSnapshot,
+} from '../../utils/changes/snapshots';
 
 @Injectable()
 export class EnMeaningTranslationService {
   private readonly logger = new Logger(EnMeaningTranslationService.name);
-  // the audit journal records every admin mutation (issue #334); optional so
-  // test modules that boot without AuditModule still resolve
-  @Optional()
-  @Inject(AuditService)
-  private readonly auditService?: AuditService;
 
   constructor(
     @InjectRepository(EnMeaning)
@@ -41,39 +42,46 @@ export class EnMeaningTranslationService {
     const { meaning_id, id: _id, ...newMeaning } = body;
     const meaning = await em.getRepository(EnMeaning).findOne({
       where: { id: meaning_id },
-      relations: { word: { word: true } },
+      relations: { word: { word: true, base_form: { word: true } } },
     });
 
     if (!meaning) {
       throw new NotFoundException(ErrorCodes.word_doesnt_found);
     }
 
-    const res = await em.getRepository(EnMeaningTranslation).save({ meaning, ...newMeaning });
-    await markEntryUserModified(em, meaning.word.word.word);
-    this.logger.log(`Meaning translation added to meaning id=${meaning_id}, id=${res.id}`);
-    // inside addWord's / addMeaning's transaction the parent row is enough
-    if (!manager) {
-      await this.auditService?.record({
-        action: AuditActionE.create,
-        entityType: AuditEntityTypeE.meaning_translation,
-        entityId: res.id,
-        headword: meaning.word.word.word,
+    const add = async (tx: EntityManager): Promise<EnMeaningTranslation> => {
+      const saved = await tx.getRepository(EnMeaningTranslation).save({ meaning, ...newMeaning });
+      // inside addWord's / addMeaning's transaction the parent row holds the translation
+      if (manager) {
+        await markEntryUserModified(tx, meaning.word.word.word);
+        return saved;
+      }
+      await recordChange(tx, {
+        ...articleOf(meaning.word),
+        entity: ChangeEntityE.meaning_translation,
+        action: ChangeActionE.create,
+        record: translationRecord(saved, meaning),
+        diff: createdFields(translationSnapshot(saved)),
       });
-    }
+      return saved;
+    };
+    const res = manager ? await add(manager) : await em.transaction(add);
+    this.logger.log(`Meaning translation added to meaning id=${meaning_id}, id=${res.id}`);
     return { success: true, id: res.id };
   }
 
   async editMeaningTranslation(body: EditMeaningTranslationReqT): Promise<EditMeaningTranslationResT> {
     const meaningTr = await this.enMeaningTranslationRep.findOne({
       where: { id: body.id },
-      relations: { meaning: { word: { word: true } } },
+      relations: { meaning: { word: { word: true, base_form: { word: true } } } },
     });
 
     if (!meaningTr) {
       throw new NotFoundException(ErrorCodes.word_doesnt_found);
     }
 
-    const before = snapshotScalars(meaningTr);
+    const valuesBefore = translationSnapshot(meaningTr);
+    const recordBefore = translationRecord(meaningTr, meaningTr.meaning);
 
     if (body.title && body.title !== meaningTr.title) meaningTr.title = body.title;
     if (body.definition && body.definition !== meaningTr.definition) meaningTr.definition = body.definition;
@@ -81,16 +89,17 @@ export class EnMeaningTranslationService {
     if (body.variant_of_words && body.variant_of_words.join() !== meaningTr.variants_of_words?.join())
       meaningTr.variants_of_words = body.variant_of_words;
 
-    await this.enMeaningTranslationRep.save(meaningTr);
-    await markEntryUserModified(this.enMeaningTranslationRep.manager, meaningTr.meaning.word.word.word);
-    this.logger.log(`Meaning translation updated, id=${body.id}`);
-    await this.auditService?.record({
-      action: AuditActionE.update,
-      entityType: AuditEntityTypeE.meaning_translation,
-      entityId: body.id,
-      headword: meaningTr.meaning.word.word.word,
-      diff: diffSnapshots(before, snapshotScalars(meaningTr)),
+    await this.enMeaningTranslationRep.manager.transaction(async (em) => {
+      await em.getRepository(EnMeaningTranslation).save(meaningTr);
+      await recordChange(em, {
+        ...articleOf(meaningTr.meaning.word),
+        entity: ChangeEntityE.meaning_translation,
+        action: ChangeActionE.update,
+        record: recordBefore,
+        diff: changedFields(valuesBefore, translationSnapshot(meaningTr)),
+      });
     });
+    this.logger.log(`Meaning translation updated, id=${body.id}`);
     return { success: true };
   }
 
@@ -98,20 +107,21 @@ export class EnMeaningTranslationService {
     // loaded first only for the journal: the headword survives the delete
     const meaningTr = await this.enMeaningTranslationRep.findOne({
       where: { id },
-      relations: { meaning: { word: { word: true } } },
+      relations: { meaning: { word: { word: true, base_form: { word: true } } } },
     });
-    await this.enMeaningTranslationRep.delete({ id });
-    if (meaningTr) {
-      await markEntryUserModified(this.enMeaningTranslationRep.manager, meaningTr.meaning.word.word.word);
-    }
+    await this.enMeaningTranslationRep.manager.transaction(async (em) => {
+      await em.getRepository(EnMeaningTranslation).delete({ id });
+      if (!meaningTr) return;
+      await recordChange(em, {
+        ...articleOf(meaningTr.meaning.word),
+        entity: ChangeEntityE.meaning_translation,
+        action: ChangeActionE.delete,
+        record: translationRecord(meaningTr, meaningTr.meaning),
+        diff: deletedFields(translationSnapshot(meaningTr)),
+      });
+    });
 
     this.logger.log(`Meaning translation deleted, id=${id}`);
-    await this.auditService?.record({
-      action: AuditActionE.delete,
-      entityType: AuditEntityTypeE.meaning_translation,
-      entityId: id,
-      headword: meaningTr?.meaning.word.word.word ?? null,
-    });
 
     return { success: true };
   }

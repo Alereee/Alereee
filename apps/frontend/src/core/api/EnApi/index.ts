@@ -2,8 +2,14 @@ import { AbstractBaseApi, type ApiQueryT, type DownloadedFileT } from '../Abstra
 import {
   AddMeaningReqT,
   AuditListT,
+  ExportDictionaryQueryT,
   ListAuditQueryT,
   ListAuditResT,
+  ListChangesQueryT,
+  ListChangesResT,
+  RevertChangeResT,
+  ForgetChangeAuthorReqT,
+  ForgetChangeAuthorResT,
   AddMeaningResT,
   AddMeaningTranslationReqT,
   AddMeaningTranslationResT,
@@ -351,8 +357,9 @@ export class EnApi extends AbstractBaseApi {
   static async exportDictionary(
     handleChunk: (ch: ImportDictionaryChunkT) => void,
     onError: (err: string) => void,
+    query: ExportDictionaryQueryT = {},
   ): Promise<{ success: boolean } | ErrorResT> {
-    const reader = await AbstractBaseApi.stream(`${this.baseURL}/en/dictionary/export`);
+    const reader = await AbstractBaseApi.stream(`${this.baseURL}/en/dictionary/export`, { query });
 
     if ('error' in reader) {
       return reader;
@@ -413,6 +420,19 @@ export class EnApi extends AbstractBaseApi {
 
   static async getAuditLog(query: ListAuditQueryT): Promise<ListAuditResT> {
     return this.get<AuditListT>(`${this.baseURL}/en/audit`, { query });
+  }
+
+  // The history of the edits of the active dataset (issue #531)
+  static async getChanges(query: ListChangesQueryT): Promise<ListChangesResT> {
+    return this.get<ListChangesResT>(`${this.baseURL}/en/changes`, { query });
+  }
+
+  static async revertChange(id: number): Promise<RevertChangeResT> {
+    return this.post<RevertChangeResT>(`${this.baseURL}/en/changes/${id}/revert`, {});
+  }
+
+  static async forgetChangeAuthor(body: ForgetChangeAuthorReqT): Promise<ForgetChangeAuthorResT> {
+    return this.post<ForgetChangeAuthorResT>(`${this.baseURL}/en/changes/forget-author`, body);
   }
 
   static async getStatistics(): Promise<GetEnStatisticsResT> {

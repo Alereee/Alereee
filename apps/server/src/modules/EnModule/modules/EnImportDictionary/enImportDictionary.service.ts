@@ -14,10 +14,11 @@ import { AuditActionE, AuditEntityTypeE, AuditTriggerE } from '../../../../../ty
 import { AuditService } from '../../../AuditModule/audit.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MetricsService } from '../../../MetricsModule/metrics.service';
-import { EntityManager, FindOptionsRelations, In, Repository } from 'typeorm';
+import { EntityManager, FindOptionsRelations, In, MoreThan, Repository } from 'typeorm';
 import * as yazl from 'yazl';
 import { randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, WriteStream } from 'node:fs';
+import { once } from 'node:events';
 import { pipeline } from 'node:stream/promises';
 import { stat, unlink, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
@@ -26,6 +27,7 @@ import * as readline from 'node:readline';
 import { type Response } from 'express';
 import { EnWord } from '../../entities/en_word.entity';
 import { EnEntry } from '../../entities/en_entry.entity';
+import { EnChange } from '../../entities/en_change.entity';
 import { EnMeaning } from '../../entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../../entities/en_meaning_translation.entity';
 import { EnShortTranslation } from '../../entities/en_short_translation.entity';
@@ -35,6 +37,10 @@ import { resolveBaseFormHeadwords } from '../../utils/findBaseFormHeadwords';
 import { ImportDictionaryReq, ImportDictionarySourceDTO } from './dto/ImportDictionaryReq.dto';
 import {
   AvailableTranslationLanguagesE,
+  ChangeActionE,
+  ChangeEntityE,
+  ChangeOriginE,
+  CustomVersionDictionaryOfWord,
   DatasetManifestT,
   EnEntryTypesE,
   EnPartOfSpeechE,
@@ -48,10 +54,16 @@ import {
 import { SettingsService } from '../../../SettingsModule/settings.service';
 import { ImportStatusService } from './importStatus.service';
 import { HttpImportProgressSink, ImportProgressSink } from './progress';
+import { hasActiveChanges, supersedeChanges } from '../../utils/changes/supersedeChanges';
 import type { DatasetSourceFactoryT } from './sources';
 import { ErrorCodes } from '../../../../../core/constants/error_codes';
 import { DATA_LICENSE } from '../../../../../core/constants/data_license';
-import { OWN_DATASET_SOURCE } from '../../../../../core/constants/datasets';
+import { DEFAULT_DATASET_NAME, OWN_DATASET_SOURCE } from '../../../../../core/constants/datasets';
+import {
+  findCatalogEntry,
+  LICENSE_FILE_NAME,
+  licenseFileOf,
+} from '../../../../../core/constants/dataset_catalog';
 import { DatasetConnectionT, DatasetsService } from '../../../DatasetsModule/datasets.service';
 import { getVersion } from '../../../../../configuration';
 import {
@@ -79,6 +91,7 @@ import {
   sortStrings,
 } from './utils';
 import {
+  DataSetChangeT,
   DataSetGrammarPatternT,
   DataSetMeaningT,
   DataSetMeaningTranslationT,
@@ -142,6 +155,13 @@ type ExportStageT = {
 };
 const EVERY_LINE = () => true;
 
+/** The settings of one export */
+export type ExportOptionsT = {
+  // the version the entries edited on the instance are exported under, in
+  // place of `custom_version`; the database keeps what it holds
+  editedVersion?: string | undefined;
+};
+
 const EXPORT_TTL_MS = 15 * 60 * 1000;
 // Entries are exported in batches of this size: one statement per relation
 // over the batch's ids (WordRowsService), never a join across the collections
@@ -155,6 +175,11 @@ const SQL_PARAMS_CHUNK = 500;
 // The manifest endpoint proxies HuggingFace; cache it briefly so opening the
 // import page repeatedly does not hammer the dataset host
 const MANIFEST_CACHE_TTL_MS = 5 * 60 * 1000;
+
+// what names an article in the set of the ones an import has written
+const ARTICLE_KEY_SEPARATOR = '\u0000';
+const articleKeyOf = (headword: string, partOfSpeech: string): string =>
+  `${headword}${ARTICLE_KEY_SEPARATOR}${partOfSpeech}`;
 
 @Injectable()
 export class EnImportDictionaryService implements OnModuleDestroy {
@@ -377,6 +402,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     updateCtx?: UpdateModeContextT,
   ): Promise<void> {
     const { chunked, wordKey, entryTypeOf } = EnImportDictionaryService;
+    this.assertNothingGenerated(lines);
 
     await this.db.transaction(async (em) => {
       // 0. update mode (issue #328): entries the admin edited are kept, the
@@ -429,6 +455,11 @@ export class EnImportDictionaryService implements OnModuleDestroy {
         this.logger.log(`Skipped ${skipped} duplicate dataset lines in this chunk`);
       }
       if (toInsert.length === 0) return;
+
+      // an article the source brings in takes the place of what was edited or
+      // deleted under its name: those edits no longer show (issue #531)
+      await this.supersedeChangesOf(em, toInsert);
+      for (const line of toInsert) this.written?.add(articleKeyOf(line.word, line.part_of_speech));
 
       // 4. base rows in bulk (nested structures stripped, entry linked by its string PK)
       const toBaseRow = (line: EnWordT) => {
@@ -548,11 +579,54 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       (w) => existing.has(w) && !updateCtx.replaced.has(w) && !updateCtx.added.has(w),
     );
     await this.deleteEntryContent(em, toReplace);
+    // every article of a replaced entry is the content of the source again (issue #531)
+    if (await this.editedDataset(em)) await supersedeChanges(em, toReplace);
     toReplace.forEach((w) => updateCtx.replaced.add(w));
     for (const line of kept) {
       if (!existing.has(line.word)) updateCtx.added.add(line.word);
     }
     return kept;
+  }
+
+  /**
+   * A dataset of a public source holds what people wrote (issue #531): it
+   * carries no notice about generated text, so a line that says it was
+   * generated by a model stops the import into it
+   */
+  private assertNothingGenerated(lines: EnWordT[]): void {
+    const source = this.target?.dataset.source ?? this.datasets?.getActive().source ?? OWN_DATASET_SOURCE;
+    if (source === OWN_DATASET_SOURCE) return;
+    const generated = lines.find((line) => line.generated);
+    if (!generated) return;
+    this.logger.warn(
+      `Import stopped: "${generated.word}" is marked as generated, the dataset holds the data of "${source}"`,
+    );
+    throw new ConflictException(ErrorCodes.generated_not_allowed);
+  }
+
+  // The articles this run has written, kept while the dataset being imported
+  // carries a history (issue #531): an edit of the copy shows in what is
+  // served only where the content of the copy was taken
+  private written: Set<string> | null = null;
+
+  // whether the dataset being filled has edits that still show: asked once
+  // per import, so an import into a dataset nobody edited costs nothing
+  private hasEdits: boolean | null = null;
+
+  private async editedDataset(em: EntityManager): Promise<boolean> {
+    this.hasEdits ??= await hasActiveChanges(em);
+    return this.hasEdits;
+  }
+
+  private async supersedeChangesOf(em: EntityManager, lines: EnWordT[]): Promise<void> {
+    if (!(await this.editedDataset(em))) return;
+    const byPartOfSpeech = new Map<string, string[]>();
+    for (const line of lines) {
+      byPartOfSpeech.set(line.part_of_speech, [...(byPartOfSpeech.get(line.part_of_speech) ?? []), line.word]);
+    }
+    for (const [partOfSpeech, headwords] of byPartOfSpeech) {
+      await supersedeChanges(em, headwords, partOfSpeech);
+    }
   }
 
   /**
@@ -949,6 +1023,126 @@ export class EnImportDictionaryService implements OnModuleDestroy {
   }
 
   /**
+   * The history of the edits the dataset was exported with (issue #531). A
+   * copy that was edited says what was changed; importing it keeps saying
+   * so — the licenses ask that an indication of earlier modifications
+   * survives. Lines the history already has are skipped, so a second import
+   * of the same copy adds nothing.
+   */
+  private async saveChanges(
+    source: DatasetSource,
+    progress: ImportProgressSink,
+    allLength: number,
+    plusCount: () => number,
+  ): Promise<void> {
+    await this.streamJsonlImport<DataSetChangeT>(
+      source,
+      progress,
+      DATASET_FILE_NAMES.changes,
+      EnDictionaryImportPhasesE.saving_changes,
+      allLength,
+      plusCount,
+      (lines) => this.bulkSaveChanges(lines),
+    );
+  }
+
+  private static changeKey(change: {
+    headword: string;
+    part_of_speech: string | null;
+    entity: string;
+    action: string;
+    created_at: Date | string;
+    diff: unknown;
+  }): string {
+    return JSON.stringify([
+      change.headword,
+      change.part_of_speech ?? null,
+      change.entity,
+      change.action,
+      new Date(change.created_at).toISOString(),
+      change.diff ?? null,
+    ]);
+  }
+
+  private async bulkSaveChanges(lines: DataSetChangeT[]): Promise<void> {
+    const { chunked, changeKey } = EnImportDictionaryService;
+    const valid = lines.filter(
+      (line) =>
+        typeof line.headword === 'string' &&
+        line.headword.length > 0 &&
+        line.headword.length <= 128 &&
+        (Object.values(ChangeEntityE) as string[]).includes(line.entity) &&
+        (Object.values(ChangeActionE) as string[]).includes(line.action) &&
+        (Object.values(ChangeOriginE) as string[]).includes(line.origin) &&
+        // an edit carries its values: a line without them says of an entry
+        // that it was changed and not how, which the history does not take
+        Boolean(line.diff) &&
+        typeof line.diff === 'object' &&
+        !Number.isNaN(Date.parse(line.created_at)),
+    );
+    if (valid.length < lines.length) {
+      this.logger.warn(`Skipped ${lines.length - valid.length} lines of the history that are not edits`);
+    }
+    if (valid.length === 0) return;
+
+    // an edit of the copy shows in what is served where the article was
+    // taken from the copy; an article this instance already had is its own
+    const written = this.written ?? new Set<string>();
+    const writtenHeadwords = new Set(
+      [...written].map((key) => key.slice(0, key.indexOf(ARTICLE_KEY_SEPARATOR))),
+    );
+    const taken = (line: DataSetChangeT): boolean =>
+      line.part_of_speech
+        ? written.has(articleKeyOf(line.headword, line.part_of_speech))
+        : writtenHeadwords.has(line.headword);
+    const importedAt = new Date();
+
+    await this.db.transaction(async (em) => {
+      const changes = em.getRepository(EnChange);
+      const known = new Map<string, EnChange | null>();
+      for (const batch of chunked([...new Set(valid.map((line) => line.headword))], SQL_PARAMS_CHUNK)) {
+        const rows = await changes.find({ where: { headword: In(batch) } });
+        rows.forEach((row) => known.set(changeKey(row), row));
+      }
+      const fresh: DataSetChangeT[] = [];
+      for (const line of valid) {
+        const key = changeKey(line);
+        const row = known.get(key);
+        if (row === undefined) {
+          known.set(key, null);
+          fresh.push(line);
+        } else if (row?.superseded_at && !line.superseded_at && taken(line)) {
+          // the copy was taken again over an entry this import has just replaced
+          await changes.update(row.id, { superseded_at: null });
+        }
+      }
+      for (const batch of chunked(fresh, SQL_PARAMS_CHUNK)) {
+        await changes.save(
+          batch.map((line) =>
+            changes.create({
+              created_at: new Date(line.created_at),
+              headword: line.headword,
+              part_of_speech: line.part_of_speech ?? null,
+              entity: line.entity as ChangeEntityE,
+              action: line.action as ChangeActionE,
+              record: (line.record ?? null) as EnChange['record'],
+              diff: line.diff,
+              origin: line.origin as ChangeOriginE,
+              suggestion_id: null,
+              author: typeof line.author === 'string' ? line.author.slice(0, 128) : null,
+              superseded_at: line.superseded_at
+                ? new Date(line.superseded_at)
+                : taken(line)
+                  ? null
+                  : importedAt,
+            }),
+          ),
+        );
+      }
+    });
+  }
+
+  /**
    * The base-form ids of the entries a chunk of collection lines belongs to
    * (issue #442), keyed like the lines name them. Lines of entries the
    * dictionary does not have are skipped with a warning; in update mode the
@@ -1284,6 +1478,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       // its own — and filled through a connection of its own (issue #527)
       const dataset = await this.datasets?.resolveTarget(options?.dataset);
       this.target = dataset && this.datasets ? await this.datasets.connect(dataset) : null;
+      this.hasEdits = null;
       const datasetVersion = await this.runImport(source, label, tracked, updateCtx);
       this.importStatus?.end({ dataset_version: datasetVersion });
       await this.auditService?.record({
@@ -1343,6 +1538,8 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       throw error;
     }
     if (!made) progress.start();
+    // a manifest that lists no history has none; without a manifest the file may still be there
+    this.written = !manifest || manifest.files[DATASET_FILE_NAMES.changes] ? new Set() : null;
 
     const startedAt = Date.now();
     this.logger.log(`Dictionary import from ${label} started`);
@@ -1389,6 +1586,9 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       await this.saveMeanings(source, progress, allLength, plusCount, pendingLinks, updateCtx);
       await this.saveMeaningTranslations(source, progress, allLength, plusCount, updateCtx);
       await this.saveShortTranslations(source, progress, allLength, plusCount, updateCtx);
+      // after every entry is in: what the import just brought in has taken
+      // the place of the edits it superseded, the history of the copy is added
+      await this.saveChanges(source, progress, allLength, plusCount);
       await this.linkPendingWords(
         progress,
         pendingLinks,
@@ -1562,7 +1762,14 @@ export class EnImportDictionaryService implements OnModuleDestroy {
    * the whole tree of a word and the cost of every file is linear in its rows,
    * whatever the number of translation languages.
    */
-  private exportStages(runDir: string, keys: ExportLineKeyT[]): ExportStageT[] {
+  private exportStages(runDir: string, keys: ExportLineKeyT[], options: ExportOptionsT = {}): ExportStageT[] {
+    // An entry edited on the instance carries `custom_version`: a mark of this
+    // instance, which says nothing to whoever takes the copy. The owner names
+    // the version the edited entries are published under
+    const versioned = <T extends { version: string }>(line: T): T =>
+      options.editedVersion && line.version === CustomVersionDictionaryOfWord
+        ? { ...line, version: options.editedVersion }
+        : line;
     const isEntryOf = (parts: EnPartOfSpeechE[]) => (k: ExportLineKeyT) =>
       parts.includes(k.part_of_speech as EnPartOfSpeechE);
     const phrases = isEntryOf([EnPartOfSpeechE.phrase]);
@@ -1587,7 +1794,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
           word: true,
           forms: { word: true },
         },
-        prepare: (w) => [prepareWordForDataSet(w)],
+        prepare: (w) => [versioned(prepareWordForDataSet(w))],
       },
       // the linking map the import replays in savePhrasalVerbs: one line per
       // base verb that has phrasal variants
@@ -1606,14 +1813,14 @@ export class EnImportDictionaryService implements OnModuleDestroy {
         stage: EnDictionaryImportPhasesE.saving_phrases,
         keys: keys.filter(phrases),
         relations: { word: true },
-        prepare: (w) => [preparePhraseForDataSet(w)],
+        prepare: (w) => [versioned(preparePhraseForDataSet(w))],
       },
       {
         files: [{ path: file(DATASET_FILE_NAMES.grammarPatterns), keep: EVERY_LINE }],
         stage: EnDictionaryImportPhasesE.saving_grammar_patterns,
         keys: keys.filter(grammarPatterns),
         relations: { word: true },
-        prepare: (w) => [prepareGrammarPatternForDataSet(w)],
+        prepare: (w) => [versioned(prepareGrammarPatternForDataSet(w))],
       },
       {
         files: [{ path: file(DATASET_FILE_NAMES.meanings), keep: EVERY_LINE }],
@@ -1647,7 +1854,7 @@ export class EnImportDictionaryService implements OnModuleDestroy {
    * reports it. The run streams NDJSON progress through `res`; the download
    * is a separate GET on /export/download/:exportId.
    */
-  async exportDictionary(res: Response): Promise<void> {
+  async exportDictionary(res: Response, options: ExportOptionsT = {}): Promise<void> {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
     res.setHeader('X-Accel-Buffering', 'no');
@@ -1657,11 +1864,12 @@ export class EnImportDictionaryService implements OnModuleDestroy {
     const runDir = path.join(tmpDir, exportId);
     mkdirSync(runDir, { recursive: true });
     const manifestPath = path.join(runDir, MANIFEST_FILE_NAME);
+    const licensePath = path.join(runDir, LICENSE_FILE_NAME);
     const zipPath = path.join(tmpDir, `${exportId}.zip`);
 
     const startedAt = Date.now();
     const keys = await this.loadExportKeys();
-    const stages = this.exportStages(runDir, keys);
+    const stages = this.exportStages(runDir, keys, options);
     // every stage walks its entries once; the total is what the progress counts
     const total = stages.reduce((sum, stage) => sum + stage.keys.length, 0);
     this.logger.log(`Dictionary export ${exportId} started: ${keys.length} base records to export`);
@@ -1697,6 +1905,13 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       // build that exports it; a dataset of another source keeps its own
       const exported = this.datasets?.getActive();
       const isOwn = !exported || exported.source === OWN_DATASET_SOURCE;
+      // what was changed or added on this instance (issue #531): the copy
+      // differs from its source by these entries, and says so — in the
+      // manifest, in its LICENSE and, edit by edit, in the history it carries
+      const modifiedEntries = await this.countModifiedEntries();
+      const changesPath = path.join(runDir, DATASET_FILE_NAMES.changes);
+      const changeLines = await this.exportChanges(changesPath);
+      if (changeLines > 0) files[DATASET_FILE_NAMES.changes] = { lines: changeLines };
       const manifest: DatasetManifestT = {
         version: isOwn ? getVersion() : (exported.version ?? getVersion()),
         generatedAt: new Date().toISOString(),
@@ -1711,15 +1926,21 @@ export class EnImportDictionaryService implements OnModuleDestroy {
         synonym_links: await this.countExportedLinks('synonyms'),
         antonym_links: await this.countExportedLinks('antonyms'),
         translations: await this.countTranslationsByLanguage(),
+        ...(modifiedEntries > 0 && { modified_entries: modifiedEntries }),
         files,
       };
       await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf-8');
+      // the terms travel with the data in full: the notices of the source
+      // have to be on every copy, a modified one included
+      const entry = findCatalogEntry(exported?.name ?? DEFAULT_DATASET_NAME);
+      const packed = [...Object.keys(files).map((name) => path.join(runDir, name)), manifestPath];
+      if (entry) {
+        await writeFile(licensePath, licenseFileOf(entry, { modified_entries: modifiedEntries }), 'utf-8');
+        packed.push(licensePath);
+      }
 
       emit(100, EnDictionaryImportPhasesE.packing_archive);
-      await this.zipFiles(zipPath, [
-        ...Object.keys(files).map((name) => path.join(runDir, name)),
-        manifestPath,
-      ]);
+      await this.zipFiles(zipPath, packed);
 
       const timeout = setTimeout(() => this.cleanupExport(exportId), EXPORT_TTL_MS);
       timeout.unref();
@@ -1743,9 +1964,63 @@ export class EnImportDictionaryService implements OnModuleDestroy {
       await Promise.allSettled([
         ...stages.flatMap((stage) => stage.files.map((file) => unlink(file.path))),
         unlink(manifestPath),
+        unlink(licensePath),
+        unlink(path.join(runDir, DATASET_FILE_NAMES.changes)),
       ]);
       res.end();
     }
+  }
+
+  /**
+   * Writes the history of the edits as a dataset file, a line per edit in
+   * the order they were made; answers the number of lines. Nothing is
+   * written for a dataset nobody edited.
+   */
+  private async exportChanges(filePath: string): Promise<number> {
+    const PAGE = 1000;
+    const changes = this.db.getRepository(EnChange);
+    if ((await changes.count()) === 0) return 0;
+    const out = createWriteStream(filePath, { encoding: 'utf-8' });
+    let written = 0;
+    let after = 0;
+    try {
+      for (;;) {
+        const rows = await changes.find({ where: { id: MoreThan(after) }, order: { id: 'ASC' }, take: PAGE });
+        if (rows.length === 0) break;
+        for (const row of rows) {
+          const line: DataSetChangeT = {
+            created_at: new Date(row.created_at).toISOString(),
+            headword: row.headword,
+            part_of_speech: row.part_of_speech,
+            entity: row.entity,
+            action: row.action,
+            record: row.record,
+            diff: row.diff,
+            origin: row.origin,
+            author: row.author,
+            superseded_at: row.superseded_at ? new Date(row.superseded_at).toISOString() : null,
+          };
+          if (!out.write(`${JSON.stringify(line)}\n`)) await once(out, 'drain');
+          written += 1;
+        }
+        after = rows[rows.length - 1].id;
+      }
+    } finally {
+      out.end();
+      await once(out, 'finish');
+    }
+    return written;
+  }
+
+  /** The headwords with an edit that still shows in what is served */
+  private async countModifiedEntries(): Promise<number> {
+    const row = await this.db
+      .getRepository(EnChange)
+      .createQueryBuilder('c')
+      .select('COUNT(DISTINCT c.headword)', 'n')
+      .where('c.superseded_at IS NULL')
+      .getRawOne<{ n: string | number }>();
+    return Number(row?.n ?? 0);
   }
 
   private zipFiles(zipPath: string, files: string[]): Promise<void> {

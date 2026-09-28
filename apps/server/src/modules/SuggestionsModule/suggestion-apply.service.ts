@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ApplySuggestionResT, SuggestionStatusE, SuggestionTargetE } from '../../../types';
+import { ApplySuggestionResT, ChangeOriginE, SuggestionStatusE, SuggestionTargetE } from '../../../types';
+import { withChangeSource } from '../EnModule/utils/changes/context';
 import { EnService } from '../EnModule/en.service';
 import { EnMeaningService } from '../EnModule/modules/EnMeaning/enMeaning.service';
 import { EnMeaningTranslationService } from '../EnModule/modules/EnMeaningTranslation/enMeaningTranslation.service';
@@ -34,26 +35,30 @@ export class SuggestionApplyService {
     // report was filed) surfaces as the edit service's own 404 — the edits
     // already applied stand, the suggestion stays new and a retry redoes
     // the remainder as no-op diffs.
-    for (const edit of suggestion.edits ?? []) {
-      const values: Record<string, string> = {};
-      for (const [field, change] of Object.entries(edit.changes)) {
-        values[field] = change.after;
+    // the history says where the edits came from (issue #531)
+    const source = { origin: ChangeOriginE.suggestion, suggestion_id: id, author: suggestion.author_name };
+    await withChangeSource(source, async () => {
+      for (const edit of suggestion.edits ?? []) {
+        const values: Record<string, string> = {};
+        for (const [field, change] of Object.entries(edit.changes)) {
+          values[field] = change.after;
+        }
+        switch (edit.target_type) {
+          case SuggestionTargetE.word:
+            await this.enService.editWord(edit.target_id, values);
+            break;
+          case SuggestionTargetE.meaning:
+            await this.enMeaningService.editMeaning({ id: edit.target_id, ...values });
+            break;
+          case SuggestionTargetE.meaning_translation:
+            await this.enMeaningTranslationService.editMeaningTranslation({ id: edit.target_id, ...values });
+            break;
+          case SuggestionTargetE.short_translation:
+            await this.enShortTranslationService.editShortTranslation({ id: edit.target_id, ...values });
+            break;
+        }
       }
-      switch (edit.target_type) {
-        case SuggestionTargetE.word:
-          await this.enService.editWord(edit.target_id, values);
-          break;
-        case SuggestionTargetE.meaning:
-          await this.enMeaningService.editMeaning({ id: edit.target_id, ...values });
-          break;
-        case SuggestionTargetE.meaning_translation:
-          await this.enMeaningTranslationService.editMeaningTranslation({ id: edit.target_id, ...values });
-          break;
-        case SuggestionTargetE.short_translation:
-          await this.enShortTranslationService.editShortTranslation({ id: edit.target_id, ...values });
-          break;
-      }
-    }
+    });
 
     await this.suggestionsService.updateStatus(id, SuggestionStatusE.resolved);
     this.logger.log(`Suggestion #${id} applied (${suggestion.edits?.length ?? 0} targets)`);

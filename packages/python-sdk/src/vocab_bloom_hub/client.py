@@ -194,6 +194,14 @@ class VocabBloomClient:
         """The antonyms of every meaning of a headword, each naming its meaning and entry."""
         return self._get(headword_path(headword, "/antonyms"), None, m.LinksResponse, options)
 
+    def history(self, headword: str, *, options: RequestOptions | None = None) -> m.HistoryResponse:
+        """What was changed or added on the instance in the entries of a headword.
+
+        The edits that still show in what is served, the latest first, with the values
+        before and after. Empty for a headword served as its source has it.
+        """
+        return self._get(headword_path(headword, "/history"), None, m.HistoryResponse, options)
+
     # --------------------------------------------------------------- list
 
     def words(

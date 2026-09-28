@@ -16,7 +16,7 @@ jest.mock('node:fs/promises', () => {
   return { ...actual, unlink: jest.fn(async () => undefined) };
 });
 
-import { EnEntry } from '../../../entities/en_entry.entity';
+import { DICTIONARY_ENTITIES } from '../../../entities/dictionary-entities';
 import { EnWord } from '../../../entities/en_word.entity';
 import { EnMeaning } from '../../../entities/en_meaning.entity';
 import { EnMeaningTranslation } from '../../../entities/en_meaning_translation.entity';
@@ -126,7 +126,7 @@ const runExport = async (words: EnWordT[]): Promise<ExportRun> => {
   const ds = new DataSource({
     type: 'better-sqlite3',
     database: ':memory:',
-    entities: [EnEntry, EnWord, EnMeaning, EnMeaningTranslation, EnShortTranslation],
+    entities: DICTIONARY_ENTITIES,
     synchronize: true,
   });
   await ds.initialize();
@@ -208,14 +208,13 @@ describe('EnImportDictionaryService export ordering (issue #247)', () => {
       .map((l) => JSON.parse(l) as Record<string, unknown>);
 
   it('produces byte-identical jsonl files regardless of the insertion order', () => {
-    const written = readdirSync(ordered.runDir)
-      .filter((name) => name.endsWith('.jsonl'))
-      .sort();
-    expect(
-      readdirSync(shuffled.runDir)
-        .filter((name) => name.endsWith('.jsonl'))
-        .sort(),
-    ).toEqual(written);
+    // the data, that is: the history of edits (issue #531) says when and in
+    // which order the entries were made, and two dictionaries built in
+    // another order have another history
+    const isData = (name: string) => name.endsWith('.jsonl') && name !== DATASET_FILE_NAMES.changes;
+    const written = readdirSync(ordered.runDir).filter(isData).sort();
+    expect(readdirSync(shuffled.runDir).filter(isData).sort()).toEqual(written);
+    expect(readdirSync(ordered.runDir)).toContain(DATASET_FILE_NAMES.changes);
     expect(written).toContain(translationFileName('meaningTranslations', AvailableTranslationLanguagesE.ru));
     for (const fileName of written) {
       expect(readFile(shuffled, fileName)).toBe(readFile(ordered, fileName));

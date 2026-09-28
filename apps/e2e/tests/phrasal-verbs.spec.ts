@@ -2,6 +2,7 @@ import { APIRequestContext, expect, test } from '@playwright/test';
 
 import { API_URL } from '../config';
 import { seedWord } from '../helpers/seed';
+import { pickOption } from '../helpers/select';
 
 // Phrasal-verb flows: linking a phrasal verb to its base verb through the
 // add-word wizard and through the word-card modal.
@@ -19,7 +20,7 @@ test.describe('phrasal verbs', () => {
     await page.goto('/en/managing/add-word');
     await page.getByRole('textbox').fill('give up');
     await page.getByRole('combobox').last().click();
-    await page.locator('.ant-select-item-option[title="verb"]').click();
+    await pickOption(page, 'verb');
     await page.getByRole('button', { name: 'check-circle' }).click();
 
     // Basic information: marking the verb as phrasal reveals the base check

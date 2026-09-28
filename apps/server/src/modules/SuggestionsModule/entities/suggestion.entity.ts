@@ -60,4 +60,10 @@ export class Suggestion {
   // deletion so the admin can still read what was suggested
   @Column({ type: checkIsPostgres() ? 'jsonb' : 'simple-json', nullable: true })
   edits!: SuggestionEditT[] | null;
+
+  // The name the sender asked to be credited by (issue #531), kept only
+  // when they agreed to have it shown and exported; goes into the history
+  // of the edit when the correction is applied
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  author_name!: string | null;
 }

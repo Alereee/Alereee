@@ -59,7 +59,7 @@ export const UpdateNotice: React.FC<UpdateNoticeP> = ({ update }) => {
       closable={{ 'aria-label': t('dismiss') }}
       onClose={dismiss}
       data-testid="update-notice"
-      message={
+      title={
         <span className={styles.message}>
           <span dir="auto">{t('available', { latest, current: update.current })}</span>
           {update.release_url && (

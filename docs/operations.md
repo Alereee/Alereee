@@ -150,7 +150,9 @@ load a newer dataset:
 ### The user-modified flag
 
 Every admin mutation of an entry's content — editing the word, its forms, meanings,
-translations or links — flags the whole entry as **modified by you** (`user_modified` on
+translations or links — flags the whole entry as **modified by you**, provided it changed
+something: a dialog saved as it was opened leaves the entry as it was, and the next update
+still replaces it (`user_modified` on
 `en_entries`; an edit to a form flags its base word's entry, because a base word and its forms
 are replaced as one unit). The flag is what update mode consults: flagged entries keep your
 content, everything else follows the dataset. It is visible:
@@ -158,7 +160,14 @@ content, everything else follows the dataset. It is visible:
 - on the word card in the admin UI (the _Modified by you_ tag) and in every word answer of the
   admin API (`user_modified` on `GET /api/en/{id}`; the public `/api/v1` projection does not
   carry editorial state);
-- in the _History_ page — the edit that set it is an audit row like any other.
+- in the _History_ page — the edit that set it is a row of the history of edits, with the
+  values it changed.
+
+The flag answers one question: is this entry kept through an update. Whether an entry **differs
+from its source** is another one, answered by the history of edits
+([`datasets.md`](./datasets.md#editing-a-dataset-the-history-of-edits)): readers are told that
+an entry was changed for as long as an edit of it shows in what is served, whatever the flag
+says.
 
 _Return to the official version_ on the word card (or `PATCH
 /api/en/reset-user-modified/:word`) clears the flag: your content stays until the next update

@@ -56,3 +56,6 @@ export const EDITABLE_FIELDS = {
   meaning_translation: ['title', 'definition'],
   short_translation: ['description'],
 } as const;
+
+// the name a sender asks to be credited by (issue #531)
+export const SUGGESTION_AUTHOR_MAX_LENGTH = 80;

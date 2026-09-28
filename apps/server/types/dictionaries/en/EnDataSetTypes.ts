@@ -124,3 +124,21 @@ export type DataSetPhraseT = Omit<
 };
 
 export type DataSetGrammarPatternT = DataSetPhraseT & { pattern: string[] };
+
+/**
+ * A line of the changes file (issue #531): one edit of the dataset, as the
+ * history of the instance that exported it holds it, without what only that
+ * instance knows — the id of the row, the id of the suggestion it came from
+ */
+export type DataSetChangeT = {
+  created_at: string;
+  headword: string;
+  part_of_speech: string | null;
+  entity: string;
+  action: string;
+  record: unknown;
+  diff: Record<string, { before: unknown; after: unknown }>;
+  origin: string;
+  author: string | null;
+  superseded_at: string | null;
+};

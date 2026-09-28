@@ -82,6 +82,7 @@ const READ_ORDER = [
   '/api/v1/words/{word}/forms',
   '/api/v1/words/{word}/synonyms',
   '/api/v1/words/{word}/antonyms',
+  '/api/v1/words/{word}/history',
   '/api/v1/words/id/{id}',
   '/api/v1/words',
   '/api/v1/random',

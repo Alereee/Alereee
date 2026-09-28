@@ -59,6 +59,8 @@ export type SuggestionT = {
   kind: SuggestionKindE;
   /** Set on edit suggestions: every touched target with its before/after diff */
   edits: SuggestionEditT[] | null;
+  /** The name the sender agreed to be credited by (issue #531); null when they gave none */
+  author_name: string | null;
 };
 
 export type SuggestionListT = {

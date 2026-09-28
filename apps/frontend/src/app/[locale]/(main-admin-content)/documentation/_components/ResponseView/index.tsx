@@ -50,7 +50,7 @@ export const ResponseView: React.FC<ResponseViewP> = ({ response, elapsedMs }) =
     const rawMessage = readErrorMessage((response as ErrorResT).message);
     const description = tErr.has(rawMessage) ? tErr(rawMessage) : rawMessage;
 
-    return <Alert type="error" showIcon message={t('request_failed')} description={description} />;
+    return <Alert type="error" showIcon title={t('request_failed')} description={description} />;
   };
 
   const renderTable = () => {

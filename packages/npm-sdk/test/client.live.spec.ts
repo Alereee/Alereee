@@ -110,7 +110,7 @@ describe('VocabBloomClient against the running server (issue #275)', () => {
 
   it('reads a headword, its parts, and an entry by id', async () => {
     const headword = await client.word('run');
-    expect(headword.meta).toEqual({ word: 'run', count: 1 });
+    expect(headword.meta).toEqual({ word: 'run', count: 1, variants: [] });
     expect(headword.data[0].forms.map((f) => f.word)).toEqual(['ran']);
 
     // an inflected form resolves to its base entry
@@ -143,10 +143,32 @@ describe('VocabBloomClient against the running server (issue #275)', () => {
       meaning_id: expect.any(Number),
     });
 
+    // the history of edits (issue #531): the fixture words were added on the instance
+    const history = await client.history('ran');
+    expect(history.meta).toEqual({ word: 'ran', count: 1, variants: [] });
+    expect(history.data[0]).toMatchObject({
+      part_of_speech: 'verb',
+      entity: 'word',
+      action: 'create',
+      record: null,
+      origin: 'admin',
+      author: null,
+    });
+    expect(history.data[0].diff?.word_level).toEqual({ before: null, after: 'A1' });
+
     const forms = await client.forms('run');
     expect(forms.data).toEqual([
-      expect.objectContaining({ word: 'ran', form_of_word: 'past_simple', word_id: runId }),
+      // a part of an entry carries the mark of the entry (issue #531)
+      expect.objectContaining({ word: 'ran', form_of_word: 'past_simple', word_id: runId, modified: true }),
     ]);
+    expect((await client.search({ search: 'run' })).data[0]).toMatchObject({
+      word: 'run',
+      modified: true,
+      source: 'vocab-bloom-hub',
+    });
+    expect(forms.data[0].source).toBe('vocab-bloom-hub');
+    expect(history.data[0].source).toBe('vocab-bloom-hub');
+    expect((await client.meta()).data.modified_entries).toBe(3);
 
     expect((await client.wordById(runId)).data.word).toBe('run');
   });

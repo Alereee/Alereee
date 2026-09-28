@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { App, Button, Progress, Typography } from 'antd';
+import { Input } from '@/core/ui/Input';
+import { isExportVersion } from 'server/core/constants/export_version';
 import { useTranslations } from 'next-intl';
 import { DatasetT, ImportDictionaryChunkT } from 'server/types';
 import { EnApi } from '@/core/api/EnApi';
@@ -31,6 +33,11 @@ export const ExportDictionarySection: React.FC<ExportDictionarySectionP> = ({ da
   const [percents, setPercents] = React.useState<number>(0);
   const [status, setStatus] = React.useState<ExportStatusE>(ExportStatusE.idle);
   const [statusMessage, setStatusMessage] = React.useState<string>('');
+  // the version the entries edited on the instance are exported under, in
+  // place of `custom_version`; empty exports them as they are
+  const [editedVersion, setEditedVersion] = React.useState<string>('');
+  const version = editedVersion.trim();
+  const versionInvalid = version !== '' && !isExportVersion(version);
   const t = useTranslations('import_dictionary');
   const tErr = useTranslations('errors');
   const { message } = App.useApp();
@@ -89,7 +96,9 @@ export const ExportDictionarySection: React.FC<ExportDictionarySectionP> = ({ da
       }
     };
 
-    const res = await EnApi.exportDictionary(handleChunk, onError);
+    const res = await EnApi.exportDictionary(handleChunk, onError, {
+      edited_version: version || undefined,
+    });
     if ('error' in res) {
       onError(res.message);
       return;
@@ -126,7 +135,26 @@ export const ExportDictionarySection: React.FC<ExportDictionarySectionP> = ({ da
       />
 
       {(status === 'idle' || status === 'error') && (
-        <Button type="primary" onClick={exportDictionary} className={styles.startBtn}>
+        <div className={styles.setting}>
+          <Input
+            style={{ width: 280 }}
+            label={t('export_edited_version')}
+            placeholder={t('export_edited_version_placeholder')}
+            value={editedVersion}
+            maxLength={64}
+            status={versionInvalid ? 'error' : undefined}
+            aria-label={t('export_edited_version')}
+            data-testid="export-edited-version"
+            onChange={(e) => setEditedVersion(e.currentTarget.value)}
+          />
+          <Text type={versionInvalid ? 'danger' : 'secondary'}>
+            {versionInvalid ? t('export_edited_version_invalid') : t('export_edited_version_hint')}
+          </Text>
+        </div>
+      )}
+
+      {(status === 'idle' || status === 'error') && (
+        <Button type="primary" onClick={exportDictionary} className={styles.startBtn} disabled={versionInvalid}>
           {status === 'error' ? t('retry_exporting') : t('start_exporting')}
         </Button>
       )}

@@ -986,6 +986,71 @@
         ]
       }
     },
+    "/api/v1/words/{word}/history": {
+      "get": {
+        "description": "The edits that still show in what is served, the latest first, with the values before and after: the entries of such a headword carry `modified: true`. Empty for a headword served as its source has it.",
+        "operationId": "PublicWordsController_history",
+        "parameters": [
+          {
+            "name": "word",
+            "required": true,
+            "in": "path",
+            "description": "Headword spelling, case-insensitive (spaces URL-encoded for phrases). An inflected form resolves to its base entry",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicHeadwordHistoryV1ResT"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input: an unknown field, a value outside the allowed set, or a foreign cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nothing matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit of the public prefix exceeded (PUBLIC_API_RATE_LIMIT); retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiErrorT"
+                }
+              }
+            }
+          }
+        },
+        "summary": "What was changed or added on the instance in the entries of a headword",
+        "tags": [
+          "Public API v1"
+        ]
+      }
+    },
     "/api/v1/words/{word}/forms": {
       "get": {
         "operationId": "PublicWordsController_forms",
@@ -1407,6 +1472,15 @@
             "items": {
               "$ref": "#/components/schemas/SuggestionEditV1DTO"
             }
+          },
+          "author_name": {
+            "type": "object",
+            "description": "The name the sender wants to be credited by (issue #531). Kept only together with `author_consent: true`: once the correction is applied the name is shown next to it and travels with the copies of the data",
+            "maxLength": 80
+          },
+          "author_consent": {
+            "type": "object",
+            "description": "The sender agrees that `author_name` is shown and exported; required when a name is given"
           }
         },
         "required": [
@@ -1590,6 +1664,12 @@
           },
           "similarity": {
             "type": "number"
+          },
+          "source": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1814,9 +1894,6 @@
               "type": "string"
             }
           },
-          "source": {
-            "type": "string"
-          },
           "id": {
             "type": "integer"
           },
@@ -1932,6 +2009,12 @@
           },
           "similarity": {
             "type": "number"
+          },
+          "source": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2133,6 +2216,12 @@
           },
           "count": {
             "type": "integer"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -2166,6 +2255,12 @@
           },
           "part_of_speech": {
             "$ref": "#/components/schemas/EnPartOfSpeechE"
+          },
+          "source": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
           },
           "id": {
             "type": "integer"
@@ -2277,6 +2372,12 @@
           "part_of_speech": {
             "$ref": "#/components/schemas/EnPartOfSpeechE"
           },
+          "source": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
+          },
           "id": {
             "type": "integer"
           },
@@ -2331,6 +2432,12 @@
           "part_of_speech": {
             "$ref": "#/components/schemas/EnPartOfSpeechE"
           },
+          "source": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
+          },
           "id": {
             "type": "integer"
           },
@@ -2367,6 +2474,12 @@
           },
           "part_of_speech": {
             "$ref": "#/components/schemas/EnPartOfSpeechE"
+          },
+          "source": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
           },
           "id": {
             "type": "integer"
@@ -2412,6 +2525,12 @@
           },
           "part_of_speech": {
             "$ref": "#/components/schemas/EnPartOfSpeechE"
+          },
+          "source": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2432,6 +2551,222 @@
           },
           "meta": {
             "$ref": "#/components/schemas/PublicHeadwordV1MetaT"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "PublicChangeV1T": {
+        "type": "object",
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "word": {
+            "type": "string"
+          },
+          "part_of_speech": {
+            "type": "string",
+            "nullable": true
+          },
+          "entity": {
+            "$ref": "#/components/schemas/ChangeEntityE"
+          },
+          "action": {
+            "$ref": "#/components/schemas/ChangeActionE"
+          },
+          "record": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChangeRecordT"
+              }
+            ],
+            "nullable": true
+          },
+          "diff": {
+            "$ref": "#/components/schemas/ChangeDiffT"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ChangeOriginE"
+          },
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_at",
+          "word",
+          "part_of_speech",
+          "entity",
+          "action",
+          "record",
+          "diff",
+          "origin",
+          "author"
+        ]
+      },
+      "ChangeEntityE": {
+        "type": "string",
+        "enum": [
+          "word",
+          "word_form",
+          "meaning",
+          "meaning_translation",
+          "short_translation"
+        ],
+        "description": "What was edited"
+      },
+      "ChangeActionE": {
+        "type": "string",
+        "enum": [
+          "create",
+          "update",
+          "delete"
+        ]
+      },
+      "ChangeRecordT": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ChangeFormRecordT"
+          },
+          {
+            "$ref": "#/components/schemas/ChangeMeaningRecordT"
+          },
+          {
+            "$ref": "#/components/schemas/ChangeTranslationRecordT"
+          },
+          {
+            "$ref": "#/components/schemas/ChangeShortTranslationRecordT"
+          }
+        ],
+        "description": "The record of an entry an edit is about, by what it says rather than by its id: ids change when a dataset is updated and differ between instances. Null for the word itself — the headword and the part of speech name it."
+      },
+      "ChangeFormRecordT": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string"
+          },
+          "form_of_word": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "word",
+          "form_of_word"
+        ]
+      },
+      "ChangeMeaningRecordT": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "sort_order": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title",
+          "sort_order"
+        ]
+      },
+      "ChangeTranslationRecordT": {
+        "type": "object",
+        "properties": {
+          "meaning": {
+            "$ref": "#/components/schemas/ChangeMeaningRecordT"
+          },
+          "language": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "meaning",
+          "language",
+          "title"
+        ]
+      },
+      "ChangeShortTranslationRecordT": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "description"
+        ]
+      },
+      "ChangeDiffT": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "before": {},
+            "after": {}
+          },
+          "required": [
+            "before",
+            "after"
+          ]
+        },
+        "description": "The values an edit changed: `{ field: { before, after } }`; a creation has no `before`, a deletion no `after`"
+      },
+      "ChangeOriginE": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "suggestion",
+          "revert"
+        ],
+        "description": "Where an edit came from"
+      },
+      "PublicHeadwordHistoryV1MetaT": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "word",
+          "count"
+        ]
+      },
+      "PublicHeadwordHistoryV1ResT": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicChangeV1T"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicHeadwordHistoryV1MetaT"
           }
         },
         "required": [
@@ -2644,6 +2979,12 @@
           "attribution_url": {
             "type": "string",
             "nullable": true
+          },
+          "license_text": {
+            "type": "string"
+          },
+          "modified_entries": {
+            "type": "integer"
           },
           "counts": {
             "$ref": "#/components/schemas/PublicDatasetCountsV1T"

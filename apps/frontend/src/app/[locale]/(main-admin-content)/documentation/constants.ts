@@ -21,6 +21,7 @@ export enum ApiEndpointKeyE {
   word_forms = 'word_forms',
   word_synonyms = 'word_synonyms',
   word_antonyms = 'word_antonyms',
+  word_history = 'word_history',
   word_by_id = 'word_by_id',
   words = 'words',
   random = 'random',
@@ -273,6 +274,15 @@ export const DOCUMENTED_ENDPOINTS: ApiEndpointDocT[] = [
     path: '/api/v1/words/{word}/antonyms',
     clientPath: '/v1/words/{word}/antonyms',
     responseType: 'PublicHeadwordLinksV1ResT',
+    params: [HEADWORD_PARAM],
+  },
+  {
+    key: ApiEndpointKeyE.word_history,
+    slug: 'word-history',
+    method: 'GET',
+    path: '/api/v1/words/{word}/history',
+    clientPath: '/v1/words/{word}/history',
+    responseType: 'PublicHeadwordHistoryV1ResT',
     params: [HEADWORD_PARAM],
   },
   {

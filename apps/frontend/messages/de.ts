@@ -40,6 +40,13 @@ export default {
       'Die Datei ist nicht das, was die Quelle dieses Datensatzes verteilt: Laden Sie sie erneut herunter, wie die Anleitung es beschreibt',
     [ErrorCodes.dataset_not_installable]:
       'Dieser Datensatz wird auf der Importseite geladen, nicht aus einer Datei einer Quelle',
+    [ErrorCodes.generated_not_allowed]:
+      'Ein Datensatz einer öffentlichen Quelle enthält, was Menschen geschrieben haben: Ein von einem Modell erzeugter Eintrag kann nicht hinzugefügt werden',
+    [ErrorCodes.change_doesnt_found]: 'Die Änderung wurde nicht gefunden',
+    [ErrorCodes.change_not_revertible]:
+      'Diese Änderung kann nicht zurückgenommen werden: Sie ist im Ausgelieferten nicht mehr sichtbar oder ihre Werte wurden nie aufgezeichnet',
+    [ErrorCodes.change_outdated]:
+      'Der Datensatz wurde nach dieser Änderung erneut bearbeitet oder existiert nicht mehr: Nehmen Sie zuerst die späteren Änderungen zurück',
     [ErrorCodes.dataset_is_active]:
       'Der aktive Datensatz kann nicht gelöscht werden – aktivieren Sie zuerst einen anderen',
     [ErrorCodes.dataset_is_default]: 'Der Standarddatensatz kann nicht gelöscht werden',
@@ -120,6 +127,7 @@ export default {
     col_kind: 'Art',
     col_message: 'Meldung',
     col_dataset_version: 'Datensatz',
+    col_author: 'Gesendet von',
     col_actions: 'Aktionen',
     kind_report: 'Meldung',
     kind_edit: 'Bearbeitung',
@@ -147,7 +155,11 @@ export default {
   },
   history: {
     intro:
-      'Jede Änderung über die Admin-API, die neueste zuerst. Importläufe erscheinen als eine Zusammenfassungszeile. Zeilen, die älter sind als AUDIT_RETENTION_DAYS (standardmäßig 90), werden gelöscht.',
+      'Was auf dieser Instanz getan wurde, das Neueste zuerst: Importe, Einstellungen, Wechsel des Datensatzes, Entscheidungen über Meldungen. Zeilen, die älter als AUDIT_RETENTION_DAYS (standardmäßig 90) sind, werden gelöscht. Änderungen am Wörterbuch stehen auf dem anderen Tab; solche aus der Zeit vor dem Änderungsverlauf bleiben hier, bis sie ablaufen.',
+    tab_edits: 'Änderungen am Wörterbuch',
+    tab_events: 'Ereignisse der Instanz',
+    intro_edits:
+      'Alles, was in den Einträgen des aktiven Datensatzes geändert wurde, das Neueste zuerst, mit den Werten davor und danach. Dieser Verlauf ist Teil der Daten: Er wird dauerhaft aufbewahrt und mit einem Export weitergegeben.',
     col_time: 'Wann',
     col_action: 'Aktion',
     col_entity: 'Was',
@@ -170,6 +182,55 @@ export default {
     entity_suggestion: 'Vorschlag',
     empty: 'Noch keine Änderungen aufgezeichnet.',
     entity_dataset: 'Datensatz',
+  },
+  // the history of the edits of a dataset (issue #531)
+  changes: {
+    title: 'Änderungsverlauf',
+    intro:
+      'Was an diesem Eintrag auf dieser Instanz geändert wurde, mit den Werten davor und danach. Leser werden auf eine Änderung hingewiesen, solange sie im Ausgelieferten sichtbar ist; das Zurücknehmen stellt die ersetzten Werte wieder her.',
+    col_time: 'Wann',
+    col_what: 'Was',
+    col_changes: 'Werte',
+    col_author: 'Autor',
+    author_admin: 'Administrator',
+    author_reader: 'ein Leser, ohne Namen',
+    filter_author: 'Name des Autors…',
+    col_state: 'Zustand',
+    action_create: 'hinzugefügt',
+    action_update: 'geändert',
+    action_delete: 'gelöscht',
+    entity_word: 'Eintrag',
+    entity_word_form: 'Wortform',
+    entity_meaning: 'Bedeutung',
+    entity_meaning_translation: 'Übersetzung einer Bedeutung',
+    entity_short_translation: 'Kurzübersetzung',
+    origin_admin: 'Admin',
+    origin_suggestion: 'Korrektur eines Lesers',
+    origin_revert: 'zurückgenommen',
+    state_active: 'sichtbar',
+    state_superseded: 'seit {date} nicht mehr sichtbar',
+    more_fields: 'und {count} weitere',
+    before: 'vorher',
+    after: 'nachher',
+    show_values: 'Werte vollständig anzeigen',
+    hide_values: 'Werte ausblenden',
+    revert: 'Zurücknehmen',
+    revert_confirm: 'Die Werte wiederherstellen, die diese Änderung ersetzt hat?',
+    cancel: 'Abbrechen',
+    reverted: 'Die Änderung wurde zurückgenommen',
+    filter_entity: 'Was',
+    filter_origin: 'Herkunft',
+    filter_search: 'Wortanfang…',
+    filter_active: 'Nur noch Sichtbares',
+    empty: 'Keine Änderungen aufgezeichnet.',
+    forget_title: 'Einen Namen aus dem Verlauf entfernen',
+    forget_hint:
+      'Ein Leser, der als Autor einer Korrektur genannt wurde, kann verlangen, dass sein Name entfernt wird. Die Änderungen bleiben; der Name wird aus dem Verlauf und aus den Meldungen aller Datensätze dieser Instanz entfernt. Bereits exportierte Kopien sind nicht mehr erreichbar.',
+    forget_placeholder: 'Der Name, genau wie angezeigt',
+    forget_btn: 'Namen entfernen',
+    forget_confirm: '„{name}“ aus dem Verlauf aller Datensätze entfernen?',
+    forgotten: 'Der Name wurde aus {count} Zeilen entfernt',
+    forgotten_none: 'Keine Zeile nennt „{name}“',
   },
   managing: {
     add_word: 'Wort hinzufügen',
@@ -251,6 +312,8 @@ export default {
     terms_attribution: 'Wer die Daten zeigt, muss diese Zeile zeigen:',
     terms_share_alike:
       'Eine Share-Alike-Lizenz: Alles, was aus den Daten entsteht – ein Produkt, ein Export, ein korrigierter Eintrag –, muss unter derselben Lizenz bleiben.',
+    terms_full_text:
+      'Die Hinweise der Quelle im vollen Wortlaut: Sie begleiten die Daten auf der Website und in jedem Export',
     warnings_title: 'Bevor Sie beginnen',
     warn_not_mixed:
       'Datensätze werden nie gemischt: Nichts aus diesem gelangt in einen anderen und nichts aus einem anderen in diesen.',
@@ -298,11 +361,18 @@ export default {
     en_saving_11: 'Bedeutungsübersetzungen werden gespeichert...',
     en_saving_12: 'Kurzübersetzungen werden gespeichert...',
     en_saving_13: 'Quelle wird konvertiert...',
+    en_saving_14: 'Verlauf der Änderungen wird gespeichert...',
     en_downloading_file: 'Datei wird heruntergeladen...',
     elapsed_time: 'Verstrichene Zeit',
     retry_importing: 'Erneut versuchen',
     retry_exporting: 'Erneut versuchen',
     export_again: 'Erneut exportieren',
+    export_edited_version_invalid:
+      'Buchstaben, Ziffern, Punkte, Bindestriche, Unterstriche und Pluszeichen, höchstens 64 Zeichen, beginnend mit einem Buchstaben oder einer Ziffer.',
+    export_edited_version_hint:
+      'Ein auf dieser Instanz bearbeiteter Eintrag trägt die Version custom_version. Geben Sie die Version an, die stattdessen in den Export geschrieben werden soll, oder lassen Sie das Feld leer, um ihn unverändert zu exportieren. Das Wörterbuch selbst wird nicht geändert.',
+    export_edited_version_placeholder: 'custom_version',
+    export_edited_version: 'Version der hier bearbeiteten Einträge',
     data_license: 'Jeder Export steht unter der Lizenz',
     data_attribution: 'Namensnennung:',
     up_to_date: 'Sie haben bereits die neueste Version des Wörterbuchs',
@@ -329,6 +399,7 @@ export default {
     file_grammar_patterns: 'Grammatikmuster',
     file_phrases: 'Phrasen',
     file_meanings: 'Bedeutungen',
+    file_changes: 'Verlauf der Änderungen',
     file_meaning_translations_lang: 'Bedeutungsübersetzungen: {language}',
     file_short_translations_lang: 'Kurzübersetzungen: {language}',
     file_manifest: 'Manifest',
@@ -348,6 +419,8 @@ export default {
       'Ein Import in einen anderen Datensatz berührt den aktiven nicht: Die API liefert ihn weiter, bis Sie den neuen aktivieren.',
   },
   bulk_request: {
+    license_note:
+      'Die Zeilen sind Daten von „{dataset}“, unter {license}. Was ein Modell daraus macht, ist von diesen Daten abgeleitet und unterliegt denselben Bedingungen, und nichts von einem Modell Erzeugtes wird diesem Datensatz hinzugefügt.',
     title: 'Massenanfrage',
     intro:
       'Geht die ausgewählten Zeilen einer Wörterbuchtabelle (Wörter, Bedeutungen, Bedeutungsübersetzungen oder Kurzübersetzungen) im Browser durch, schickt pro Zeile eine Anfrage an die URL unten und sammelt die umgewandelten Antworten in einer jsonl-Datei. Ins Wörterbuch wird nichts geschrieben, und der API-Schlüssel verlässt diese Seite nie.',
@@ -468,6 +541,11 @@ export default {
   },
 
   en_managing_words: {
+    editing_license: 'Sie bearbeiten die Daten von „{dataset}“, lizenziert unter',
+    editing_license_effect:
+      'Was Sie ändern, wird unter derselben Lizenz veröffentlicht, und Leser erfahren, dass der Eintrag vom Betreiber dieser Website geändert wurde.',
+    editing_no_generated:
+      'Dieser Datensatz enthält, was Menschen geschrieben haben: Von einem Modell erzeugter Text wird nicht hinzugefügt.',
     word: 'Wort',
     edit_word_link: 'Wort bearbeiten?',
     part_of_speech: 'Wortart',
@@ -661,6 +739,9 @@ export default {
       'Die Synonyme jeder Bedeutung des Stichworts in einer flachen Liste: jedes Element ist ein verknüpftes Stichwort (lesbar über das Nachschlagen) mit meaning_id, word_id und part_of_speech, zu denen es gehört. Ein Stichwort ohne Synonyme antwortet mit einer leeren Liste.',
     desc_word_antonyms:
       'Die Antonyme jeder Bedeutung des Stichworts in einer flachen Liste: jedes Element ist ein verknüpftes Stichwort mit meaning_id, word_id und part_of_speech, zu denen es gehört. Ein Stichwort ohne Antonyme antwortet mit einer leeren Liste.',
+    endpoint_word_history: 'Änderungsverlauf eines Stichworts',
+    desc_word_history:
+      'Was auf der Instanz in den Einträgen des Stichworts geändert oder hinzugefügt wurde: die Änderungen, die im Ausgelieferten noch sichtbar sind, die neuesten zuerst, mit den Werten davor und danach je Feld. Solche Einträge tragen modified: true. Ein Stichwort, das wie in seiner Quelle ausgeliefert wird, antwortet mit einer leeren Liste.',
     endpoint_word_by_id: 'Eintrag nach ID',
     endpoint_words: 'Gefilterte Liste',
     endpoint_random: 'Zufälliger Eintrag',
